@@ -381,7 +381,7 @@ namespace Belos {
         KokkosBlas::gemv (
           &ctransA,
           alpha, A, x, beta, y);
-        std::cout << 'gemv tpetra adapter MP Vector' << std::endl;
+        std::cout << "gemv tpetra adapter MP Vector" << std::endl;
       }
       else
       {
@@ -506,7 +506,7 @@ namespace Belos {
           alpha, A, x,
           Kokkos::Details::ArithTraits<dot_type>::zero(),
           y);
-        std::cout << 'gemv tpetra adapter MP Vector' << std::endl;
+        std::cout << "gemv tpetra adapter MP Vector" << std::endl;
       }
       else
       {

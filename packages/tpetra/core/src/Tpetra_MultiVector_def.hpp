@@ -4152,7 +4152,7 @@ namespace Tpetra {
         KokkosBlas::gemv (
           &ctransA,
           alpha_IST, A_sub, x, beta_local, y);
-        std::cout << 'gemv multivector def' << std::endl;
+        std::cout << "gemv multivector def" << std::endl;
       }
       else
         KokkosBlas::gemm(&ctransA, &ctransB, alpha_IST, A_sub, B_sub, beta_local, C_sub);
