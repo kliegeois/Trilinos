@@ -373,6 +373,17 @@ namespace Belos {
       Kokkos::deep_copy(B_view_dev, B_view_host);
 
       // Do local multiply
+      if (C_view_dev.dimension_1 () == 1)
+      {
+        auto x = Kokkos::subview (flat_B_view, Kokkos::ALL, 0);
+        auto y = Kokkos::subview (flat_C_view, Kokkos::ALL, 0);
+        const char ctransA = 'N', ctransB = 'N';
+        KokkosBlas::gemv (
+          &ctransA,
+          alpha, A, x, beta, y);
+        std::cout << 'gemv tpetra adapter MP Vector' << std::endl;
+      }
+      else
       {
         const char ctransA = 'N', ctransB = 'N';
         KokkosBlas::gemm (
@@ -485,6 +496,19 @@ namespace Belos {
       c_view_type C_view_dev( C_1d_view_dev.data(), numRowsC, numColsC);
 
       // Do local multiply
+      if (C_view_dev.dimension_1 () == 1)
+      {
+        auto x = Kokkos::subview (flat_B_view, Kokkos::ALL, 0);
+        auto y = Kokkos::subview (C_view_dev, Kokkos::ALL, 0);
+        const char ctransA = 'C', ctransB = 'N';
+        KokkosBlas::gemv (
+          &ctransA,
+          alpha, A, x,
+          Kokkos::Details::ArithTraits<dot_type>::zero(),
+          y);
+        std::cout << 'gemv tpetra adapter MP Vector' << std::endl;
+      }
+      else
       {
         const char ctransA = 'C', ctransB = 'N';
         KokkosBlas::gemm (

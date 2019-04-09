@@ -4144,7 +4144,18 @@ namespace Tpetra {
       const impl_scalar_type alpha_IST (alpha);
 
       ::Tpetra::Details::ProfilingRegion regionGemm ("Tpetra::MV::multiply-call-gemm");
-      KokkosBlas::gemm(&ctransA, &ctransB, alpha_IST, A_sub, B_sub, beta_local, C_sub);
+      
+      if (C_sub.dimension_1 () == 1)
+      {
+        auto x = Kokkos::subview (B_sub, Kokkos::ALL, 0);
+        auto y = Kokkos::subview (C_sub, Kokkos::ALL, 0);
+        KokkosBlas::gemv (
+          &ctransA,
+          alpha_IST, A_sub, x, beta_local, y);
+        std::cout << 'gemv multivector def' << std::endl;
+      }
+      else
+        KokkosBlas::gemm(&ctransA, &ctransB, alpha_IST, A_sub, B_sub, beta_local, C_sub);
     }
 
     if (! isConstantStride ()) {
