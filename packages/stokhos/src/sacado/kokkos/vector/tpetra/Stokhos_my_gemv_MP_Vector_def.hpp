@@ -170,7 +170,7 @@ void my_inner_product (
   const size_t m_c = ceil(((double)n) / (N*n_tiles_per_thread));
   const size_t n_per_tile2 = m_c*team_size;
 
-  const size_t n_i2 = n_tiles_per_thread*team_size;
+  const size_t n_i2 = ceil(((double) n)/n_per_tile2);
   using Kokkos::TeamThreadRange;
 
   Kokkos::TeamPolicy<> policy = Kokkos::TeamPolicy<>( n_i2, team_size);
