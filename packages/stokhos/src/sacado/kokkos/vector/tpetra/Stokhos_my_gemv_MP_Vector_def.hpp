@@ -5,22 +5,13 @@
 #include <immintrin.h>
 #endif
 
-#define Sacado_MP_Vector_GEMV_Unrolling_Factor(size)                  \
-{                                                                     \
-  (size==32*8 ? 1 :                                                   \
-  (size==24*8 ? 1 :                                                   \
-  (size==16*8 ? 1 :                                                   \
-  (size==8*8  ? 1 :                                                   \
-                1 ))))                                                \
-}
-
 #define Sacado_MP_Vector_GEMV_Tile_Size(size)                         \
 {                                                                     \
-  (size==32*8 ? 16 :                                                  \
-  (size==24*8 ? 21 :                                                  \
-  (size==16*8 ? 32 :                                                  \
-  (size==8*8  ? 64 :                                                  \
-                512 ))))                                              \
+  (size==32*8 ? 512  :                                                \
+  (size==24*8 ? 682  :                                                \
+  (size==16*8 ? 1024 :                                                \
+  (size==8*8  ? 2048 :                                                \
+                2048 ))))                                             \
 }
 
 #define Sacado_MP_Vector_GEMV_Number_Vectors(size)                    \
@@ -120,11 +111,15 @@ void my_update (
   const size_t m = y.dimension_0 ();
   const size_t n = x.dimension_0 ();
   
-  const size_t m_c = Sacado_MP_Vector_GEMV_Tile_Size(sizeof(Scalar));
+  const size_t N = Kokkos::DefaultExecutionSpace::thread_pool_size();
+  const size_t m_c_star = Sacado_MP_Vector_GEMV_Tile_Size(sizeof(Scalar));
+  const size_t n_tiles_per_thread = ceil(((double)m) / (N*m_c_star));
+  const size_t m_c = ceil(((double)m) / (N*n_tiles_per_thread));
+  const size_t n_tiles = N*n_tiles_per_thread;
+
 #ifdef STOKHOS_MP_VECTOR_MASK_USE_II
   const size_t n_vectors = Sacado_MP_Vector_GEMV_Number_Vectors(sizeof(Scalar));
 #endif
-  const int n_tiles = ceil(((double) m)/m_c);
 
   Kokkos::parallel_for (n_tiles, KOKKOS_LAMBDA (const int i_tile){
     size_t i_min = m_c*i_tile;
@@ -169,10 +164,13 @@ void my_inner_product (
 
   const size_t team_size = 4;
 
-  const size_t m_c = Sacado_MP_Vector_GEMV_Tile_Size(sizeof(Scalar));
+  const size_t N = Kokkos::DefaultExecutionSpace::thread_pool_size();
+  const size_t m_c_star = Sacado_MP_Vector_GEMV_Tile_Size(sizeof(Scalar));
+  const size_t n_tiles_per_thread = ceil(((double)n) / (N*m_c_star));
+  const size_t m_c = ceil(((double)n) / (N*n_tiles_per_thread));
   const size_t n_per_tile2 = m_c*team_size;
 
-  const size_t n_i2 = ceil(((double) n)/n_per_tile2);
+  const size_t n_i2 = n_tiles_per_thread*team_size;
   using Kokkos::TeamThreadRange;
 
   Kokkos::TeamPolicy<> policy = Kokkos::TeamPolicy<>( n_i2, team_size);
