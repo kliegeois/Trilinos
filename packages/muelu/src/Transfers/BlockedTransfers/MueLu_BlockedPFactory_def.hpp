@@ -68,6 +68,8 @@
 #include "MueLu_Monitor.hpp"
 #include "MueLu_HierarchyUtils.hpp"
 
+#include <Xpetra_IO.hpp>
+
 namespace MueLu {
 
   template <class Scalar,class LocalOrdinal, class GlobalOrdinal, class Node>
@@ -298,13 +300,18 @@ namespace MueLu {
       coarseLevel.Set("P", rcp_dynamic_cast<Matrix>(P), this);
       // Stick the CoarseMap on the level if somebody wants it (useful for repartitioning)
       coarseLevel.Set("CoarseMap",P->getBlockedDomainMap(),this);
+
+      //for (size_t i = 0; i < subBlockPRangeMaps.size(); i++)
+      //  Xpetra::IO<Scalar, LocalOrdinal, GlobalOrdinal, Node>::Write(std::string("blockP-")+std::to_string(i)+std::string(".txt"),* subBlockP[i]);
     } else {
       // Restriction mode
       // We do not have to transpose the blocked R operator since the subblocks
       // on the diagonal are already valid R subblocks
       coarseLevel.Set("R", Teuchos::rcp_dynamic_cast<Matrix>(P), this);
-    }
 
+      //for (size_t i = 0; i < subBlockPRangeMaps.size(); i++)
+      //  Xpetra::IO<Scalar, LocalOrdinal, GlobalOrdinal, Node>::Write(std::string("blockR-")+std::to_string(i)+std::string(".txt"),* subBlockP[i]);
+    }
   }
 
 } // namespace MueLu

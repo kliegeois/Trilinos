@@ -71,6 +71,8 @@
 #include "MueLu_PerfUtils.hpp"
 #include "MueLu_Utilities.hpp"
 
+#include <Xpetra_IO.hpp>
+
 namespace MueLu {
 
   template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
@@ -242,6 +244,7 @@ namespace MueLu {
       RCP<ParameterList> params = rcp(new ParameterList());
       params->set("printLoadBalancingInfo", true);
       GetOStream(Statistics2) << PerfUtils::PrintMatrixInfo(*Ptentative, "Ptent", params);
+      //Xpetra::IO<Scalar, LocalOrdinal, GlobalOrdinal, Node>::Write(std::string("Ptentative")+std::to_string(aggregates->GetNumAggregates())+std::string(".txt"),* Ptentative);
     }
   }
 
