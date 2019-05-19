@@ -281,8 +281,8 @@ namespace MueLu {
 
   template <class Scalar,class LocalOrdinal, class GlobalOrdinal, class Node>
   void SimpleSmoother<Scalar, LocalOrdinal, GlobalOrdinal, Node>::Apply(MultiVector& X, const MultiVector& B, bool InitialGuessIsZero) const
-  {
-    //FactoryMonitor m(*this, "Apply: total", levelID, Timings1);
+  {    
+    RCP<TimeMonitor> Time = rcp(new TimeMonitor(*this, std::string("SIMPLE: Apply: Total - level ") + std::to_string(levelID), Timings0));        
     TEUCHOS_TEST_FOR_EXCEPTION(SmootherPrototype::IsSetup() == false, Exceptions::RuntimeError, "MueLu::SimpleSmoother::Apply(): Setup() has not been called");
 #if 0
     // TODO simplify this debug check
@@ -394,7 +394,7 @@ namespace MueLu {
     for (LocalOrdinal run = 0; run < nSweeps; ++run) {
       // 1) calculate current residual
       {
-        //FactoryMonitor m(*this, "Prediction step: Compute rhs", levelID, Timings1);
+        RCP<TimeMonitor> Time = rcp(new TimeMonitor(*this, std::string("SIMPLE: Apply: Prediction step: Compute RHS - level ") + std::to_string(levelID), Timings0));                
         residual->update(one,*rcpB,zero); // residual = B
 
         //*fancy << "residual->describe (fancy, Teuchos::VERB_EXTREME)" << std::endl;
@@ -412,7 +412,7 @@ namespace MueLu {
       xtilde1->putScalar(zero);
       xtilde2->putScalar(zero);
       {
-        //FactoryMonitor m(*this, "Prediction step: Solve block 00", levelID, Timings1);
+        RCP<TimeMonitor> Time = rcp(new TimeMonitor(*this, std::string("SIMPLE: Apply: Prediction step: Solve block 00 - level ") + std::to_string(levelID), Timings0));              
         velPredictSmoo_->Apply(*xtilde1,*r1);
       }
       //*fancy << "r1" << std::endl;
@@ -425,7 +425,7 @@ namespace MueLu {
       //    r_2 - D \Delta \tilde{x}_1
       RCP<MultiVector> schurCompRHS = rangeMapExtractor_->getVector(1, rcpB->getNumVectors(), bRangeThyraMode);
       {
-        //FactoryMonitor m(*this, "Correction step: Compute rhs", levelID, Timings1);           
+        RCP<TimeMonitor> Time = rcp(new TimeMonitor(*this, std::string("SIMPLE: Apply: Correction step: Compute RHS - level ") + std::to_string(levelID), Timings0));        
         D_->apply(*xtilde1,*schurCompRHS);
 
         //*fancy << "schurCompRHS before r2" << std::endl;
@@ -439,7 +439,7 @@ namespace MueLu {
       // 4) solve SchurComp equation
       //    start with zero guess \Delta \tilde{x}_2
       {
-        //FactoryMonitor m(*this, "Correction step: Solve block 11", levelID, Timings1);      
+        RCP<TimeMonitor> Time = rcp(new TimeMonitor(*this, std::string("SIMPLE: Apply: Correction step: Solve block 11 - level ") + std::to_string(levelID), Timings0));    
         schurCompSmoo_->Apply(*xtilde2,*schurCompRHS);
       }
       //*fancy << "xtilde2" << std::endl;
@@ -448,7 +448,7 @@ namespace MueLu {
       // 5) scale xtilde2 with omega
       //    store this in xhat2
       {
-        //FactoryMonitor m(*this, "Update step", levelID, Timings1);  
+        RCP<TimeMonitor> Time = rcp(new TimeMonitor(*this, std::string("SIMPLE: Apply: Update step - level ") + std::to_string(levelID), Timings0));        
         xhat2->update(omega,*xtilde2,zero);
 
         //*fancy << "xhat2" << std::endl;
