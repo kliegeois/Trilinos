@@ -7,10 +7,10 @@
 
 #define Sacado_MP_Vector_GEMV_Tile_Size(size)                         \
 {                                                                     \
-  (size==32*8 ? 512  :                                                \
-  (size==24*8 ? 682  :                                                \
-  (size==16*8 ? 1024 :                                                \
-  (size==8*8  ? 2048 :                                                \
+  (size==32*8 ? 704  :                                                \
+  (size==24*8 ? 938  :                                                \
+  (size==16*8 ? 1408 :                                                \
+  (size==8*8  ? 2816 :                                                \
                 2048 ))))                                             \
 }
 
