@@ -91,6 +91,7 @@ namespace MueLu {
     validParamList->set< RCP<const FactoryBase> >("A",                  Teuchos::null, "Generating factory of the matrix A");
     validParamList->set< Scalar >                ("Damping factor",     1.0, "Damping/Scaling factor in BGS");
     validParamList->set< LocalOrdinal >          ("Sweeps",             1, "Number of BGS sweeps (default = 1)");
+    validParamList->set< bool >                  ("Backward mode",      false, "Use BGS backward (default = false)");
 
     return validParamList;
   }
@@ -173,12 +174,15 @@ namespace MueLu {
       bIsBlockedOperator_.push_back(Teuchos::rcp_dynamic_cast<BlockedCrsMatrix>(Aii)!=Teuchos::null);
     }
 
+    levelID = currentLevel.GetLevelID();
+
     SmootherPrototype::IsSetup(true);
   }
 
   template <class Scalar,class LocalOrdinal, class GlobalOrdinal, class Node>
   void BlockedGaussSeidelSmoother<Scalar, LocalOrdinal, GlobalOrdinal, Node>::Apply(MultiVector &X, const MultiVector& B, bool InitialGuessIsZero) const
   {
+    RCP<TimeMonitor> Time = rcp(new TimeMonitor(*this, std::string("BGS: Apply: Total - level ") + std::to_string(levelID), Timings0));        
     TEUCHOS_TEST_FOR_EXCEPTION(SmootherPrototype::IsSetup() == false, Exceptions::RuntimeError, "MueLu::BlockedGaussSeidelSmoother::Apply(): Setup() has not been called");
 
 #if 0 // def HAVE_MUELU_DEBUG
@@ -301,35 +305,42 @@ namespace MueLu {
     const ParameterList & pL = Factory::GetParameterList();
     LocalOrdinal nSweeps = pL.get<LocalOrdinal>("Sweeps");
     Scalar omega = pL.get<Scalar>("Damping factor");
+    bool reverse = pL.get<bool>("Backward mode");
 
     // outer Richardson loop
     for (LocalOrdinal run = 0; run < nSweeps; ++run) {
       // one BGS sweep
       // loop over all block rows
       for(size_t i = 0; i<Inverse_.size(); i++) {
+        size_t blockIndex = reverse ? Inverse_.size() - i - 1 : i;
 
         // calculate block residual r = B-A*X
         // note: A_ is the full blocked operator
         residual->update(1.0,*rcpB,0.0); // r = B
-        if(InitialGuessIsZero == false || i > 0 || run > 0)
-          bA->bgs_apply(*rcpX, *residual, i, Teuchos::NO_TRANS, -1.0, 1.0);
+        if(InitialGuessIsZero == false || i > 0 || run > 0) {
+          RCP<TimeMonitor> Time = rcp(new TimeMonitor(*this, std::string("BGS: Apply: block matrix-vector product - level ") + std::to_string(levelID) + std::string(" - block ID ") + std::to_string(blockIndex), Timings0));        
+          bA->bgs_apply(*rcpX, *residual, blockIndex, Teuchos::NO_TRANS, -1.0, 1.0);
+        }  
           //A_->apply(*rcpX, *residual, Teuchos::NO_TRANS, -1.0, 1.0);
 
         // extract corresponding subvectors from X and residual
         bool bRangeThyraMode =  rangeMapExtractor_->getThyraMode();
         bool bDomainThyraMode = domainMapExtractor_->getThyraMode();
-        Teuchos::RCP<MultiVector> Xi = domainMapExtractor_->ExtractVector(rcpX, i, bDomainThyraMode);
-        Teuchos::RCP<MultiVector> ri = rangeMapExtractor_->ExtractVector(residual, i, bRangeThyraMode);
-        Teuchos::RCP<MultiVector> tXi = domainMapExtractor_->getVector(i, X.getNumVectors(), bDomainThyraMode);
+        Teuchos::RCP<MultiVector> Xi = domainMapExtractor_->ExtractVector(rcpX, blockIndex, bDomainThyraMode);
+        Teuchos::RCP<MultiVector> ri = rangeMapExtractor_->ExtractVector(residual, blockIndex, bRangeThyraMode);
+        Teuchos::RCP<MultiVector> tXi = domainMapExtractor_->getVector(blockIndex, X.getNumVectors(), bDomainThyraMode);
 
         // apply solver/smoother
-        Inverse_.at(i)->Apply(*tXi, *ri, false);
+        {
+          RCP<TimeMonitor> Time = rcp(new TimeMonitor(*this, std::string("BGS: Apply: block smoother - level ") + std::to_string(levelID) + std::string(" - block ID ") + std::to_string(blockIndex), Timings0));   
+          Inverse_.at(blockIndex)->Apply(*tXi, *ri, false);
+        }
 
         // update vector
         Xi->update(omega,*tXi,1.0);  // X_{i+1} = X_i + omega \Delta X_i
 
         // update corresponding part of rhs and lhs
-        domainMapExtractor_->InsertVector(Xi, i, rcpX, bDomainThyraMode); // TODO wrong! fix me
+        domainMapExtractor_->InsertVector(Xi, blockIndex, rcpX, bDomainThyraMode); // TODO wrong! fix me
       }
     }
 
