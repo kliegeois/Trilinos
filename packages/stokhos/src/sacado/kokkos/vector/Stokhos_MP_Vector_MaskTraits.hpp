@@ -52,6 +52,8 @@
 #include <immintrin.h>
 #define STOKHOS_MASK_AVX_VECTOR_SIZE 8
 
+#ifdef STOKHOS_MP_VECTOR_MASK_USE_II
+
 template<int n, typename T>
 union fused_vector_ensemble_type {
   __m512d v[n/STOKHOS_MASK_AVX_VECTOR_SIZE] __attribute__((aligned(64)));
@@ -69,6 +71,8 @@ KOKKOS_INLINE_FUNCTION __attribute__((always_inline)) void M512D_ENSEMBLE_STORE(
 {
   _mm512_store_pd(&(ensemble[i*STOKHOS_MASK_AVX_VECTOR_SIZE]), value);
 }
+
+#endif
 
 template <typename T>
 struct EnsembleTraits_m {
