@@ -51,7 +51,6 @@
 #include <KokkosKernels_helpers.hpp>
 #include <sstream>
 #include <type_traits> // requires C++11, but so does Kokkos
-#include "mkl.h"
 
 namespace KokkosBlas {
 
@@ -143,62 +142,6 @@ gemv (const char trans[],
   impl_type::gemv (trans, alpha, A, x, beta, y);
 }
 
-template<>
-void
-gemv (const char trans[],
-      const double& alpha,
-      const Kokkos::View<double**, Kokkos::LayoutLeft, Kokkos::Device<Kokkos::OpenMP, Kokkos::HostSpace>, Kokkos::MemoryTraits<(unsigned int)0>>& A,
-      const Kokkos::View<double*, Kokkos::LayoutLeft, Kokkos::Device<Kokkos::OpenMP, Kokkos::HostSpace>, Kokkos::MemoryTraits<(unsigned int)0>>& x,
-      const double& beta,
-      const Kokkos::View<double*, Kokkos::LayoutLeft, Kokkos::Device<Kokkos::OpenMP, Kokkos::HostSpace>, Kokkos::MemoryTraits<(unsigned int)0>>& y)
-{
-    const int m = A.extent(0) ;
-    const int n = A.extent(1) ;
-  
-    bool trans_bool = (trans[0] == 'N' || trans[0] == 'n');
-
-    int strides[2];
-    A.stride (strides);
-    const int lda = strides[1];
-
-    double *a_mkl = &A(0,0);
-    double *x_mkl = &x(0);
-    double *y_mkl = &y(0);
-
-    if (trans_bool)
-        cblas_dgemv(CblasColMajor,CblasNoTrans, m, n, alpha, a_mkl, m, x_mkl, 1, beta, y_mkl, 1);
-    else
-        cblas_dgemv(CblasColMajor,CblasTrans, m, n, alpha, a_mkl, m, x_mkl, 1, beta, y_mkl, 1);
-}
-
-template<>
-void
-gemv (const char trans[],
-      const double& alpha,
-      const Kokkos::View<double**, Kokkos::LayoutRight, Kokkos::Device<Kokkos::OpenMP, Kokkos::HostSpace>, Kokkos::MemoryTraits<(unsigned int)0>>& A,
-      const Kokkos::View<double*, Kokkos::LayoutLeft, Kokkos::Device<Kokkos::OpenMP, Kokkos::HostSpace>, Kokkos::MemoryTraits<(unsigned int)0>>& x,
-      const double& beta,
-      const Kokkos::View<double*, Kokkos::LayoutLeft, Kokkos::Device<Kokkos::OpenMP, Kokkos::HostSpace>, Kokkos::MemoryTraits<(unsigned int)0>>& y)
-{
-    const int m = A.extent(0) ;
-    const int n = A.extent(1) ;
-  
-    bool trans_bool = (trans[0] == 'N' || trans[0] == 'n');
-
-    int strides[2];
-    A.stride (strides);
-    const int lda = strides[0];
-
-    double *a_mkl = &A(0,0);
-    double *x_mkl = &x(0);
-    double *y_mkl = &y(0);
-
-    if (trans_bool)
-        cblas_dgemv(CblasRowMajor,CblasNoTrans, m, n, alpha, a_mkl, n, x_mkl, 1, beta, y_mkl, 1);
-    else
-        cblas_dgemv(CblasRowMajor,CblasTrans, m, n, alpha, a_mkl, n, x_mkl, 1, beta, y_mkl, 1);
-
-}
 } // namespace KokkosBlas
 
 #endif // KOKKOS_BLAS2_MV_HPP_
