@@ -670,8 +670,7 @@ IF (Stokhos_ENABLE_Sacado)
       sacado/kokkos/vector/Kokkos_Parallel_MP_Vector.hpp
       sacado/kokkos/vector/KokkosBlas_MP_Vector.hpp
       sacado/kokkos/vector/KokkosBlas3_gemm_MP_Vector.hpp
-      sacado/kokkos/vector/KokkosBlas2_gemv_MP_Vector.hpp 
-      sacado/kokkos/vector/Stokhos_MP_Vector_gemv.hpp     
+      sacado/kokkos/vector/KokkosBlas2_gemv_MP_Vector.hpp
       sacado/kokkos/vector/Teuchos_BLAS_MP_Vector.hpp
       sacado/kokkos/vector/Teuchos_LAPACK_MP_Vector.hpp
       sacado/kokkos/vector/Teuchos_SerialQRDenseSolver_MP_Vector.hpp

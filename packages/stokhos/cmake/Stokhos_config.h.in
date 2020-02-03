@@ -127,3 +127,10 @@
 
 /* Define if pce scalar type is enabled */
 #cmakedefine HAVE_STOKHOS_PCE_SCALAR_TYPE
+
+/* Define if ensemble GEMV is enabled */
+#cmakedefine HAVE_STOKHOS_ENSEMBLE_GEMV
+#ifdef HAVE_STOKHOS_ENSEMBLE_GEMV
+// Cache size
+#define VERSION_LIBINTERFACE @STOKHOS_ENSEMBLE_GEMV_CACHE_SIZE@
+#endif // HAVE_STOKHOS_ENSEMBLE_GEMV
