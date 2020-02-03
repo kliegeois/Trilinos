@@ -15,7 +15,7 @@
 
 #define STOKHOS_CACHE_SIZE @STOKHOS_ENSEMBLE_GEMV_CACHE_SIZE@
 
-#define Sacado_MP_Vector_GEMV_Tile_Size(size) STOKHOS_CACHE_SIZE/size
+#define Sacado_MP_Vector_GEMV_Tile_Size(size) (STOKHOS_CACHE_SIZE/size)
 
 template <typename T>
 KOKKOS_INLINE_FUNCTION void update_kernel(T *A, T alpha, T *b, T *c, int i_max)
