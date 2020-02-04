@@ -13,6 +13,8 @@
 #include "Stokhos_Sacado_Kokkos_MP_Vector.hpp"
 #include "Kokkos_Core.hpp"
 
+#include "Stokhos_config.h"
+
 #define STOKHOS_CACHE_SIZE @STOKHOS_ENSEMBLE_GEMV_CACHE_SIZE@
 
 #define Sacado_MP_Vector_GEMV_Tile_Size(size) (STOKHOS_CACHE_SIZE/size)
