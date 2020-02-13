@@ -36,7 +36,8 @@ TRIBITS_ADD_OPTION_AND_DEFINE(${PACKAGE_NAME}_ENABLE_Ensemble_GEMV
   ON )
 
 IF(HAVE_STOKHOS_ENSEMBLE_GEMV)
-  SET(STOKHOS_ENSEMBLE_GEMV_CACHE_SIZE 180224 CACHE INTEGER "Cache size used in the ensemble GEMV")
+  SET(Stokhos_Ensemble_GEMV_Cache_Size 180224 CACHE INTEGER "Cache size used in the ensemble GEMV")
+  SET(Stokhos_Ensemble_GEMV_Team_Size 2 CACHE INTEGER "Team size used in the ensemble GEMV")
 ENDIF()
 
 TRIBITS_ADD_OPTION_AND_DEFINE(

@@ -15,7 +15,7 @@
 
 #include "Stokhos_config.h"
 
-#define Sacado_MP_Vector_GEMV_Tile_Size(size) (STOKHOS_CACHE_SIZE/size)
+#define Sacado_MP_Vector_GEMV_Tile_Size(size) (STOKHOS_GEMV_CACHE_SIZE/size)
 
 template <typename T>
 KOKKOS_INLINE_FUNCTION void update_kernel(T *A, T alpha, T *b, T *c, int i_max)
@@ -87,7 +87,7 @@ void inner_products_MP(
   const size_t m = y.dimension_0();
   const size_t n = x.dimension_0();
 
-  const size_t team_size = 4;
+  const size_t team_size = STOKHOS_GEMV_TEAM_SIZE;
 
   const size_t N = Kokkos::DefaultExecutionSpace::thread_pool_size();
   const size_t m_c_star = Sacado_MP_Vector_GEMV_Tile_Size(sizeof(Scalar));
