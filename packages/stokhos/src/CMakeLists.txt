@@ -677,6 +677,11 @@ IF (Stokhos_ENABLE_Sacado)
       sacado/kokkos/vector/Teuchos_LAPACK_MP_Vector.hpp
       sacado/kokkos/vector/Teuchos_SerialQRDenseSolver_MP_Vector.hpp
       )
+    IF(HAVE_STOKHOS_ENSEMBLE_GEMV)
+      LIST(APPEND SACADO_HEADERS
+        sacado/kokkos/vector/KokkosBlas2_gemv_MP_Vector.hpp
+        )
+    ENDIF()
     LIST(APPEND SACADO_SOURCES
       sacado/kokkos/vector/Kokkos_View_MP_Vector.cpp
       )
