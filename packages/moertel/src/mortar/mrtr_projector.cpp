@@ -142,7 +142,21 @@ bool MOERTEL::Projector::ProjectNodetoSegment_NodalNormal(MOERTEL::Node& node,
       eps = MOERTEL::dot(F,F,3);
       if (eps < 1.0e-10) break;
       // std::cout << eps << std::endl;
-      MOERTEL::solve33(dF,deta,F);
+      try{MOERTEL::solve33(dF,deta,F);}
+      catch(...)
+      {
+            std::cout << "----- Projector: Node " << node.Id() << " Segment " << seg.Id() << std::endl;
+            std::cout << "Node " << node << std::endl;
+            const double* n = node.Normal();
+            std::cout << "Normal " << n[0] << " " << n[1] << " " << n[2] << std::endl;
+            std::cout << "Segment " << seg << std::endl;
+            MOERTEL::Node** nodes = seg.Nodes();
+            for (auto i=0; i < seg.Nnode(); ++i)
+              std::cout << *nodes[i];
+
+            std::cout << std::endl;
+            throw;
+      }
       eta[0] -= deta[0];
       eta[1] -= deta[1];
       alpha  -= deta[2];      
