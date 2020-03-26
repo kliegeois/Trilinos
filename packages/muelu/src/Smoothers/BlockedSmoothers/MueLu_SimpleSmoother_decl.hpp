@@ -185,6 +185,8 @@ namespace MueLu {
     Teuchos::RCP<SmootherBase>            velPredictSmoo_;              //!< smoother for velocity prediction
     Teuchos::RCP<SmootherBase>            schurCompSmoo_;               //!< smoother for SchurComplement equation
 
+    int levelID;
+
     //! vector of factory managers
     /*!
      * vector of internal factory managers
