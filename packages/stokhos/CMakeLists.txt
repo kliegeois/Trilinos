@@ -30,14 +30,16 @@ TRIBITS_ADD_OPTION_AND_DEFINE(${PACKAGE_NAME}_ENABLE_Ensemble_Reduction
   "Enable reduction across across ensemble components."
   OFF )
 
-TRIBITS_ADD_OPTION_AND_DEFINE(${PACKAGE_NAME}_ENABLE_Ensemble_GEMV
-  HAVE_STOKHOS_ENSEMBLE_GEMV
-  "Enable optimized ensemble GEMV implementation."
-  ON )
+IF(NOT HAVE_STOKHOS_ENSEMBLE_REDUCT)
+  TRIBITS_ADD_OPTION_AND_DEFINE(${PACKAGE_NAME}_ENABLE_Ensemble_GEMV
+    HAVE_STOKHOS_ENSEMBLE_GEMV
+    "Enable optimized ensemble GEMV implementation."
+    ON )
 
-IF(HAVE_STOKHOS_ENSEMBLE_GEMV)
-  SET(Stokhos_Ensemble_GEMV_Cache_Size 180224 CACHE INTEGER "Cache size used in the ensemble GEMV")
-  SET(Stokhos_Ensemble_GEMV_Team_Size 1 CACHE INTEGER "Team size used in the ensemble GEMV")
+  IF(HAVE_STOKHOS_ENSEMBLE_GEMV)
+    SET(Stokhos_Ensemble_GEMV_Cache_Size 180224 CACHE INTEGER "Cache size used in the ensemble GEMV")
+    SET(Stokhos_Ensemble_GEMV_Team_Size 1 CACHE INTEGER "Team size used in the ensemble GEMV")
+  ENDIF()
 ENDIF()
 
 TRIBITS_ADD_OPTION_AND_DEFINE(
