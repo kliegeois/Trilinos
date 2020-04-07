@@ -202,7 +202,6 @@ void update_MP(
 
     // Get the dimensions
     const size_t m = y.extent(0);
-    const size_t n = x.extent(0);
 
 #ifdef KOKKOS_ENABLE_DEPRECATED_CODE
     const size_t N = execution_space::thread_pool_size();
@@ -236,8 +235,6 @@ void inner_products_MP(
     using execution_space = typename VA::execution_space;
     using IndexType = typename VA::size_type;
     using team_policy_type = Kokkos::TeamPolicy<execution_space>;
-    using range_policy_type = Kokkos::RangePolicy<execution_space, IndexType>;
-    using member_type = typename team_policy_type::member_type;
 
     // Get the dimensions
     const size_t m = y.extent(0);
