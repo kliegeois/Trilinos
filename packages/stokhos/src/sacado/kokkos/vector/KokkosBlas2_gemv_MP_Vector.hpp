@@ -125,15 +125,13 @@ struct innerF
     using member_type = typename policy_type::member_type;
 
     using AlphaCoeffType = typename AViewType::non_const_value_type;
-    using BetaCoeffType = typename YViewType::non_const_value_type;
     using Scalar = AlphaCoeffType;
 
     innerF(const AlphaCoeffType &alpha,
            const AViewType &A,
            const XViewType &x,
-           const BetaCoeffType &beta,
            const YViewType &y,
-           const IndexType n_c) : alpha_(alpha), A_(A), x_(x), beta_(beta), y_(y), n_c_(n_c)
+           const IndexType n_c) : alpha_(alpha), A_(A), x_(x), y_(y), n_c_(n_c)
     {
     }
 
@@ -183,7 +181,6 @@ private:
     AlphaCoeffType alpha_;
     typename AViewType::const_type A_;
     typename XViewType::const_type x_;
-    BetaCoeffType beta_;
     YViewType y_;
     const IndexType n_c_;
 };
@@ -205,7 +202,6 @@ void update_MP(
 
     // Get the dimensions
     const size_t m = y.extent(0);
-    const size_t n = x.extent(0);
 
 #ifdef KOKKOS_ENABLE_DEPRECATED_CODE
     const size_t N = execution_space::thread_pool_size();
@@ -236,11 +232,15 @@ void inner_products_MP(
     typename VY::const_value_type &beta,
     const VY &y)
 {
-    // Get the dimensions
-    const size_t m = y.dimension_0();
-    const size_t n = x.dimension_0();
+    using execution_space = typename VA::execution_space;
+    using IndexType = typename VA::size_type;
+    using team_policy_type = Kokkos::TeamPolicy<execution_space>;
 
-    const size_t team_size = 4;
+    // Get the dimensions
+    const size_t m = y.extent(0);
+    const size_t n = x.extent(0);
+
+    const size_t team_size = STOKHOS_GEMV_TEAM_SIZE;
 
 #ifdef KOKKOS_ENABLE_DEPRECATED_CODE
     const size_t N = execution_space::thread_pool_size();
@@ -253,75 +253,18 @@ void inner_products_MP(
     const size_t n_per_tile2 = m_c * team_size;
 
     const size_t n_i2 = ceil(((double)n) / n_per_tile2);
-    using Kokkos::TeamThreadRange;
 
-    Kokkos::TeamPolicy<> policy = Kokkos::TeamPolicy<>(n_i2, team_size);
-    typedef Kokkos::TeamPolicy<>::member_type member_type;
+    team_policy_type team(n_i2, team_size);
 
     Kokkos::parallel_for(
         m, KOKKOS_LAMBDA(const int i) {
             y(i) *= beta;
         });
 
-    Kokkos::parallel_for(
-        policy, KOKKOS_LAMBDA(member_type team_member) {
-            const size_t j = team_member.league_rank();
-            const size_t j_min = n_per_tile2 * j;
-            const size_t nj = (j_min + n_per_tile2 > n) ? (n - j_min) : n_per_tile2;
-            const size_t i_min = j % m;
+    using functor_type = innerF<VA, VX, VY, IndexType>;
+    functor_type functor(alpha, A, x, y, n_per_tile2);
 
-            for (size_t i = i_min; i < m; ++i)
-            {
-                Scalar tmp = 0.;
-                Kokkos::parallel_reduce(
-                    TeamThreadRange(team_member, nj), [=](int jj, Scalar &tmp_sum) {
-                        inner_product_kernel<Scalar>(&A(jj + j_min, i), &x(jj + j_min), &tmp_sum);
-                    },
-                    tmp);
-                if (team_member.team_rank() == 0)
-                {
-                    tmp *= alpha;
-                    Kokkos::atomic_add(&y(i), tmp);
-                }
-            }
-            for (size_t i = 0; i < i_min; ++i)
-            {
-                Scalar tmp = 0.;
-                Kokkos::parallel_reduce(
-                    TeamThreadRange(team_member, nj), [=](int jj, Scalar &tmp_sum) {
-                        inner_product_kernel<Scalar>(&A(jj + j_min, i), &x(jj + j_min), &tmp_sum);
-                    },
-                    tmp);
-                if (team_member.team_rank() == 0)
-                {
-                    tmp *= alpha;
-                    Kokkos::atomic_add(&y(i), tmp);
-                }
-            }
-        });
-}
-
-template <class Scalar,
-          class VA,
-          class VX,
-          class VY>
-void gemv_MP(const char trans[],
-             typename VA::const_value_type &alpha,
-             const VA &A,
-             const VX &x,
-             typename VY::const_value_type &beta,
-             const VY &y)
-{
-    // y := alpha*A*x + beta*y,
-
-    static_assert(VA::rank == 2, "GEMM: A must have rank 2 (be a matrix).");
-    static_assert(VX::rank == 1, "GEMM: x must have rank 1 (be a vector).");
-    static_assert(VY::rank == 1, "GEMM: y must have rank 1 (be a vector).");
-
-    if (trans[0] == 'n' || trans[0] == 'N')
-        update_MP<Scalar, VA, VX, VY>(alpha, A, x, beta, y);
-    else
-        inner_products_MP<Scalar, VA, VX, VY>(alpha, A, x, beta, y);
+    Kokkos::parallel_for("KokkosBlas::gemv[InnerProducts]", team, functor);
 }
 
 namespace KokkosBlas
@@ -343,7 +286,15 @@ gemv(const char trans[],
     typedef Kokkos::View<DA, PA...> VA;
     typedef Kokkos::View<DX, PX...> VX;
     typedef Kokkos::View<DY, PY...> VY;
-    gemv_MP<Scalar, VA, VX, VY>(trans, alpha, A, x, beta, y);
+
+    static_assert(VA::rank == 2, "GEMM: A must have rank 2 (be a matrix).");
+    static_assert(VX::rank == 1, "GEMM: x must have rank 1 (be a vector).");
+    static_assert(VY::rank == 1, "GEMM: y must have rank 1 (be a vector).");
+
+    if (trans[0] == 'n' || trans[0] == 'N')
+        update_MP<Scalar, VA, VX, VY>(alpha, A, x, beta, y);
+    else
+        inner_products_MP<Scalar, VA, VX, VY>(alpha, A, x, beta, y);
 }
 
 } // namespace KokkosBlas
