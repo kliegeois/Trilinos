@@ -47,15 +47,6 @@
 #include "Teuchos_VerboseObject.hpp"
 #include "Tpetra_Details_Behavior.hpp"
 
-// If TPETRA_DISTRIBUTOR_TIMERS is defined, Distributor will time
-// doPosts (both versions) and doWaits, and register those timers with
-// Teuchos::TimeMonitor so that summarize() or report() will show
-// results.
-
-//#ifndef TPETRA_DISTRIBUTOR_TIMERS
-//#  define TPETRA_DISTRIBUTOR_TIMERS 1
-//#endif // TPETRA_DISTRIBUTOR_TIMERS
-
 #include "KokkosCompat_View.hpp"
 #include "Kokkos_Core.hpp"
 #include "Kokkos_TeuchosCommAdapters.hpp"
@@ -273,6 +264,8 @@ namespace Tpetra {
     /// Please see the class documentation for a list of all accepted
     /// parameters and their default values.
     void setParameterList (const Teuchos::RCP<Teuchos::ParameterList>& plist);
+
+    Teuchos::RCP<Distributor> getReverseDistributor();
 
     /// \brief List of valid Distributor parameters.
     ///
@@ -956,7 +949,7 @@ namespace Tpetra {
     /// \brief The number of bytes received by this proc in the last call to do/doReverse
     size_t lastRoundBytesRecv_;
 
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
     Teuchos::RCP<Teuchos::Time> timer_doPosts3TA_;
     Teuchos::RCP<Teuchos::Time> timer_doPosts4TA_;
     Teuchos::RCP<Teuchos::Time> timer_doPosts3KV_;
@@ -985,7 +978,7 @@ namespace Tpetra {
 
     //! Make the instance's timers.  (Call only in constructor.)
     void makeTimers ();
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
     /// \brief Whether to use different tags for different code paths.
     ///
@@ -1167,9 +1160,9 @@ namespace Tpetra {
     using std::endl;
     using size_type = Array<size_t>::size_type;
 
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
     Teuchos::TimeMonitor timeMon (*timer_doPosts3TA_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
     const bool debug = Details::Behavior::debug("Distributor");
     const int myRank = comm_->getRank ();
@@ -1261,9 +1254,9 @@ namespace Tpetra {
     // to the "unexpected queue" (of arrived messages not yet matched
     // with a receive).
     {
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
       Teuchos::TimeMonitor timeMonRecvs (*timer_doPosts3TA_recvs_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
       size_t curBufOffset = 0;
       for (size_type i = 0; i < actualNumReceives; ++i) {
@@ -1304,9 +1297,9 @@ namespace Tpetra {
     }
 
     if (doBarrier) {
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
       Teuchos::TimeMonitor timeMonBarrier (*timer_doPosts3TA_barrier_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
       if (verbose_) {
         std::ostringstream os;
@@ -1322,9 +1315,9 @@ namespace Tpetra {
       comm_->barrier ();
     }
 
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
     Teuchos::TimeMonitor timeMonSends (*timer_doPosts3TA_sends_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
     // setup scan through procsTo_ list starting with higher numbered procs
     // (should help balance message traffic)
@@ -1352,9 +1345,9 @@ namespace Tpetra {
 
     if (indicesTo_.empty ()) {
 
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
-      Teuchos::TimeMonitor timeMonSends (*timer_doPosts3TA_sends_fast_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
+      Teuchos::TimeMonitor timeMonSends2 (*timer_doPosts3TA_sends_fast_);
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
       // Data are already blocked (laid out) by process, so we don't
       // need a separate send buffer (besides the exports array).
@@ -1429,9 +1422,9 @@ namespace Tpetra {
     }
     else { // data are not blocked by proc, use send buffer
 
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
-      Teuchos::TimeMonitor timeMonSends (*timer_doPosts3TA_sends_slow_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
+      Teuchos::TimeMonitor timeMonSends2 (*timer_doPosts3TA_sends_slow_);
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
       // FIXME (mfh 05 Mar 2013) This is broken for Isend (nonblocking
       // sends), because the buffer is only long enough for one send.
@@ -1555,9 +1548,9 @@ namespace Tpetra {
       std::cerr << os.str();
     }
 
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
     Teuchos::TimeMonitor timeMon (*timer_doPosts4TA_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
     // Run-time configurable parameters that come from the input
     // ParameterList set by setParameterList().
@@ -1658,9 +1651,9 @@ namespace Tpetra {
     // to the "unexpected queue" (of arrived messages not yet matched
     // with a receive).
     {
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
       Teuchos::TimeMonitor timeMonRecvs (*timer_doPosts4TA_recvs_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
       size_t curBufferOffset = 0;
       size_t curLIDoffset = 0;
@@ -1692,9 +1685,9 @@ namespace Tpetra {
     }
 
     if (doBarrier) {
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
       Teuchos::TimeMonitor timeMonBarrier (*timer_doPosts4TA_barrier_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
       // If we are using ready sends (MPI_Rsend) below, we need to do
       // a barrier before we post the ready sends.  This is because a
       // ready send requires that its matching receive has already
@@ -1703,9 +1696,9 @@ namespace Tpetra {
       comm_->barrier ();
     }
 
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
     Teuchos::TimeMonitor timeMonSends (*timer_doPosts4TA_sends_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
     // setup arrays containing starting-offsets into exports for each send,
     // and num-packets-to-send for each send.
@@ -1739,9 +1732,9 @@ namespace Tpetra {
 
     if (indicesTo_.empty()) {
 
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
-      Teuchos::TimeMonitor timeMonSends (*timer_doPosts4TA_sends_fast_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
+      Teuchos::TimeMonitor timeMonSends2 (*timer_doPosts4TA_sends_fast_);
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
       if (verbose_) {
         std::ostringstream os;
@@ -1808,9 +1801,9 @@ namespace Tpetra {
     }
     else { // data are not blocked by proc, use send buffer
 
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
-      Teuchos::TimeMonitor timeMonSends (*timer_doPosts4TA_sends_slow_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
+      Teuchos::TimeMonitor timeMonSends2 (*timer_doPosts4TA_sends_slow_);
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
       if (verbose_) {
         std::ostringstream os;
@@ -2131,9 +2124,9 @@ namespace Tpetra {
        "See Trilinos GitHub issue #1088.");
 #endif // KOKKOS_ENABLE_CUDA
 
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
     Teuchos::TimeMonitor timeMon (*timer_doPosts3KV_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
     const int myRank = comm_->getRank ();
     // Run-time configurable parameters that come from the input
@@ -2252,9 +2245,9 @@ namespace Tpetra {
     // to the "unexpected queue" (of arrived messages not yet matched
     // with a receive).
     {
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
       Teuchos::TimeMonitor timeMonRecvs (*timer_doPosts3KV_recvs_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
       size_t curBufferOffset = 0;
       for (size_type i = 0; i < actualNumReceives; ++i) {
@@ -2295,9 +2288,9 @@ namespace Tpetra {
     }
 
     if (doBarrier) {
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
       Teuchos::TimeMonitor timeMonBarrier (*timer_doPosts3KV_barrier_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
       if (verbose_) {
         std::ostringstream os;
@@ -2313,9 +2306,9 @@ namespace Tpetra {
       comm_->barrier ();
     }
 
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
     Teuchos::TimeMonitor timeMonSends (*timer_doPosts3KV_sends_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
     // setup scan through procsTo_ list starting with higher numbered procs
     // (should help balance message traffic)
@@ -2343,9 +2336,9 @@ namespace Tpetra {
 
     if (indicesTo_.empty()) {
 
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
-      Teuchos::TimeMonitor timeMonSends (*timer_doPosts3KV_sends_fast_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
+      Teuchos::TimeMonitor timeMonSends2 (*timer_doPosts3KV_sends_fast_);
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
       if (verbose_) {
         std::ostringstream os;
@@ -2431,9 +2424,9 @@ namespace Tpetra {
     }
     else { // data are not blocked by proc, use send buffer
 
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
-      Teuchos::TimeMonitor timeMonSends (*timer_doPosts3KV_sends_slow_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
+      Teuchos::TimeMonitor timeMonSends2 (*timer_doPosts3KV_sends_slow_);
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
       if (verbose_) {
         std::ostringstream os;
@@ -2582,9 +2575,9 @@ namespace Tpetra {
       std::cerr << os.str();
     }
 
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
     Teuchos::TimeMonitor timeMon (*timer_doPosts4KV_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
     // Run-time configurable parameters that come from the input
     // ParameterList set by setParameterList().
@@ -2680,9 +2673,9 @@ namespace Tpetra {
     // to the "unexpected queue" (of arrived messages not yet matched
     // with a receive).
     {
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
       Teuchos::TimeMonitor timeMonRecvs (*timer_doPosts4KV_recvs_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
       size_t curBufferOffset = 0;
       size_t curLIDoffset = 0;
@@ -2714,9 +2707,9 @@ namespace Tpetra {
     }
 
     if (doBarrier) {
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
       Teuchos::TimeMonitor timeMonBarrier (*timer_doPosts4KV_barrier_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
       // If we are using ready sends (MPI_Rsend) below, we need to do
       // a barrier before we post the ready sends.  This is because a
       // ready send requires that its matching receive has already
@@ -2725,9 +2718,9 @@ namespace Tpetra {
       comm_->barrier ();
     }
 
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
     Teuchos::TimeMonitor timeMonSends (*timer_doPosts4KV_sends_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
     // setup arrays containing starting-offsets into exports for each send,
     // and num-packets-to-send for each send.
@@ -2760,9 +2753,9 @@ namespace Tpetra {
     size_t selfIndex = 0;
     if (indicesTo_.empty()) {
 
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
-      Teuchos::TimeMonitor timeMonSends (*timer_doPosts4KV_sends_fast_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
+      Teuchos::TimeMonitor timeMonSends2 (*timer_doPosts4KV_sends_fast_);
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
       if (verbose_) {
         std::ostringstream os;
@@ -2828,9 +2821,9 @@ namespace Tpetra {
     }
     else { // data are not blocked by proc, use send buffer
 
-#ifdef TPETRA_DISTRIBUTOR_TIMERS
-      Teuchos::TimeMonitor timeMonSends (*timer_doPosts4KV_sends_slow_);
-#endif // TPETRA_DISTRIBUTOR_TIMERS
+#ifdef HAVE_TPETRA_DISTRIBUTOR_TIMINGS
+      Teuchos::TimeMonitor timeMonSends2 (*timer_doPosts4KV_sends_slow_);
+#endif // HAVE_TPETRA_DISTRIBUTOR_TIMINGS
 
       if (verbose_) {
         std::ostringstream os;

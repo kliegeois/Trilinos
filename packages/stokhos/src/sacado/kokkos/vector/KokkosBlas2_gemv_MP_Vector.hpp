@@ -92,8 +92,12 @@ public:
 #ifdef STOKHOS_HAVE_PRAGMA_UNROLL
 #pragma unroll
 #endif
-        for (IndexType i = i_min; i < i_max; ++i)
-            y_(i) *= beta_;
+        if (beta_ == BetaCoeffType(0.))
+            for (IndexType i = i_min; i < i_max; ++i)
+                y_(i) = beta_;
+        else
+            for (IndexType i = i_min; i < i_max; ++i)
+                y_(i) *= beta_;
 
         for (IndexType j = 0; j < n; ++j)
         {
@@ -256,10 +260,16 @@ void inner_products_MP(
 
     team_policy_type team(n_i2, team_size);
 
-    Kokkos::parallel_for(
-        m, KOKKOS_LAMBDA(const int i) {
-            y(i) *= beta;
-        });
+    if (beta == Scalar(0.))
+        Kokkos::parallel_for(
+            m, KOKKOS_LAMBDA(const int i) {
+                y(i) = beta;
+            });
+    else
+        Kokkos::parallel_for(
+            m, KOKKOS_LAMBDA(const int i) {
+                y(i) *= beta;
+            });
 
     using functor_type = innerF<VA, VX, VY, IndexType>;
     functor_type functor(alpha, A, x, y, n_per_tile2);
