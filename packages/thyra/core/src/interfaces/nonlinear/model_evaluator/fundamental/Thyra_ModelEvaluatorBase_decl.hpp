@@ -180,6 +180,15 @@ public:
     /** \brief Precondition: <tt>supports(IN_ARG_x)==true</tt>.  */
     RCP<const VectorBase<Scalar> > get_x() const;
 
+    /** \brief Precondition: <tt>supports(IN_ARG_x)==true</tt>.  */
+    void set_vx( const RCP<const VectorBase<Scalar> > &vx );
+    /** \brief Precondition: <tt>supports(IN_ARG_x)==true</tt>.  */
+    void set_vp( int l, const RCP<const VectorBase<Scalar> > &vp_l );
+    /** \brief Precondition: <tt>supports(IN_ARG_x)==true</tt>.  */
+    RCP<const VectorBase<Scalar> > get_vx() const;
+    /** \brief Get <tt>p(l)</tt> where <tt>0 <= l && l < this->Np()</tt>.  */
+    RCP<const VectorBase<Scalar> > get_vp(int l) const;
+
     /** \brief Determines if an extended input argument of type <tt>ObjectType</tt> is supported. */
     template<typename ObjectType>
     bool supports() const;
@@ -289,6 +298,7 @@ public:
     RCP<const VectorBase<Scalar> > x_dot_dot_;
     RCP<const VectorBase<Scalar> > x_dot_;
     RCP<const VectorBase<Scalar> > x_;
+    RCP<const VectorBase<Scalar> > vx_;
     RCP<const Stokhos::ProductEpetraVector > x_dot_mp_;
     RCP<const Stokhos::ProductEpetraVector > x_mp_;
     Teuchos::Array< RCP< const Stokhos::ProductEpetraVector > > p_mp_;
@@ -297,6 +307,7 @@ public:
     RCP<const Teuchos::Polynomial< VectorBase<Scalar> > > x_poly_;
 #endif // HAVE_THYRA_ME_POLYNOMIAL
     p_t p_;
+    p_t vp_;
     ScalarMag t_;
     Scalar alpha_;
     Scalar beta_;
@@ -705,7 +716,17 @@ public:
   enum EOutArgsDgDp {
     OUT_ARG_DgDp   ///< .
   };
-  
+
+  /** \brief . */
+  enum EOutArgsHvDx {
+    OUT_ARG_HvDx   ///< .
+  };
+
+  /** \brief . */
+  enum EOutArgsHvDp {
+    OUT_ARG_HvDp   ///< .
+  };
+
   /** \brief . */
   enum EOutArgsDfDp_mp {
     OUT_ARG_DfDp_mp   ///< .
@@ -808,6 +829,12 @@ public:
     /** \brief Determine if <tt>DgDp(j,l)</tt> is supported or not, <tt>0 <= j
      * && j < Ng()</tt> and <tt>0 <= l && l < Np()</tt>.  */
     const DerivativeSupport& supports(EOutArgsDgDp arg, int j, int l) const;
+    /** \brief Determine if <tt>HvDx(j)</tt> is supported or not, <tt>0 <= j
+     * && j < Ng()</tt>.  */
+    const DerivativeSupport& supports(EOutArgsHvDx arg, int j) const;
+    /** \brief Determine if <tt>HvDp(j,l)</tt> is supported or not, <tt>0 <= j
+     * && j < Ng()</tt> and <tt>0 <= l && l < Np()</tt>.  */
+    const DerivativeSupport& supports(EOutArgsHvDp arg, int j, int l) const;
     /** \brief Precondition: <tt>supports(OUT_ARG_f)==true</tt>.  */
     void set_f( const Evaluation<VectorBase<Scalar> > &f );
     /** \brief Precondition: <tt>supports(OUT_ARG_f)==true</tt>.  */
@@ -889,6 +916,21 @@ public:
      * <tt>supports(OUT_ARG_DgDp,j,l)==true</tt>). */
     DerivativeProperties get_DgDp_properties(int j, int l) const;
 
+    /** \brief Precondition: <tt>supports(OUT_ARG_HvDx,j)==true</tt>.  */
+    void set_HvDx(int j, const Derivative<Scalar> &HvDx_j);
+    /** \brief Precondition: <tt>supports(OUT_ARG_HvDx,j)==true</tt>.  */
+    Derivative<Scalar> get_HvDx(int j) const;
+    /** \brief Return the know properties of <tt>HvDx(j)</tt> (precondition:
+     * <tt>supports(OUT_ARG_HvDx,j)==true</tt>). */
+    DerivativeProperties get_HvDx_properties(int j) const;
+    /** \brief Precondition: <tt>supports(OUT_ARG_HvDp,j,l)==true</tt>.  */
+    void set_HvDp( int j, int l, const Derivative<Scalar> &HvDp_j_l );
+    /** \brief Precondition: <tt>supports(OUT_ARG_HvDp,j,l)==true</tt>.  */
+    Derivative<Scalar> get_HvDp(int j, int l) const;
+    /** \brief Return the know properties of <tt>HvDp(j,l)</tt> (precondition:
+     * <tt>supports(OUT_ARG_HvDp,j,l)==true</tt>). */
+    DerivativeProperties get_HvDp_properties(int j, int l) const;
+
     void set_DfDp_mp(int l,  const MPDerivative &DfDp_mp_l);
     MPDerivative get_DfDp_mp(int l) const;
     DerivativeProperties get_DfDp_mp_properties(int l) const;
@@ -962,7 +1004,11 @@ public:
     /** \brief . */
     void _setSupports( EOutArgsDgDx arg, int j, const DerivativeSupport& );
     /** \brief . */
+    void _setSupports( EOutArgsHvDx arg, int j, const DerivativeSupport& );
+    /** \brief . */
     void _setSupports( EOutArgsDgDp arg, int j, int l, const DerivativeSupport& );
+    /** \brief . */
+    void _setSupports( EOutArgsHvDp arg, int j, int l, const DerivativeSupport& );
 
     void _setSupports( EOutArgs_g_mp arg, int j, bool supports );
     void _setSupports( EOutArgsDfDp_mp arg, int l, const DerivativeSupport& );
@@ -1005,6 +1051,8 @@ public:
     supports_t supports_DgDx_dot_; // Ng
     supports_t supports_DgDx_; // Ng
     supports_t supports_DgDp_; // Ng x Np
+    supports_t supports_HvDx_; // Ng
+    supports_t supports_HvDp_; // Ng x Np
     Evaluation<VectorBase<Scalar> > f_;
     g_t g_; // Ng
     RCP<LinearOpWithSolveBase<Scalar> > W_;
@@ -1019,6 +1067,11 @@ public:
     deriv_properties_t DgDx_properties_; // Ng
     deriv_t DgDp_; // Ng x Np
     deriv_properties_t DgDp_properties_; // Ng x Np
+
+    deriv_t HvDx_; // Ng
+    deriv_properties_t HvDx_properties_; // Ng
+    deriv_t HvDp_; // Ng x Np
+    deriv_properties_t HvDp_properties_; // Ng x Np
 
     Teuchos::Array<bool> supports_g_mp_; //Ng
     supports_t supports_DfDp_mp_; // Np_mp
@@ -1060,6 +1113,15 @@ public:
       ) const;
     void assert_supports(
       EOutArgsDgDp arg, int j, int l,
+      const Derivative<Scalar> &deriv = Derivative<Scalar>()
+      ) const;
+
+    void assert_supports(
+      EOutArgsHvDx arg, int j,
+      const Derivative<Scalar> &deriv = Derivative<Scalar>()
+      ) const;
+    void assert_supports(
+      EOutArgsHvDp arg, int j, int l,
       const Derivative<Scalar> &deriv = Derivative<Scalar>()
       ) const;
 
@@ -1154,6 +1216,10 @@ protected:
     void setSupports(EOutArgsDgDx arg, int j, const DerivativeSupport& );
     /** \brief . */
     void setSupports(EOutArgsDgDp arg, int j, int l, const DerivativeSupport& );
+    /** \brief . */
+    void setSupports(EOutArgsHvDx arg, int j, const DerivativeSupport& );
+    /** \brief . */
+    void setSupports(EOutArgsHvDp arg, int j, int l, const DerivativeSupport& );
     /** \brief Set support for specific extended data types. */
     template<typename ObjectType>
     void setSupports(const bool supports = true);
