@@ -1530,6 +1530,17 @@ void ModelEvaluatorBase::OutArgs<Scalar>::setArgs(
       }
     }
   }
+  for ( int l = 0; l < min_Np; ++l ) {
+    for ( int j = 0; j < min_Ng; ++j ) {
+      MEB::Derivative<Scalar> HvDp_j_l;
+      if ( !inputOutArgs.supports(OUT_ARG_HvDp,j,l).none()
+        && !(HvDp_j_l=inputOutArgs.get_DgDp(j,l)).isEmpty() )
+      {
+        if ( HvDp_j_l.isSupportedBy(supports(OUT_ARG_HvDp,j,l)) || !ignoreUnsupported )
+          set_HvDp(j,l,HvDp_j_l);
+      }
+    }
+  }  
   // Extended outArgs
   this->extended_outargs_ = inputOutArgs.extended_outargs_;
 
