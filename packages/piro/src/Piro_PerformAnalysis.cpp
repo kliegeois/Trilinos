@@ -691,16 +691,17 @@ Piro::PerformROLAnalysis(
        auto r_ptr = rol_x.clone();
        double tol = 1e-5;
        constr.solve(*r_ptr,rol_x,rol_p,tol);
-       ROL::Ptr<ROL::OptimizationProblem<double> > optProb_ptr;
        if(boundConstrained) {
          ROL::BoundConstraint<double> u_bnd(rol_x);
          ROL::Ptr<ROL::BoundConstraint<double> > bnd = ROL::makePtr<ROL::BoundConstraint_SimOpt<double> >(ROL::makePtrFromRef(u_bnd),boundConstraint);
-         optProb_ptr = ROL::makePtr<ROL::OptimizationProblem<double> > (ROL::makePtrFromRef(obj), ROL::makePtrFromRef(sopt_vec), bnd, ROL::makePtrFromRef(constr), r_ptr);
+         ROL::OptimizationProblem<double> prob(ROL::makePtrFromRef(obj), ROL::makePtrFromRef(sopt_vec), bnd, ROL::makePtrFromRef(constr), r_ptr);
+         ROL::OptimizationSolver<double> optSolver(prob, rolParams.sublist("ROL Options"));
+         optSolver.solve(*out);
        } else {
-         optProb_ptr = ROL::makePtr<ROL::OptimizationProblem<double> > (ROL::makePtrFromRef(obj), ROL::makePtrFromRef(sopt_vec), ROL::makePtrFromRef(constr), r_ptr);
+         ROL::OptimizationProblem<double> prob(ROL::makePtrFromRef(obj), ROL::makePtrFromRef(sopt_vec), ROL::makePtrFromRef(constr), r_ptr);
+         ROL::OptimizationSolver<double> optSolver(prob, rolParams.sublist("ROL Options"));
+         optSolver.solve(*out);
        }
-       ROL::OptimizationSolver<double> optSolver(*optProb_ptr, rolParams.sublist("ROL Options"));
-       optSolver.solve(*out);
      } else {
        if(boundConstrained)
          output = algo->run(rol_p_primal, reduced_obj, *boundConstraint, print, *out);
