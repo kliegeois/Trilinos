@@ -78,6 +78,9 @@
 #include "Thyra_VectorDefaultBase.hpp"
 #include "Thyra_DefaultProductVectorSpace.hpp"
 #include "Thyra_DefaultProductVector.hpp"
+
+#include <Thyra_TpetraThyraWrappers_decl.hpp>
+#include <MatrixMarket_Tpetra.hpp>
 #endif
 
 
@@ -629,6 +632,153 @@ Piro::PerformROLAnalysis(
 
        *out << "Checking Accuracy of objective Hessian" << std::endl;
        obj.checkHessVec(sopt_vec,sopt_vec_direction1,true,*out,num_steps,order);
+
+       *out << "Checking Accuracy of objective Hessian (11)" << std::endl;
+       obj.checkHessVec_11(rol_x,rol_p,rol_x_direction1,true,*out,num_steps,order);
+
+       *out << "Checking Accuracy of objective Hessian (12)" << std::endl;
+       obj.checkHessVec_12(rol_x,rol_p,rol_p_direction1,true,*out,num_steps,order);
+
+       *out << "Checking Accuracy of objective Hessian (21)" << std::endl;
+       obj.checkHessVec_21(rol_x,rol_p,rol_x_direction1,true,*out,num_steps,order);
+
+       *out << "Checking Accuracy of objective Hessian (22)" << std::endl;
+       obj.checkHessVec_22(rol_x,rol_p,rol_p_direction1,true,*out,num_steps,order);
+
+      bool computed_Hessian = true;
+
+      if(computed_Hessian)
+      {
+        typedef Tpetra::Vector<>::scalar_type Scalar;
+        typedef Tpetra::Vector<>::local_ordinal_type LO;
+        typedef Tpetra::Vector<>::global_ordinal_type GO;
+        typedef Tpetra::Vector<>::node_type Node;
+
+        typedef Tpetra::CrsMatrix<Scalar,LO,GO,Node> CRSM;
+        typedef Thyra::TpetraOperatorVectorExtraction<Scalar,LO,GO,Node> tpetra_extract;
+
+        {
+          int dim = rol_x.dimension();
+          for (size_t i=0; i<dim; ++i)
+          {
+            Teuchos::RCP<ROL::Vector<double> > e = rol_x.clone();
+            Teuchos::RCP<ROL::ThyraVector<double> > e_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(e);
+            Teuchos::RCP<Thyra::VectorBase<double> > rol_direction = e_T->getVector();
+            ::Thyra::put_scalar(0.0, rol_direction.ptr());
+            ::Thyra::set_ele(i,1.0, rol_direction.ptr());
+
+            Teuchos::RCP<ROL::Vector<double> > Hv = rol_x.clone();
+            Teuchos::RCP<ROL::ThyraVector<double> > Hv_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(Hv);
+
+            double tol = 1e-10;
+            obj.hessVec_11(*Hv_T, *e_T, rol_x, rol_p, tol);
+
+            Teuchos::RCP<Thyra::VectorBase<double> > Hv_TVB = Hv_T->getVector();
+
+            auto Hv_tpetra = Teuchos::rcp_dynamic_cast<Thyra::TpetraVector<Scalar,LO,GO,Node>>(Hv_TVB)->getConstTpetraVector();
+
+            std::string name_Hv = "Hv_11_" + std::to_string(i) + ".txt";
+            Tpetra::MatrixMarket::Writer<CRSM>::writeDenseFile(std::string(name_Hv), Hv_tpetra);
+          }
+        }
+        {
+          int dim = rol_x.dimension();
+          for (size_t i=0; i<dim; ++i)
+          {
+            Teuchos::RCP<ROL::Vector<double> > e = rol_p.clone();
+            Teuchos::RCP<ROL::ThyraVector<double> > e_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(e);
+            Teuchos::RCP<Thyra::VectorBase<double> > rol_direction = e_T->getVector();
+            ::Thyra::put_scalar(0.0, rol_direction.ptr());
+            ::Thyra::set_ele(i,1.0, rol_direction.ptr());
+
+            Teuchos::RCP<ROL::Vector<double> > Hv = rol_x.clone();
+            Teuchos::RCP<ROL::ThyraVector<double> > Hv_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(Hv);
+
+            double tol = 1e-10;
+            obj.hessVec_12(*Hv_T, *e_T, rol_x, rol_p, tol);
+
+            Teuchos::RCP<Thyra::VectorBase<double> > Hv_TVB = Hv_T->getVector();
+
+            auto Hv_tpetra = Teuchos::rcp_dynamic_cast<Thyra::TpetraVector<Scalar,LO,GO,Node>>(Hv_TVB)->getConstTpetraVector();
+
+            //Hv_TVB->describe(, Teuchos::VERB_EXTREME);
+
+            std::string name_Hv = "Hv_12_" + std::to_string(i) + ".txt";
+            Tpetra::MatrixMarket::Writer<CRSM>::writeDenseFile(std::string(name_Hv), Hv_tpetra);
+
+          }
+        }
+        {
+          int dim = rol_p.dimension();
+          for (size_t i=0; i<dim; ++i)
+          {
+            Teuchos::RCP<ROL::Vector<double> > e = rol_x.clone();
+            Teuchos::RCP<ROL::ThyraVector<double> > e_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(e);
+            Teuchos::RCP<Thyra::VectorBase<double> > rol_direction = e_T->getVector();
+            ::Thyra::put_scalar(0.0, rol_direction.ptr());
+            ::Thyra::set_ele(i,1.0, rol_direction.ptr());
+
+            Teuchos::RCP<ROL::Vector<double> > Hv = rol_p_direction1.clone();
+            Teuchos::RCP<ROL::ThyraVector<double> > Hv_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(Hv);
+
+            double tol = 1e-10;
+            obj.hessVec_21(*Hv_T, *e_T, rol_x, rol_p, tol);
+
+            Teuchos::RCP<Thyra::VectorBase<double> > Hv_TVB = Hv_T->getVector();
+
+            Teuchos::RCP<Thyra::TpetraVector<Scalar,LO,GO,Node>> Hv_TTV = Teuchos::rcp_dynamic_cast<Thyra::TpetraVector<Scalar,LO,GO,Node>>(Hv_TVB);
+            if (!Hv_TTV.is_null())
+            {
+              auto Hv_tpetra = Hv_TTV->getConstTpetraVector();
+
+              std::string name_Hv = "Hv_21_" + std::to_string(i) + ".txt";
+              Tpetra::MatrixMarket::Writer<CRSM>::writeDenseFile(std::string(name_Hv), Hv_tpetra);
+            }
+            else
+            {
+              std::string name_Hv = "Hv_21_" + std::to_string(i) + ".txt";
+              std::ofstream MatrixMatrix_ofstream(name_Hv);
+              RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
+              Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
+            }
+          }
+        }
+        {
+          int dim = rol_p.dimension();
+          for (size_t i=0; i<dim; ++i)
+          {
+            Teuchos::RCP<ROL::Vector<double> > e = rol_p.clone();
+            Teuchos::RCP<ROL::ThyraVector<double> > e_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(e);
+            Teuchos::RCP<Thyra::VectorBase<double> > rol_direction = e_T->getVector();
+            ::Thyra::put_scalar(0.0, rol_direction.ptr());
+            ::Thyra::set_ele(i,1.0, rol_direction.ptr());
+
+            Teuchos::RCP<ROL::Vector<double> > Hv = rol_p_direction1.clone();
+            Teuchos::RCP<ROL::ThyraVector<double> > Hv_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(Hv);
+
+            double tol = 1e-10;
+            obj.hessVec_22(*Hv_T, *e_T, rol_x, rol_p, tol);
+
+            Teuchos::RCP<Thyra::VectorBase<double> > Hv_TVB = Hv_T->getVector();
+
+            Teuchos::RCP<Thyra::TpetraVector<Scalar,LO,GO,Node>> Hv_TTV = Teuchos::rcp_dynamic_cast<Thyra::TpetraVector<Scalar,LO,GO,Node>>(Hv_TVB);
+            if (!Hv_TTV.is_null())
+            {
+              auto Hv_tpetra = Hv_TTV->getConstTpetraVector();
+
+              std::string name_Hv = "Hv_22_" + std::to_string(i) + ".txt";
+              Tpetra::MatrixMarket::Writer<CRSM>::writeDenseFile(std::string(name_Hv), Hv_tpetra);
+            }
+            else
+            {
+              std::string name_Hv = "Hv_22_" + std::to_string(i) + ".txt";
+              std::ofstream MatrixMatrix_ofstream(name_Hv);
+              RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
+              Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
+            }
+          }
+        }
+      }
 
        *out << "Checking Accuracy of constraint Hessian" << std::endl;
        constr.checkApplyAdjointHessian(sopt_vec, rol_x_direction1, sopt_vec_direction2, sopt_vec_direction2, true,*out,num_steps,order);
