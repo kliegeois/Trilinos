@@ -645,7 +645,7 @@ Piro::PerformROLAnalysis(
        *out << "Checking Accuracy of objective Hessian (22)" << std::endl;
        obj.checkHessVec_22(rol_x,rol_p,rol_p_direction1,true,*out,num_steps,order);
 
-      bool computed_Hessian = true;
+      bool computed_Hessian = false;
 
       if(computed_Hessian)
       {
