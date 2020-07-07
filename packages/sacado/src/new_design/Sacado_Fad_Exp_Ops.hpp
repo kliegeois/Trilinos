@@ -1131,7 +1131,7 @@ namespace Sacado {
         using std::pow;
         // Don't use formula (a(x)^b)' = b*a(x)^{b-1}*a'(x)
         // It seems less accurate and caused convergence problems in some codes
-        return expr1.val() == value_type(0.0) ? value_type(0.0) : value_type(c*expr1.dx(i)/expr1.val()*pow(expr1.val(),c));
+        return expr1.val() == value_type(0.0) ? value_type(c*pow(expr1.val(),c-1)*expr1.dx(i)) : value_type(c*expr1.dx(i)/expr1.val()*pow(expr1.val(),c));
       }
 
       KOKKOS_INLINE_FUNCTION
@@ -1139,7 +1139,7 @@ namespace Sacado {
         using std::pow;
         // Don't use formula (a(x)^b)' = b*a(x)^{b-1}*a'(x)
         // It seems less accurate and caused convergence problems in some codes
-        return expr1.val() == value_type(0.0) ? value_type(0.0) : value_type(c*expr1.fastAccessDx(i)/expr1.val()*pow(expr1.val(),c));
+        return expr1.val() == value_type(0.0) ? value_type(c*pow(expr1.val(),c-1)*expr1.fastAccessDx(i)) : value_type(c*expr1.fastAccessDx(i)/expr1.val()*pow(expr1.val(),c));
       }
 
     protected:
