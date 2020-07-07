@@ -657,6 +657,7 @@ Piro::PerformROLAnalysis(
         typedef Tpetra::CrsMatrix<Scalar,LO,GO,Node> CRSM;
         typedef Thyra::TpetraOperatorVectorExtraction<Scalar,LO,GO,Node> tpetra_extract;
 
+        *out << "Checking Accuracy of objective Hessian (11) - computing all entries" << std::endl;
         {
           int dim = rol_x.dimension();
           for (size_t i=0; i<dim; ++i)
@@ -670,6 +671,7 @@ Piro::PerformROLAnalysis(
             Teuchos::RCP<ROL::Vector<double> > Hv = rol_x.clone();
             Teuchos::RCP<ROL::ThyraVector<double> > Hv_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(Hv);
 
+            *out << "Checking Accuracy of objective Hessian (11) - computing column " << i << "/" << dim-1 << std::endl;
             double tol = 1e-10;
             obj.hessVec_11(*Hv_T, *e_T, rol_x, rol_p, tol);
 
@@ -681,6 +683,7 @@ Piro::PerformROLAnalysis(
             Tpetra::MatrixMarket::Writer<CRSM>::writeDenseFile(std::string(name_Hv), Hv_tpetra);
           }
         }
+        *out << "Checking Accuracy of objective Hessian (12) - computing all entries" << std::endl;
         {
           int dim = rol_x.dimension();
           for (size_t i=0; i<dim; ++i)
@@ -694,6 +697,7 @@ Piro::PerformROLAnalysis(
             Teuchos::RCP<ROL::Vector<double> > Hv = rol_x.clone();
             Teuchos::RCP<ROL::ThyraVector<double> > Hv_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(Hv);
 
+            *out << "Checking Accuracy of objective Hessian (12) - computing column " << i << "/" << dim-1 << std::endl;
             double tol = 1e-10;
             obj.hessVec_12(*Hv_T, *e_T, rol_x, rol_p, tol);
 
@@ -708,6 +712,7 @@ Piro::PerformROLAnalysis(
 
           }
         }
+        *out << "Checking Accuracy of objective Hessian (21) - computing all entries" << std::endl;
         {
           int dim = rol_p.dimension();
           for (size_t i=0; i<dim; ++i)
@@ -721,6 +726,7 @@ Piro::PerformROLAnalysis(
             Teuchos::RCP<ROL::Vector<double> > Hv = rol_p_direction1.clone();
             Teuchos::RCP<ROL::ThyraVector<double> > Hv_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(Hv);
 
+            *out << "Checking Accuracy of objective Hessian (21) - computing column " << i << "/" << dim-1 << std::endl;
             double tol = 1e-10;
             obj.hessVec_21(*Hv_T, *e_T, rol_x, rol_p, tol);
 
@@ -743,6 +749,7 @@ Piro::PerformROLAnalysis(
             }
           }
         }
+        *out << "Checking Accuracy of objective Hessian (22) - computing all entries" << std::endl;
         {
           int dim = rol_p.dimension();
           for (size_t i=0; i<dim; ++i)
@@ -756,6 +763,7 @@ Piro::PerformROLAnalysis(
             Teuchos::RCP<ROL::Vector<double> > Hv = rol_p_direction1.clone();
             Teuchos::RCP<ROL::ThyraVector<double> > Hv_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(Hv);
 
+            *out << "Checking Accuracy of objective Hessian (22) - computing column " << i << "/" << dim-1 << std::endl;
             double tol = 1e-10;
             obj.hessVec_22(*Hv_T, *e_T, rol_x, rol_p, tol);
 
