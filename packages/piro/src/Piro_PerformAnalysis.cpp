@@ -645,7 +645,9 @@ Piro::PerformROLAnalysis(
        *out << "Checking Accuracy of objective Hessian (22)" << std::endl;
        obj.checkHessVec_22(rol_x,rol_p,rol_p_direction1,true,*out,num_steps,order);
 
-      bool computed_Hessian = false;
+      bool computed_Hessian = rolParams.get<bool>("Expensive Hessian Computations", false);
+
+      int dim_max = rolParams.get<int>("Number of columns computed of the Hessian", 100);
 
       if(computed_Hessian)
       {
@@ -659,7 +661,7 @@ Piro::PerformROLAnalysis(
 
         *out << "Checking Accuracy of objective Hessian (11) - computing all entries" << std::endl;
         {
-          int dim = rol_x.dimension();
+          int dim = dim_max < rol_x.dimension() ? dim_max : rol_x.dimension();
           for (size_t i=0; i<dim; ++i)
           {
             Teuchos::RCP<ROL::Vector<double> > e = rol_x.clone();
@@ -671,7 +673,7 @@ Piro::PerformROLAnalysis(
             Teuchos::RCP<ROL::Vector<double> > Hv = rol_x.clone();
             Teuchos::RCP<ROL::ThyraVector<double> > Hv_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(Hv);
 
-            *out << "Checking Accuracy of objective Hessian (11) - computing column " << i << "/" << dim-1 << std::endl;
+            *out << "Checking Accuracy of objective Hessian (11) - computing column " << i+1 << "/" << dim << std::endl;
             double tol = 1e-10;
             obj.hessVec_11(*Hv_T, *e_T, rol_x, rol_p, tol);
 
@@ -685,7 +687,7 @@ Piro::PerformROLAnalysis(
         }
         *out << "Checking Accuracy of objective Hessian (12) - computing all entries" << std::endl;
         {
-          int dim = rol_x.dimension();
+          int dim = dim_max < rol_x.dimension() ? dim_max : rol_x.dimension();
           for (size_t i=0; i<dim; ++i)
           {
             Teuchos::RCP<ROL::Vector<double> > e = rol_p.clone();
@@ -697,7 +699,7 @@ Piro::PerformROLAnalysis(
             Teuchos::RCP<ROL::Vector<double> > Hv = rol_x.clone();
             Teuchos::RCP<ROL::ThyraVector<double> > Hv_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(Hv);
 
-            *out << "Checking Accuracy of objective Hessian (12) - computing column " << i << "/" << dim-1 << std::endl;
+            *out << "Checking Accuracy of objective Hessian (12) - computing column " << i+1 << "/" << dim << std::endl;
             double tol = 1e-10;
             obj.hessVec_12(*Hv_T, *e_T, rol_x, rol_p, tol);
 
@@ -714,7 +716,7 @@ Piro::PerformROLAnalysis(
         }
         *out << "Checking Accuracy of objective Hessian (21) - computing all entries" << std::endl;
         {
-          int dim = rol_p.dimension();
+          int dim = dim_max < rol_p.dimension() ? dim_max : rol_p.dimension();
           for (size_t i=0; i<dim; ++i)
           {
             Teuchos::RCP<ROL::Vector<double> > e = rol_x.clone();
@@ -726,7 +728,7 @@ Piro::PerformROLAnalysis(
             Teuchos::RCP<ROL::Vector<double> > Hv = rol_p_direction1.clone();
             Teuchos::RCP<ROL::ThyraVector<double> > Hv_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(Hv);
 
-            *out << "Checking Accuracy of objective Hessian (21) - computing column " << i << "/" << dim-1 << std::endl;
+            *out << "Checking Accuracy of objective Hessian (21) - computing column " << i+1 << "/" << dim << std::endl;
             double tol = 1e-10;
             obj.hessVec_21(*Hv_T, *e_T, rol_x, rol_p, tol);
 
@@ -751,7 +753,7 @@ Piro::PerformROLAnalysis(
         }
         *out << "Checking Accuracy of objective Hessian (22) - computing all entries" << std::endl;
         {
-          int dim = rol_p.dimension();
+          int dim = dim_max < rol_p.dimension() ? dim_max : rol_p.dimension();
           for (size_t i=0; i<dim; ++i)
           {
             Teuchos::RCP<ROL::Vector<double> > e = rol_p.clone();
@@ -763,7 +765,7 @@ Piro::PerformROLAnalysis(
             Teuchos::RCP<ROL::Vector<double> > Hv = rol_p_direction1.clone();
             Teuchos::RCP<ROL::ThyraVector<double> > Hv_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(Hv);
 
-            *out << "Checking Accuracy of objective Hessian (22) - computing column " << i << "/" << dim-1 << std::endl;
+            *out << "Checking Accuracy of objective Hessian (22) - computing column " << i+1 << "/" << dim << std::endl;
             double tol = 1e-10;
             obj.hessVec_22(*Hv_T, *e_T, rol_x, rol_p, tol);
 
