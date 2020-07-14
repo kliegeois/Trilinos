@@ -646,6 +646,7 @@ Piro::PerformROLAnalysis(
        obj.checkHessVec_22(rol_x,rol_p,rol_p_direction1,true,*out,num_steps,order);
 
       bool computed_Hessian = rolParams.get<bool>("Expensive Hessian Computations", false);
+      bool use_MatrixMarket = rolParams.get<bool>("Hessian Computations export using MatrixMarket", false);
 
       int dim_max = rolParams.get<int>("Number of columns computed of the Hessian", 100);
 
@@ -679,10 +680,21 @@ Piro::PerformROLAnalysis(
 
             Teuchos::RCP<Thyra::VectorBase<double> > Hv_TVB = Hv_T->getVector();
 
-            auto Hv_tpetra = Teuchos::rcp_dynamic_cast<Thyra::TpetraVector<Scalar,LO,GO,Node>>(Hv_TVB)->getConstTpetraVector();
+            Teuchos::RCP<Thyra::TpetraVector<Scalar,LO,GO,Node>> Hv_TTV = Teuchos::rcp_dynamic_cast<Thyra::TpetraVector<Scalar,LO,GO,Node>>(Hv_TVB);
 
             std::string name_Hv = "Hv_11_" + std::to_string(i) + ".txt";
-            Tpetra::MatrixMarket::Writer<CRSM>::writeDenseFile(std::string(name_Hv), Hv_tpetra);
+
+            if (!Hv_TTV.is_null() && use_MatrixMarket)
+            {
+              auto Hv_tpetra = Hv_TTV->getConstTpetraVector();
+              Tpetra::MatrixMarket::Writer<CRSM>::writeDenseFile(std::string(name_Hv), Hv_tpetra);
+            }
+            else
+            {
+              std::ofstream MatrixMatrix_ofstream(name_Hv);
+              RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
+              Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
+            }
           }
         }
         *out << "Checking Accuracy of objective Hessian (12) - computing all entries" << std::endl;
@@ -705,13 +717,21 @@ Piro::PerformROLAnalysis(
 
             Teuchos::RCP<Thyra::VectorBase<double> > Hv_TVB = Hv_T->getVector();
 
-            auto Hv_tpetra = Teuchos::rcp_dynamic_cast<Thyra::TpetraVector<Scalar,LO,GO,Node>>(Hv_TVB)->getConstTpetraVector();
-
-            //Hv_TVB->describe(, Teuchos::VERB_EXTREME);
+            Teuchos::RCP<Thyra::TpetraVector<Scalar,LO,GO,Node>> Hv_TTV = Teuchos::rcp_dynamic_cast<Thyra::TpetraVector<Scalar,LO,GO,Node>>(Hv_TVB);
 
             std::string name_Hv = "Hv_12_" + std::to_string(i) + ".txt";
-            Tpetra::MatrixMarket::Writer<CRSM>::writeDenseFile(std::string(name_Hv), Hv_tpetra);
 
+            if (!Hv_TTV.is_null() && use_MatrixMarket)
+            {
+              auto Hv_tpetra = Hv_TTV->getConstTpetraVector();
+              Tpetra::MatrixMarket::Writer<CRSM>::writeDenseFile(std::string(name_Hv), Hv_tpetra);
+            }
+            else
+            {
+              std::ofstream MatrixMatrix_ofstream(name_Hv);
+              RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
+              Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
+            }
           }
         }
         *out << "Checking Accuracy of objective Hessian (21) - computing all entries" << std::endl;
@@ -735,16 +755,16 @@ Piro::PerformROLAnalysis(
             Teuchos::RCP<Thyra::VectorBase<double> > Hv_TVB = Hv_T->getVector();
 
             Teuchos::RCP<Thyra::TpetraVector<Scalar,LO,GO,Node>> Hv_TTV = Teuchos::rcp_dynamic_cast<Thyra::TpetraVector<Scalar,LO,GO,Node>>(Hv_TVB);
-            if (!Hv_TTV.is_null())
+
+            std::string name_Hv = "Hv_21_" + std::to_string(i) + ".txt";
+
+            if (!Hv_TTV.is_null() && use_MatrixMarket)
             {
               auto Hv_tpetra = Hv_TTV->getConstTpetraVector();
-
-              std::string name_Hv = "Hv_21_" + std::to_string(i) + ".txt";
               Tpetra::MatrixMarket::Writer<CRSM>::writeDenseFile(std::string(name_Hv), Hv_tpetra);
             }
             else
             {
-              std::string name_Hv = "Hv_21_" + std::to_string(i) + ".txt";
               std::ofstream MatrixMatrix_ofstream(name_Hv);
               RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
               Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
@@ -772,16 +792,16 @@ Piro::PerformROLAnalysis(
             Teuchos::RCP<Thyra::VectorBase<double> > Hv_TVB = Hv_T->getVector();
 
             Teuchos::RCP<Thyra::TpetraVector<Scalar,LO,GO,Node>> Hv_TTV = Teuchos::rcp_dynamic_cast<Thyra::TpetraVector<Scalar,LO,GO,Node>>(Hv_TVB);
-            if (!Hv_TTV.is_null())
+
+            std::string name_Hv = "Hv_22_" + std::to_string(i) + ".txt";
+
+            if (!Hv_TTV.is_null() && use_MatrixMarket)
             {
               auto Hv_tpetra = Hv_TTV->getConstTpetraVector();
-
-              std::string name_Hv = "Hv_22_" + std::to_string(i) + ".txt";
               Tpetra::MatrixMarket::Writer<CRSM>::writeDenseFile(std::string(name_Hv), Hv_tpetra);
             }
             else
             {
-              std::string name_Hv = "Hv_22_" + std::to_string(i) + ".txt";
               std::ofstream MatrixMatrix_ofstream(name_Hv);
               RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
               Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
