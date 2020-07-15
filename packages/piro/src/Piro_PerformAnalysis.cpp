@@ -699,7 +699,7 @@ Piro::PerformROLAnalysis(
         }
         *out << "Checking Accuracy of objective Hessian (12) - computing all entries" << std::endl;
         {
-          int dim = dim_max < rol_x.dimension() ? dim_max : rol_x.dimension();
+          int dim = dim_max < rol_p.dimension() ? dim_max : rol_p.dimension();
           for (size_t i=0; i<dim; ++i)
           {
             Teuchos::RCP<ROL::Vector<double> > e = rol_p.clone();
@@ -736,7 +736,7 @@ Piro::PerformROLAnalysis(
         }
         *out << "Checking Accuracy of objective Hessian (21) - computing all entries" << std::endl;
         {
-          int dim = dim_max < rol_p.dimension() ? dim_max : rol_p.dimension();
+          int dim = dim_max < rol_x.dimension() ? dim_max : rol_x.dimension();
           for (size_t i=0; i<dim; ++i)
           {
             Teuchos::RCP<ROL::Vector<double> > e = rol_x.clone();
