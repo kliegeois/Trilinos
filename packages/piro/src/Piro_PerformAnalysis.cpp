@@ -684,17 +684,9 @@ Piro::PerformROLAnalysis(
 
             std::string name_Hv = "Hv_11_" + std::to_string(i) + ".txt";
 
-            if (!Hv_TTV.is_null() && use_MatrixMarket)
-            {
-              auto Hv_tpetra = Hv_TTV->getConstTpetraVector();
-              Tpetra::MatrixMarket::Writer<CRSM>::writeDenseFile(std::string(name_Hv), Hv_tpetra);
-            }
-            else
-            {
-              std::ofstream MatrixMatrix_ofstream(name_Hv);
-              RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
-              Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
-            }
+            std::ofstream MatrixMatrix_ofstream(name_Hv);
+            RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
+            Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
           }
         }
         *out << "Checking Accuracy of objective Hessian (12) - computing all entries" << std::endl;
@@ -721,17 +713,9 @@ Piro::PerformROLAnalysis(
 
             std::string name_Hv = "Hv_12_" + std::to_string(i) + ".txt";
 
-            if (!Hv_TTV.is_null() && use_MatrixMarket)
-            {
-              auto Hv_tpetra = Hv_TTV->getConstTpetraVector();
-              Tpetra::MatrixMarket::Writer<CRSM>::writeDenseFile(std::string(name_Hv), Hv_tpetra);
-            }
-            else
-            {
-              std::ofstream MatrixMatrix_ofstream(name_Hv);
-              RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
-              Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
-            }
+            std::ofstream MatrixMatrix_ofstream(name_Hv);
+            RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
+            Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
           }
         }
         *out << "Checking Accuracy of objective Hessian (21) - computing all entries" << std::endl;
@@ -758,17 +742,9 @@ Piro::PerformROLAnalysis(
 
             std::string name_Hv = "Hv_21_" + std::to_string(i) + ".txt";
 
-            if (!Hv_TTV.is_null() && use_MatrixMarket)
-            {
-              auto Hv_tpetra = Hv_TTV->getConstTpetraVector();
-              Tpetra::MatrixMarket::Writer<CRSM>::writeDenseFile(std::string(name_Hv), Hv_tpetra);
-            }
-            else
-            {
-              std::ofstream MatrixMatrix_ofstream(name_Hv);
-              RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
-              Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
-            }
+            std::ofstream MatrixMatrix_ofstream(name_Hv);
+            RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
+            Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
           }
         }
         *out << "Checking Accuracy of objective Hessian (22) - computing all entries" << std::endl;
@@ -795,17 +771,9 @@ Piro::PerformROLAnalysis(
 
             std::string name_Hv = "Hv_22_" + std::to_string(i) + ".txt";
 
-            if (!Hv_TTV.is_null() && use_MatrixMarket)
-            {
-              auto Hv_tpetra = Hv_TTV->getConstTpetraVector();
-              Tpetra::MatrixMarket::Writer<CRSM>::writeDenseFile(std::string(name_Hv), Hv_tpetra);
-            }
-            else
-            {
-              std::ofstream MatrixMatrix_ofstream(name_Hv);
-              RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
-              Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
-            }
+            std::ofstream MatrixMatrix_ofstream(name_Hv);
+            RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
+            Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
           }
         }
       }
