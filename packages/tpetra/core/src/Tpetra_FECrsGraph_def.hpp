@@ -270,7 +270,7 @@ void FECrsGraph<LocalOrdinal, GlobalOrdinal, Node>::doOwnedPlusSharedToOwned(con
 
     // In debug mode, we check to make sure the "if you own an element, you own at least one of its nodes"
     const bool debug = ::Tpetra::Details::Behavior::debug ();
-    if (debug) {
+    /* if (debug) {
       Teuchos::RCP<const map_type> colmap = this->getColMap();
       Teuchos::Array<bool> flag(colmap->getNodeNumElements(),false);
       Teuchos::Array<LocalOrdinal> indices(this->getNodeMaxNumRowEntries());
@@ -289,7 +289,7 @@ void FECrsGraph<LocalOrdinal, GlobalOrdinal, Node>::doOwnedPlusSharedToOwned(con
          std::invalid_argument, "if you own an element (in the finite element sense) you "
          "must also own one of the attached nodes.  This assumption has been violated in "
          "your matrix fill.");
-    }
+    } */
 
     // Time to build an owned localGraph via subviews
     local_graph_type ownedPlusSharedGraph = this->getLocalGraph();
