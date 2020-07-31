@@ -1,33 +1,32 @@
 TRIBITS_PACKAGE(Gtest)
 
-# Option to skip installation of gtest package
 SET(${PACKAGE_NAME}_SKIP_INSTALL FALSE CACHE BOOL
   "Set to TRUE to skip the install of Gtest header and library")
+
+ADD_DEFINITIONS(-DGTEST_HAS_PTHREAD=0)
+
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
+
+APPEND_SET(HEADERS 
+  ${CMAKE_CURRENT_SOURCE_DIR}/gtest/gtest.h
+  )
+
+APPEND_SET(SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/gtest/gtest-all.cc
+  )
+
 IF (${PACKAGE_NAME}_SKIP_INSTALL)
-  SET(Gtest_NO_INSTALL_LIB_OR_HEADERS_ARG NO_INSTALL_LIB_OR_HEADERS CACHE INTERNAL "")
-  SET(INSTALL_GTEST OFF CACHE BOOL "Install GTest") # referenced by internal googletest package
+  SET(Gtest_NO_INSTALL_LIB_OR_HEADERS_ARG NO_INSTALL_LIB_OR_HEADERS CACHE INTERNAL "") 
 ELSE()
   SET(Gtest_NO_INSTALL_LIB_OR_HEADERS_ARG CACHE INTERNAL "")
-  # Internal googltest package uses GNUInstallDirs, which installs in lib64
-  # by default instead of lib like the rest of Trilinos.
-  SET(CMAKE_INSTALL_LIBDIR "lib" CACHE PATH "Object code libraries for GTest")
 ENDIF()
 
-# disable pthreads (not sure why, the previous version here did this)
-SET(gtest_disable_pthreads ON CACHE BOOL "Disable uses of pthreads in gtest")
-
-# Configure googletest
-add_subdirectory(googletest)
-
-# Create dummy tribits library linking to internal gtest library so tribits
-# will set dependencies of downstream packages correctly.  Unfortunately we
-# appear to have tp provide some source file
 TRIBITS_ADD_LIBRARY(
-  trilinos-gtest
-  SOURCES trilinos-gtest.cpp
+  gtest
+  HEADERS ${HEADERS}
+  HEADERS_INSTALL_SUBDIR gtest
+  SOURCES ${SOURCES}
   ${Gtest_NO_INSTALL_LIB_OR_HEADERS_ARG}
-  ADDED_LIB_TARGET_NAME_OUT TrilinosGtestLibName
   )
-TARGET_LINK_LIBRARIES("${TrilinosGtestLibName}" gtest)
 
 TRIBITS_PACKAGE_POSTPROCESS()
