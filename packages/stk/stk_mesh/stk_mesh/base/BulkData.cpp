@@ -52,6 +52,7 @@
 #include "stk_mesh/baseImpl/PartVectorUtils.hpp"
 #include "stk_mesh/baseImpl/MeshPrintUtils.hpp"
 #include "stk_mesh/baseImpl/MeshModification.hpp"
+#include "stk_mesh/baseImpl/ConnectEdgesImpl.hpp"
 #include "stk_topology/topology.hpp"    // for topology, etc
 #include "stk_util/diag/StringUtil.hpp"
 #include "stk_util/parallel/Parallel.hpp"  // for ParallelMachine, etc
@@ -918,6 +919,9 @@ Entity BulkData::create_and_connect_side(const stk::mesh::EntityId globalSideId,
   else {    
     impl::connect_element_to_entity(*this, elem, side, localSideId, parts, sideTop);
   }
+  if(this->num_edges(elem) != 0) {
+    impl::connect_face_to_edges(*this, side);
+  }
   return side;
 }
 
@@ -1703,15 +1707,27 @@ void BulkData::comm_shared_procs(Entity entity, std::vector<int> & procs ) const
 void BulkData::shared_procs_intersection(const std::vector<EntityKey> & keys, std::vector<int> & procs ) const
 {
   procs.clear();
-  const int num = keys.size();
+  int num = keys.size();
+  std::vector<int> procs_tmp;
+  std::vector<int> result;
   for (int i = 0; i < num; ++i)
   {
-    if (i == 0) {
-      comm_shared_procs(keys[i], procs);
-    }
-    else {
-      PairIterEntityComm sharedComm = internal_entity_comm_map_shared(keys[i]);
-      impl::intersect_with(procs, sharedComm);
+    comm_shared_procs(keys[i], procs_tmp);
+
+    if (i == 0)
+      procs.swap(procs_tmp);
+    else
+    {
+      // subsequent loops keep the intersection
+      result.clear();
+      std::back_insert_iterator<std::vector<int> > result_itr(result);
+      std::set_intersection(procs.begin(),
+                            procs.end(),
+                            procs_tmp.begin(),
+                            procs_tmp.end(),
+                            result_itr,
+                            std::less<int>());
+      procs.swap(result);
     }
   }
 }
@@ -1720,15 +1736,27 @@ void BulkData::shared_procs_intersection(const EntityVector& entities,
                                          std::vector<int> & procs ) const
 {
   procs.clear();
-  const int num = entities.size();
+  int num = entities.size();
+  std::vector<int> procs_tmp;
+  std::vector<int> result;
   for (int i = 0; i < num; ++i)
   {
-    if (i == 0) {
-      comm_shared_procs(entities[i], procs);
-    }
-    else {
-      PairIterEntityComm sharedComm = internal_entity_comm_map_shared(entities[i]);
-      impl::intersect_with(procs, sharedComm);
+    comm_shared_procs(entities[i], procs_tmp);
+
+    if (i == 0)
+      procs.swap(procs_tmp);
+    else
+    {
+      // subsequent loops keep the intersection
+      result.clear();
+      std::back_insert_iterator<std::vector<int> > result_itr(result);
+      std::set_intersection(procs.begin(),
+                            procs.end(),
+                            procs_tmp.begin(),
+                            procs_tmp.end(),
+                            result_itr,
+                            std::less<int>());
+      procs.swap(result);
     }
   }
 }
@@ -4866,6 +4894,8 @@ void BulkData::find_upward_connected_entities_to_ghost_onto_other_processors(stk
                                                                              stk::mesh::Selector selected,
                                                                              bool connectFacesToPreexistingGhosts)
 {
+    if(entity_rank == stk::topology::NODE_RANK) { return; }
+
     const stk::mesh::BucketVector& entity_buckets = mesh.buckets(entity_rank);
     bool isedge = (entity_rank == stk::topology::EDGE_RANK && mesh_meta_data().spatial_dimension() == 3);
 
