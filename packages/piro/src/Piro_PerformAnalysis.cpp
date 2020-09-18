@@ -811,7 +811,134 @@ Piro::PerformROLAnalysis(
       }
 
        *out << "Checking Accuracy of constraint Hessian" << std::endl;
-       constr.checkApplyAdjointHessian(sopt_vec, rol_x_direction1, sopt_vec_direction2, sopt_vec_direction2, true,*out,num_steps,order);
+       auto hvCheck = constr.checkApplyAdjointHessian(sopt_vec, rol_x_direction1, sopt_vec_direction2, sopt_vec_direction2, true,*out,num_steps,order);
+
+      *out << "Checking Accuracy of constraint Hessian" << std::endl;
+      for (int ii=0; ii<hvCheck.size(); ++ii) {
+        if (ii==0) {
+        *out << std::right
+                  << std::setw(20) << "Step size"
+                  << std::setw(20) << "norm(Hess*vec)"
+                  << std::setw(20) << "norm(FD approx)"
+                  << std::setw(20) << "norm(abs error)"
+                  << "\n"
+                  << std::setw(20) << "---------"
+                  << std::setw(20) << "--------------"
+                  << std::setw(20) << "---------------"
+                  << std::setw(20) << "---------------"
+                  << "\n";
+        }
+        *out << std::scientific << std::setprecision(11) << std::right
+                  << std::setw(20) << hvCheck[ii][0]
+                  << std::setw(20) << hvCheck[ii][1]
+                  << std::setw(20) << hvCheck[ii][2]
+                  << std::setw(20) << hvCheck[ii][3]
+                  << "\n";
+      }
+
+       *out << "Checking Accuracy of constraint Hessian (11)" << std::endl;
+       hvCheck = constr.checkApplyAdjointHessian_11(rol_x,rol_p,rol_x,rol_x_direction2,rol_x_direction2,true,*out,num_steps,order);
+
+      *out << "Checking Accuracy of constraint Hessian (11): all:" << std::endl;
+      for (int ii=0; ii<hvCheck.size(); ++ii) {
+        if (ii==0) {
+        *out << std::right
+                  << std::setw(20) << "Step size"
+                  << std::setw(20) << "norm(Hess*vec)"
+                  << std::setw(20) << "norm(FD approx)"
+                  << std::setw(20) << "norm(abs error)"
+                  << "\n"
+                  << std::setw(20) << "---------"
+                  << std::setw(20) << "--------------"
+                  << std::setw(20) << "---------------"
+                  << std::setw(20) << "---------------"
+                  << "\n";
+        }
+        *out << std::scientific << std::setprecision(11) << std::right
+                  << std::setw(20) << hvCheck[ii][0]
+                  << std::setw(20) << hvCheck[ii][1]
+                  << std::setw(20) << hvCheck[ii][2]
+                  << std::setw(20) << hvCheck[ii][3]
+                  << "\n";
+      }
+
+       *out << "Checking Accuracy of constraint Hessian (12)" << std::endl;
+       hvCheck = constr.checkApplyAdjointHessian_12(rol_x,rol_p,rol_x,rol_x_direction2,rol_p_direction2,true,*out,num_steps,order);
+
+      *out << "Checking Accuracy of constraint Hessian (12): all:" << std::endl;
+      for (int ii=0; ii<hvCheck.size(); ++ii) {
+        if (ii==0) {
+        *out << std::right
+                  << std::setw(20) << "Step size"
+                  << std::setw(20) << "norm(Hess*vec)"
+                  << std::setw(20) << "norm(FD approx)"
+                  << std::setw(20) << "norm(abs error)"
+                  << "\n"
+                  << std::setw(20) << "---------"
+                  << std::setw(20) << "--------------"
+                  << std::setw(20) << "---------------"
+                  << std::setw(20) << "---------------"
+                  << "\n";
+        }
+        *out << std::scientific << std::setprecision(11) << std::right
+                  << std::setw(20) << hvCheck[ii][0]
+                  << std::setw(20) << hvCheck[ii][1]
+                  << std::setw(20) << hvCheck[ii][2]
+                  << std::setw(20) << hvCheck[ii][3]
+                  << "\n";
+      }
+
+       *out << "Checking Accuracy of constraint Hessian (21)" << std::endl;
+       hvCheck = constr.checkApplyAdjointHessian_21(rol_x,rol_p,rol_x,rol_p_direction2,rol_x_direction2,true,*out,num_steps,order);
+
+      *out << "Checking Accuracy of constraint Hessian (21): all:" << std::endl;
+      for (int ii=0; ii<hvCheck.size(); ++ii) {
+        if (ii==0) {
+        *out << std::right
+                  << std::setw(20) << "Step size"
+                  << std::setw(20) << "norm(Hess*vec)"
+                  << std::setw(20) << "norm(FD approx)"
+                  << std::setw(20) << "norm(abs error)"
+                  << "\n"
+                  << std::setw(20) << "---------"
+                  << std::setw(20) << "--------------"
+                  << std::setw(20) << "---------------"
+                  << std::setw(20) << "---------------"
+                  << "\n";
+        }
+        *out << std::scientific << std::setprecision(11) << std::right
+                  << std::setw(20) << hvCheck[ii][0]
+                  << std::setw(20) << hvCheck[ii][1]
+                  << std::setw(20) << hvCheck[ii][2]
+                  << std::setw(20) << hvCheck[ii][3]
+                  << "\n";
+      }
+
+       *out << "Checking Accuracy of constraint Hessian (22)" << std::endl;
+       hvCheck = constr.checkApplyAdjointHessian_22(rol_x,rol_p,rol_x,rol_p_direction2,rol_p_direction2,true,*out,num_steps,order);
+
+      *out << "Checking Accuracy of constraint Hessian (22): all:" << std::endl;
+      for (int ii=0; ii<hvCheck.size(); ++ii) {
+        if (ii==0) {
+        *out << std::right
+                  << std::setw(20) << "Step size"
+                  << std::setw(20) << "norm(Hess*vec)"
+                  << std::setw(20) << "norm(FD approx)"
+                  << std::setw(20) << "norm(abs error)"
+                  << "\n"
+                  << std::setw(20) << "---------"
+                  << std::setw(20) << "--------------"
+                  << std::setw(20) << "---------------"
+                  << std::setw(20) << "---------------"
+                  << "\n";
+        }
+        *out << std::scientific << std::setprecision(11) << std::right
+                  << std::setw(20) << hvCheck[ii][0]
+                  << std::setw(20) << hvCheck[ii][1]
+                  << std::setw(20) << hvCheck[ii][2]
+                  << std::setw(20) << hvCheck[ii][3]
+                  << "\n";
+      }
 
       if(computed_Hessian)
       {
@@ -823,33 +950,56 @@ Piro::PerformROLAnalysis(
         typedef Tpetra::CrsMatrix<Scalar,LO,GO,Node> CRSM;
         typedef Thyra::TpetraOperatorVectorExtraction<Scalar,LO,GO,Node> tpetra_extract;
 
+        Teuchos::RCP<ROL::Vector<double> > z = rol_x.clone();
+        Teuchos::RCP<ROL::ThyraVector<double> > rol_z = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(z);
+        Teuchos::RCP<Thyra::VectorBase<double> > rol_z_VB = rol_z->getVector();
+        ::Thyra::put_scalar(1.0, rol_z_VB.ptr());
+
         *out << "Checking Accuracy of constraint Hessian (11) - computing all entries" << std::endl;
         {
           int dim = dim_max < rol_x.dimension() ? dim_max : rol_x.dimension();
           for (size_t i=0; i<dim; ++i)
           {
-            Teuchos::RCP<ROL::Vector<double> > e = rol_x.clone();
+            Teuchos::RCP<ROL::Vector<double> > e = (sopt_vec_direction2.get_1())->clone();
             Teuchos::RCP<ROL::ThyraVector<double> > e_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(e);
             Teuchos::RCP<Thyra::VectorBase<double> > rol_direction = e_T->getVector();
             ::Thyra::put_scalar(0.0, rol_direction.ptr());
             ::Thyra::set_ele(i,1.0, rol_direction.ptr());
 
-            Teuchos::RCP<ROL::Vector<double> > Hv = rol_x.clone();
+            Teuchos::RCP<ROL::Vector<double> > Hv = (sopt_vec_direction2.get_1())->clone();
             Teuchos::RCP<ROL::ThyraVector<double> > Hv_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(Hv);
 
             *out << "Checking Accuracy of constraint Hessian (11) - computing column " << i+1 << "/" << dim << std::endl;
             double tol = 1e-10;
-            constr.applyAdjointHessian_11(*Hv_T, rol_x, *e_T, rol_x, rol_p, tol);
+            constr.applyAdjointHessian_11(*Hv_T, *rol_z, *e_T, rol_x, rol_p, tol);
 
             Teuchos::RCP<Thyra::VectorBase<double> > Hv_TVB = Hv_T->getVector();
-
-            Teuchos::RCP<Thyra::TpetraVector<Scalar,LO,GO,Node>> Hv_TTV = Teuchos::rcp_dynamic_cast<Thyra::TpetraVector<Scalar,LO,GO,Node>>(Hv_TVB);
 
             std::string name_Hv = "Hv_f_11_" + std::to_string(i) + ".txt";
 
             std::ofstream MatrixMatrix_ofstream(name_Hv);
             RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
             Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
+
+            std::string name_1 = "Hv_v_11_" + std::to_string(i) + ".txt";
+            std::ofstream MatrixMatrix_ofstream_1(name_1);
+            RCP<Teuchos::FancyOStream> verbOut_1 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_1));
+            rol_direction->describe(*verbOut_1, Teuchos::VERB_EXTREME);
+
+            std::string name_2 = "Hv_w_11_" + std::to_string(i) + ".txt";
+            std::ofstream MatrixMatrix_ofstream_2(name_2);
+            RCP<Teuchos::FancyOStream> verbOut_2 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_2));
+            rol_z_VB->describe(*verbOut_2, Teuchos::VERB_EXTREME);
+
+            std::string name_3 = "Hv_u_11_" + std::to_string(i) + ".txt";
+            std::ofstream MatrixMatrix_ofstream_3(name_3);
+            RCP<Teuchos::FancyOStream> verbOut_3 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_3));
+            rol_x.getVector()->describe(*verbOut_3, Teuchos::VERB_EXTREME);
+
+            std::string name_4 = "Hv_z_11_" + std::to_string(i) + ".txt";
+            std::ofstream MatrixMatrix_ofstream_4(name_4);
+            RCP<Teuchos::FancyOStream> verbOut_4 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_4));
+            rol_p.getVector()->describe(*verbOut_4, Teuchos::VERB_EXTREME);
           }
         }
         *out << "Checking Accuracy of constraint Hessian (12) - computing all entries" << std::endl;
@@ -857,13 +1007,13 @@ Piro::PerformROLAnalysis(
           int dim = dim_max < rol_p.dimension() ? dim_max : rol_p.dimension();
           for (size_t i=0; i<dim; ++i)
           {
-            Teuchos::RCP<ROL::Vector<double> > e = rol_p.clone();
+            Teuchos::RCP<ROL::Vector<double> > e = (sopt_vec_direction2.get_1())->clone();
             Teuchos::RCP<ROL::ThyraVector<double> > e_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(e);
             Teuchos::RCP<Thyra::VectorBase<double> > rol_direction = e_T->getVector();
             ::Thyra::put_scalar(0.0, rol_direction.ptr());
             ::Thyra::set_ele(i,1.0, rol_direction.ptr());
 
-            Teuchos::RCP<ROL::Vector<double> > Hv = rol_x.clone();
+            Teuchos::RCP<ROL::Vector<double> > Hv = (sopt_vec_direction2.get_2())->clone();
             Teuchos::RCP<ROL::ThyraVector<double> > Hv_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(Hv);
 
             *out << Hv_T.is_null() << std::endl;
@@ -871,17 +1021,35 @@ Piro::PerformROLAnalysis(
 
             *out << "Checking Accuracy of constraint Hessian (12) - computing column " << i+1 << "/" << dim << std::endl;
             double tol = 1e-10;
-            constr.applyAdjointHessian_12(*Hv_T, rol_x, *e_T, rol_x, rol_p, tol);
+            constr.applyAdjointHessian_12(*Hv_T, *rol_z, *e_T, rol_x, rol_p, tol);
 
             Teuchos::RCP<Thyra::VectorBase<double> > Hv_TVB = Hv_T->getVector();
-
-            Teuchos::RCP<Thyra::TpetraVector<Scalar,LO,GO,Node>> Hv_TTV = Teuchos::rcp_dynamic_cast<Thyra::TpetraVector<Scalar,LO,GO,Node>>(Hv_TVB);
 
             std::string name_Hv = "Hv_f_12_" + std::to_string(i) + ".txt";
 
             std::ofstream MatrixMatrix_ofstream(name_Hv);
             RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
             Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
+
+            std::string name_1 = "Hv_v_12_" + std::to_string(i) + ".txt";
+            std::ofstream MatrixMatrix_ofstream_1(name_1);
+            RCP<Teuchos::FancyOStream> verbOut_1 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_1));
+            rol_direction->describe(*verbOut_1, Teuchos::VERB_EXTREME);
+
+            std::string name_2 = "Hv_w_12_" + std::to_string(i) + ".txt";
+            std::ofstream MatrixMatrix_ofstream_2(name_2);
+            RCP<Teuchos::FancyOStream> verbOut_2 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_2));
+            rol_z_VB->describe(*verbOut_2, Teuchos::VERB_EXTREME);
+
+            std::string name_3 = "Hv_u_12_" + std::to_string(i) + ".txt";
+            std::ofstream MatrixMatrix_ofstream_3(name_3);
+            RCP<Teuchos::FancyOStream> verbOut_3 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_3));
+            rol_x.getVector()->describe(*verbOut_3, Teuchos::VERB_EXTREME);
+
+            std::string name_4 = "Hv_z_12_" + std::to_string(i) + ".txt";
+            std::ofstream MatrixMatrix_ofstream_4(name_4);
+            RCP<Teuchos::FancyOStream> verbOut_4 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_4));
+            rol_p.getVector()->describe(*verbOut_4, Teuchos::VERB_EXTREME);
           }
         }
         *out << "Checking Accuracy of constraint Hessian (21) - computing all entries" << std::endl;
@@ -889,28 +1057,46 @@ Piro::PerformROLAnalysis(
           int dim = dim_max < rol_x.dimension() ? dim_max : rol_x.dimension();
           for (size_t i=0; i<dim; ++i)
           {
-            Teuchos::RCP<ROL::Vector<double> > e = rol_x.clone();
+            Teuchos::RCP<ROL::Vector<double> > e = (sopt_vec_direction2.get_2())->clone();
             Teuchos::RCP<ROL::ThyraVector<double> > e_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(e);
             Teuchos::RCP<Thyra::VectorBase<double> > rol_direction = e_T->getVector();
             ::Thyra::put_scalar(0.0, rol_direction.ptr());
             ::Thyra::set_ele(i,1.0, rol_direction.ptr());
 
-            Teuchos::RCP<ROL::Vector<double> > Hv = rol_p_direction1.clone();
+            Teuchos::RCP<ROL::Vector<double> > Hv = (sopt_vec_direction2.get_1())->clone();
             Teuchos::RCP<ROL::ThyraVector<double> > Hv_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(Hv);
 
             *out << "Checking Accuracy of constraint Hessian (21) - computing column " << i+1 << "/" << dim << std::endl;
             double tol = 1e-10;
-            constr.applyAdjointHessian_21(*Hv_T, rol_x, *e_T, rol_x, rol_p, tol);
+            constr.applyAdjointHessian_21(*Hv_T, *rol_z, *e_T, rol_x, rol_p, tol);
 
             Teuchos::RCP<Thyra::VectorBase<double> > Hv_TVB = Hv_T->getVector();
-
-            Teuchos::RCP<Thyra::TpetraVector<Scalar,LO,GO,Node>> Hv_TTV = Teuchos::rcp_dynamic_cast<Thyra::TpetraVector<Scalar,LO,GO,Node>>(Hv_TVB);
 
             std::string name_Hv = "Hv_f_21_" + std::to_string(i) + ".txt";
 
             std::ofstream MatrixMatrix_ofstream(name_Hv);
             RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
             Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
+
+            std::string name_1 = "Hv_v_21_" + std::to_string(i) + ".txt";
+            std::ofstream MatrixMatrix_ofstream_1(name_1);
+            RCP<Teuchos::FancyOStream> verbOut_1 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_1));
+            rol_direction->describe(*verbOut_1, Teuchos::VERB_EXTREME);
+
+            std::string name_2 = "Hv_w_21_" + std::to_string(i) + ".txt";
+            std::ofstream MatrixMatrix_ofstream_2(name_2);
+            RCP<Teuchos::FancyOStream> verbOut_2 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_2));
+            rol_z_VB->describe(*verbOut_2, Teuchos::VERB_EXTREME);
+
+            std::string name_3 = "Hv_u_21_" + std::to_string(i) + ".txt";
+            std::ofstream MatrixMatrix_ofstream_3(name_3);
+            RCP<Teuchos::FancyOStream> verbOut_3 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_3));
+            rol_x.getVector()->describe(*verbOut_3, Teuchos::VERB_EXTREME);
+
+            std::string name_4 = "Hv_z_21_" + std::to_string(i) + ".txt";
+            std::ofstream MatrixMatrix_ofstream_4(name_4);
+            RCP<Teuchos::FancyOStream> verbOut_4 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_4));
+            rol_p.getVector()->describe(*verbOut_4, Teuchos::VERB_EXTREME);
           }
         }
         *out << "Checking Accuracy of constraint Hessian (22) - computing all entries" << std::endl;
@@ -918,29 +1104,47 @@ Piro::PerformROLAnalysis(
           int dim = dim_max < rol_p.dimension() ? dim_max : rol_p.dimension();
           for (size_t i=0; i<dim; ++i)
           {
-            Teuchos::RCP<ROL::Vector<double> > e = rol_p.clone();
+            Teuchos::RCP<ROL::Vector<double> > e = (sopt_vec_direction2.get_2())->clone();
             Teuchos::RCP<ROL::ThyraVector<double> > e_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(e);
             Teuchos::RCP<Thyra::VectorBase<double> > rol_direction = e_T->getVector();
             ::Thyra::put_scalar(0.0, rol_direction.ptr());
             ::Thyra::set_ele(i,1.0, rol_direction.ptr());
 
-            Teuchos::RCP<ROL::Vector<double> > Hv = rol_p_direction1.clone();
+            Teuchos::RCP<ROL::Vector<double> > Hv = (sopt_vec_direction2.get_2())->clone();
             Teuchos::RCP<ROL::ThyraVector<double> > Hv_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(Hv);
 
             *out << "Checking Accuracy of constraint Hessian (22) - computing column " << i+1 << "/" << dim << std::endl;
             double tol = 1e-10;
 
-            constr.applyAdjointHessian_22(*Hv_T, rol_x, *e_T, rol_x, rol_p, tol);
+            constr.applyAdjointHessian_22(*Hv_T, *rol_z, *e_T, rol_x, rol_p, tol);
 
             Teuchos::RCP<Thyra::VectorBase<double> > Hv_TVB = Hv_T->getVector();
-
-            Teuchos::RCP<Thyra::TpetraVector<Scalar,LO,GO,Node>> Hv_TTV = Teuchos::rcp_dynamic_cast<Thyra::TpetraVector<Scalar,LO,GO,Node>>(Hv_TVB);
 
             std::string name_Hv = "Hv_f_22_" + std::to_string(i) + ".txt";
 
             std::ofstream MatrixMatrix_ofstream(name_Hv);
             RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
             Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
+
+            std::string name_1 = "Hv_v_22_" + std::to_string(i) + ".txt";
+            std::ofstream MatrixMatrix_ofstream_1(name_1);
+            RCP<Teuchos::FancyOStream> verbOut_1 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_1));
+            rol_direction->describe(*verbOut_1, Teuchos::VERB_EXTREME);
+
+            std::string name_2 = "Hv_w_22_" + std::to_string(i) + ".txt";
+            std::ofstream MatrixMatrix_ofstream_2(name_2);
+            RCP<Teuchos::FancyOStream> verbOut_2 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_2));
+            rol_z_VB->describe(*verbOut_2, Teuchos::VERB_EXTREME);
+
+            std::string name_3 = "Hv_u_22_" + std::to_string(i) + ".txt";
+            std::ofstream MatrixMatrix_ofstream_3(name_3);
+            RCP<Teuchos::FancyOStream> verbOut_3 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_3));
+            rol_x.getVector()->describe(*verbOut_3, Teuchos::VERB_EXTREME);
+
+            std::string name_4 = "Hv_z_22_" + std::to_string(i) + ".txt";
+            std::ofstream MatrixMatrix_ofstream_4(name_4);
+            RCP<Teuchos::FancyOStream> verbOut_4 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_4));
+            rol_p.getVector()->describe(*verbOut_4, Teuchos::VERB_EXTREME);
           }
         }
       }
