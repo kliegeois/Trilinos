@@ -119,7 +119,7 @@ void VectorDefaultBase<Scalar>::describe(
     if (verbLevel >= Teuchos::VERB_HIGH) {
       const ConstDetachedVectorView<Scalar> dvv(*this);
       for( Ordinal i = 0; i < dvv.subDim(); ++i )
-        *out << i << ":" << dvv[i] << std::endl;
+        *out << std::setprecision (17) << i << ":" << dvv[i] << std::endl;
     }
   }
 }
