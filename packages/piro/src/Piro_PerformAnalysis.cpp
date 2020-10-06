@@ -955,6 +955,8 @@ Piro::PerformROLAnalysis(
         Teuchos::RCP<Thyra::VectorBase<double> > rol_z_VB = rol_z->getVector();
         ::Thyra::put_scalar(1.0, rol_z_VB.ptr());
 
+        constr.update(rol_x,rol_p);
+
         *out << "Checking Accuracy of constraint Hessian (11) - computing all entries" << std::endl;
         {
           int dim = dim_max < rol_x.dimension() ? dim_max : rol_x.dimension();
@@ -975,31 +977,11 @@ Piro::PerformROLAnalysis(
 
             Teuchos::RCP<Thyra::VectorBase<double> > Hv_TVB = Hv_T->getVector();
 
-            std::string name_Hv = "Hv_f_11_" + std::to_string(i) + ".txt";
+            std::string name_Hv = "Hv_f_T_11_" + std::to_string(i) + ".txt";
 
             std::ofstream MatrixMatrix_ofstream(name_Hv);
             RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
             Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
-
-            std::string name_1 = "Hv_v_11_" + std::to_string(i) + ".txt";
-            std::ofstream MatrixMatrix_ofstream_1(name_1);
-            RCP<Teuchos::FancyOStream> verbOut_1 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_1));
-            rol_direction->describe(*verbOut_1, Teuchos::VERB_EXTREME);
-
-            std::string name_2 = "Hv_w_11_" + std::to_string(i) + ".txt";
-            std::ofstream MatrixMatrix_ofstream_2(name_2);
-            RCP<Teuchos::FancyOStream> verbOut_2 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_2));
-            rol_z_VB->describe(*verbOut_2, Teuchos::VERB_EXTREME);
-
-            std::string name_3 = "Hv_u_11_" + std::to_string(i) + ".txt";
-            std::ofstream MatrixMatrix_ofstream_3(name_3);
-            RCP<Teuchos::FancyOStream> verbOut_3 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_3));
-            rol_x.getVector()->describe(*verbOut_3, Teuchos::VERB_EXTREME);
-
-            std::string name_4 = "Hv_z_11_" + std::to_string(i) + ".txt";
-            std::ofstream MatrixMatrix_ofstream_4(name_4);
-            RCP<Teuchos::FancyOStream> verbOut_4 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_4));
-            rol_p.getVector()->describe(*verbOut_4, Teuchos::VERB_EXTREME);
           }
         }
         *out << "Checking Accuracy of constraint Hessian (12) - computing all entries" << std::endl;
@@ -1025,31 +1007,11 @@ Piro::PerformROLAnalysis(
 
             Teuchos::RCP<Thyra::VectorBase<double> > Hv_TVB = Hv_T->getVector();
 
-            std::string name_Hv = "Hv_f_12_" + std::to_string(i) + ".txt";
+            std::string name_Hv = "Hv_f_T_12_" + std::to_string(i) + ".txt";
 
             std::ofstream MatrixMatrix_ofstream(name_Hv);
             RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
             Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
-
-            std::string name_1 = "Hv_v_12_" + std::to_string(i) + ".txt";
-            std::ofstream MatrixMatrix_ofstream_1(name_1);
-            RCP<Teuchos::FancyOStream> verbOut_1 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_1));
-            rol_direction->describe(*verbOut_1, Teuchos::VERB_EXTREME);
-
-            std::string name_2 = "Hv_w_12_" + std::to_string(i) + ".txt";
-            std::ofstream MatrixMatrix_ofstream_2(name_2);
-            RCP<Teuchos::FancyOStream> verbOut_2 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_2));
-            rol_z_VB->describe(*verbOut_2, Teuchos::VERB_EXTREME);
-
-            std::string name_3 = "Hv_u_12_" + std::to_string(i) + ".txt";
-            std::ofstream MatrixMatrix_ofstream_3(name_3);
-            RCP<Teuchos::FancyOStream> verbOut_3 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_3));
-            rol_x.getVector()->describe(*verbOut_3, Teuchos::VERB_EXTREME);
-
-            std::string name_4 = "Hv_z_12_" + std::to_string(i) + ".txt";
-            std::ofstream MatrixMatrix_ofstream_4(name_4);
-            RCP<Teuchos::FancyOStream> verbOut_4 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_4));
-            rol_p.getVector()->describe(*verbOut_4, Teuchos::VERB_EXTREME);
           }
         }
         *out << "Checking Accuracy of constraint Hessian (21) - computing all entries" << std::endl;
@@ -1072,31 +1034,11 @@ Piro::PerformROLAnalysis(
 
             Teuchos::RCP<Thyra::VectorBase<double> > Hv_TVB = Hv_T->getVector();
 
-            std::string name_Hv = "Hv_f_21_" + std::to_string(i) + ".txt";
+            std::string name_Hv = "Hv_f_T_21_" + std::to_string(i) + ".txt";
 
             std::ofstream MatrixMatrix_ofstream(name_Hv);
             RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
             Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
-
-            std::string name_1 = "Hv_v_21_" + std::to_string(i) + ".txt";
-            std::ofstream MatrixMatrix_ofstream_1(name_1);
-            RCP<Teuchos::FancyOStream> verbOut_1 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_1));
-            rol_direction->describe(*verbOut_1, Teuchos::VERB_EXTREME);
-
-            std::string name_2 = "Hv_w_21_" + std::to_string(i) + ".txt";
-            std::ofstream MatrixMatrix_ofstream_2(name_2);
-            RCP<Teuchos::FancyOStream> verbOut_2 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_2));
-            rol_z_VB->describe(*verbOut_2, Teuchos::VERB_EXTREME);
-
-            std::string name_3 = "Hv_u_21_" + std::to_string(i) + ".txt";
-            std::ofstream MatrixMatrix_ofstream_3(name_3);
-            RCP<Teuchos::FancyOStream> verbOut_3 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_3));
-            rol_x.getVector()->describe(*verbOut_3, Teuchos::VERB_EXTREME);
-
-            std::string name_4 = "Hv_z_21_" + std::to_string(i) + ".txt";
-            std::ofstream MatrixMatrix_ofstream_4(name_4);
-            RCP<Teuchos::FancyOStream> verbOut_4 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_4));
-            rol_p.getVector()->describe(*verbOut_4, Teuchos::VERB_EXTREME);
           }
         }
         *out << "Checking Accuracy of constraint Hessian (22) - computing all entries" << std::endl;
@@ -1120,31 +1062,11 @@ Piro::PerformROLAnalysis(
 
             Teuchos::RCP<Thyra::VectorBase<double> > Hv_TVB = Hv_T->getVector();
 
-            std::string name_Hv = "Hv_f_22_" + std::to_string(i) + ".txt";
+            std::string name_Hv = "Hv_f_T_22_" + std::to_string(i) + ".txt";
 
             std::ofstream MatrixMatrix_ofstream(name_Hv);
             RCP<Teuchos::FancyOStream> verbOut = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream));
             Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
-
-            std::string name_1 = "Hv_v_22_" + std::to_string(i) + ".txt";
-            std::ofstream MatrixMatrix_ofstream_1(name_1);
-            RCP<Teuchos::FancyOStream> verbOut_1 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_1));
-            rol_direction->describe(*verbOut_1, Teuchos::VERB_EXTREME);
-
-            std::string name_2 = "Hv_w_22_" + std::to_string(i) + ".txt";
-            std::ofstream MatrixMatrix_ofstream_2(name_2);
-            RCP<Teuchos::FancyOStream> verbOut_2 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_2));
-            rol_z_VB->describe(*verbOut_2, Teuchos::VERB_EXTREME);
-
-            std::string name_3 = "Hv_u_22_" + std::to_string(i) + ".txt";
-            std::ofstream MatrixMatrix_ofstream_3(name_3);
-            RCP<Teuchos::FancyOStream> verbOut_3 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_3));
-            rol_x.getVector()->describe(*verbOut_3, Teuchos::VERB_EXTREME);
-
-            std::string name_4 = "Hv_z_22_" + std::to_string(i) + ".txt";
-            std::ofstream MatrixMatrix_ofstream_4(name_4);
-            RCP<Teuchos::FancyOStream> verbOut_4 = Teuchos::getFancyOStream(Teuchos::rcpFromRef(MatrixMatrix_ofstream_4));
-            rol_p.getVector()->describe(*verbOut_4, Teuchos::VERB_EXTREME);
           }
         }
       }
