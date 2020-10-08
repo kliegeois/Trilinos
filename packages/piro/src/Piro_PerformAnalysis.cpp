@@ -955,6 +955,7 @@ Piro::PerformROLAnalysis(
         Teuchos::RCP<Thyra::VectorBase<double> > rol_z_VB = rol_z->getVector();
         ::Thyra::put_scalar(1.0, rol_z_VB.ptr());
 
+        ::Thyra::put_scalar(1.0, rol_x.getVector().ptr());
         constr.update(rol_x,rol_p);
 
         *out << "Checking Accuracy of constraint Hessian (11) - computing all entries" << std::endl;
