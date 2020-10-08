@@ -110,6 +110,7 @@ public:
     else {
       const ThyraVector<Real>  & thyra_p = dynamic_cast<const ThyraVector<Real>&>(z);
       Ptr<Vector<Real>> unew = u.clone();
+      unew->set(u);
       const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(*unew);
       ThyraVector<Real>  & thyra_f = dynamic_cast<ThyraVector<Real>&>(c);
       Teuchos::RCP<const Thyra::ProductVectorBase<Real> > thyra_prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
@@ -801,6 +802,7 @@ public:
     if(supports_deriv) { //use derivatives computed by model evaluator
       const ThyraVector<Real>  & thyra_p = dynamic_cast<const ThyraVector<Real>&>(z);
       Ptr<Vector<Real>> unew = u.clone();
+      unew->set(u);
       const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(*unew);
       const ThyraVector<Real>  & thyra_v = dynamic_cast<const ThyraVector<Real>&>(v);
       const ThyraVector<Real>  & thyra_w = dynamic_cast<const ThyraVector<Real>&>(w);
@@ -876,6 +878,7 @@ public:
 
       const ThyraVector<Real>  & thyra_p = dynamic_cast<const ThyraVector<Real>&>(z);
       Ptr<Vector<Real>> unew = u.clone();
+      unew->set(u);
       const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(*unew);
       const ThyraVector<Real>  & thyra_v = dynamic_cast<const ThyraVector<Real>&>(v);
       const ThyraVector<Real>  & thyra_w = dynamic_cast<const ThyraVector<Real>&>(w);
@@ -954,6 +957,7 @@ public:
 
       const ThyraVector<Real>  & thyra_p = dynamic_cast<const ThyraVector<Real>&>(z);
       Ptr<Vector<Real>> unew = u.clone();
+      unew->set(u);
       const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(*unew);
       const ThyraVector<Real>  & thyra_v = dynamic_cast<const ThyraVector<Real>&>(v);
       const ThyraVector<Real>  & thyra_w = dynamic_cast<const ThyraVector<Real>&>(w);
@@ -1041,6 +1045,7 @@ public:
 
       const ThyraVector<Real>  & thyra_p = dynamic_cast<const ThyraVector<Real>&>(z);
       Ptr<Vector<Real>> unew = u.clone();
+      unew->set(u);
       const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(*unew);
       const ThyraVector<Real>  & thyra_v = dynamic_cast<const ThyraVector<Real>&>(v);
       const ThyraVector<Real>  & thyra_w = dynamic_cast<const ThyraVector<Real>&>(w);
