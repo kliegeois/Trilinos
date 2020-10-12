@@ -810,10 +810,10 @@ Piro::PerformROLAnalysis(
         }
       }
 
-       *out << "Checking Accuracy of constraint Hessian" << std::endl;
+       *out << "Checking Accuracy of the adjoint of the constraint Hessian" << std::endl;
        auto hvCheck = constr.checkApplyAdjointHessian(sopt_vec, rol_x_direction1, sopt_vec_direction2, sopt_vec_direction2, true,*out,num_steps,order);
 
-      *out << "Checking Accuracy of constraint Hessian" << std::endl;
+      *out << "Checking Accuracy of the adjoint of the constraint Hessian" << std::endl;
       for (int ii=0; ii<hvCheck.size(); ++ii) {
         if (ii==0) {
         *out << std::right
@@ -836,10 +836,10 @@ Piro::PerformROLAnalysis(
                   << "\n";
       }
 
-       *out << "Checking Accuracy of constraint Hessian (11)" << std::endl;
+       *out << "Checking Accuracy of the adjoint of the constraint Hessian (11)" << std::endl;
        hvCheck = constr.checkApplyAdjointHessian_11(rol_x,rol_p,rol_x,rol_x_direction2,rol_x_direction2,true,*out,num_steps,order);
 
-      *out << "Checking Accuracy of constraint Hessian (11): all:" << std::endl;
+      *out << "Checking Accuracy of the adjoint of the constraint Hessian (11): all:" << std::endl;
       for (int ii=0; ii<hvCheck.size(); ++ii) {
         if (ii==0) {
         *out << std::right
@@ -862,10 +862,10 @@ Piro::PerformROLAnalysis(
                   << "\n";
       }
 
-       *out << "Checking Accuracy of constraint Hessian (12)" << std::endl;
+       *out << "Checking Accuracy of the adjoint of the constraint Hessian (12)" << std::endl;
        hvCheck = constr.checkApplyAdjointHessian_12(rol_x,rol_p,rol_x,rol_x_direction2,rol_p_direction2,true,*out,num_steps,order);
 
-      *out << "Checking Accuracy of constraint Hessian (12): all:" << std::endl;
+      *out << "Checking Accuracy of the adjoint of the constraint Hessian (12): all:" << std::endl;
       for (int ii=0; ii<hvCheck.size(); ++ii) {
         if (ii==0) {
         *out << std::right
@@ -888,10 +888,10 @@ Piro::PerformROLAnalysis(
                   << "\n";
       }
 
-       *out << "Checking Accuracy of constraint Hessian (21)" << std::endl;
+       *out << "Checking Accuracy of the adjoint of the constraint Hessian (21)" << std::endl;
        hvCheck = constr.checkApplyAdjointHessian_21(rol_x,rol_p,rol_x,rol_p_direction2,rol_x_direction2,true,*out,num_steps,order);
 
-      *out << "Checking Accuracy of constraint Hessian (21): all:" << std::endl;
+      *out << "Checking Accuracy of the adjoint of the constraint Hessian (21): all:" << std::endl;
       for (int ii=0; ii<hvCheck.size(); ++ii) {
         if (ii==0) {
         *out << std::right
@@ -914,10 +914,10 @@ Piro::PerformROLAnalysis(
                   << "\n";
       }
 
-       *out << "Checking Accuracy of constraint Hessian (22)" << std::endl;
+       *out << "Checking Accuracy of the adjoint of the constraint Hessian (22)" << std::endl;
        hvCheck = constr.checkApplyAdjointHessian_22(rol_x,rol_p,rol_x,rol_p_direction2,rol_p_direction2,true,*out,num_steps,order);
 
-      *out << "Checking Accuracy of constraint Hessian (22): all:" << std::endl;
+      *out << "Checking Accuracy of the adjoint of the constraint Hessian (22): all:" << std::endl;
       for (int ii=0; ii<hvCheck.size(); ++ii) {
         if (ii==0) {
         *out << std::right
@@ -958,7 +958,7 @@ Piro::PerformROLAnalysis(
         ::Thyra::put_scalar(1.0, rol_x.getVector().ptr());
         constr.update(rol_x,rol_p);
 
-        *out << "Checking Accuracy of constraint Hessian (11) - computing all entries" << std::endl;
+        *out << "Checking Accuracy of the adjoint of the constraint Hessian (11) - computing all entries" << std::endl;
         {
           int dim = dim_max < rol_x.dimension() ? dim_max : rol_x.dimension();
           for (size_t i=0; i<dim; ++i)
@@ -972,7 +972,7 @@ Piro::PerformROLAnalysis(
             Teuchos::RCP<ROL::Vector<double> > Hv = (sopt_vec_direction2.get_1())->clone();
             Teuchos::RCP<ROL::ThyraVector<double> > Hv_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(Hv);
 
-            *out << "Checking Accuracy of constraint Hessian (11) - computing column " << i+1 << "/" << dim << std::endl;
+            *out << "Checking Accuracy of the adjoint of the constraint Hessian (11) - computing column " << i+1 << "/" << dim << std::endl;
             double tol = 1e-10;
             constr.applyAdjointHessian_11(*Hv_T, *rol_z, *e_T, rol_x, rol_p, tol);
 
@@ -985,9 +985,9 @@ Piro::PerformROLAnalysis(
             Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
           }
         }
-        *out << "Checking Accuracy of constraint Hessian (12) - computing all entries" << std::endl;
+        *out << "Checking Accuracy of the adjoint of the constraint Hessian (12) - computing all entries" << std::endl;
         {
-          int dim = dim_max < rol_p.dimension() ? dim_max : rol_p.dimension();
+          int dim = dim_max < rol_x.dimension() ? dim_max : rol_p.dimension();
           for (size_t i=0; i<dim; ++i)
           {
             Teuchos::RCP<ROL::Vector<double> > e = (sopt_vec_direction2.get_1())->clone();
@@ -1002,7 +1002,7 @@ Piro::PerformROLAnalysis(
             *out << Hv_T.is_null() << std::endl;
             *out << e_T.is_null() << std::endl;
 
-            *out << "Checking Accuracy of constraint Hessian (12) - computing column " << i+1 << "/" << dim << std::endl;
+            *out << "Checking Accuracy of the adjoint of the constraint Hessian (12) - computing column " << i+1 << "/" << dim << std::endl;
             double tol = 1e-10;
             constr.applyAdjointHessian_12(*Hv_T, *rol_z, *e_T, rol_x, rol_p, tol);
 
@@ -1015,9 +1015,9 @@ Piro::PerformROLAnalysis(
             Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
           }
         }
-        *out << "Checking Accuracy of constraint Hessian (21) - computing all entries" << std::endl;
+        *out << "Checking Accuracy of the adjoint of the constraint Hessian (21) - computing all entries" << std::endl;
         {
-          int dim = dim_max < rol_x.dimension() ? dim_max : rol_x.dimension();
+          int dim = dim_max < rol_p.dimension() ? dim_max : rol_x.dimension();
           for (size_t i=0; i<dim; ++i)
           {
             Teuchos::RCP<ROL::Vector<double> > e = (sopt_vec_direction2.get_2())->clone();
@@ -1029,7 +1029,7 @@ Piro::PerformROLAnalysis(
             Teuchos::RCP<ROL::Vector<double> > Hv = (sopt_vec_direction2.get_1())->clone();
             Teuchos::RCP<ROL::ThyraVector<double> > Hv_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(Hv);
 
-            *out << "Checking Accuracy of constraint Hessian (21) - computing column " << i+1 << "/" << dim << std::endl;
+            *out << "Checking Accuracy of the adjoint of the constraint Hessian (21) - computing column " << i+1 << "/" << dim << std::endl;
             double tol = 1e-10;
             constr.applyAdjointHessian_21(*Hv_T, *rol_z, *e_T, rol_x, rol_p, tol);
 
@@ -1042,7 +1042,7 @@ Piro::PerformROLAnalysis(
             Hv_TVB->describe(*verbOut, Teuchos::VERB_EXTREME);
           }
         }
-        *out << "Checking Accuracy of constraint Hessian (22) - computing all entries" << std::endl;
+        *out << "Checking Accuracy of the adjoint of the constraint Hessian (22) - computing all entries" << std::endl;
         {
           int dim = dim_max < rol_p.dimension() ? dim_max : rol_p.dimension();
           for (size_t i=0; i<dim; ++i)
@@ -1056,7 +1056,7 @@ Piro::PerformROLAnalysis(
             Teuchos::RCP<ROL::Vector<double> > Hv = (sopt_vec_direction2.get_2())->clone();
             Teuchos::RCP<ROL::ThyraVector<double> > Hv_T = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(Hv);
 
-            *out << "Checking Accuracy of constraint Hessian (22) - computing column " << i+1 << "/" << dim << std::endl;
+            *out << "Checking Accuracy of the adjoint of the constraint Hessian (22) - computing column " << i+1 << "/" << dim << std::endl;
             double tol = 1e-10;
 
             constr.applyAdjointHessian_22(*Hv_T, *rol_z, *e_T, rol_x, rol_p, tol);
