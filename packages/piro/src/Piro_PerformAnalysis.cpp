@@ -953,9 +953,26 @@ Piro::PerformROLAnalysis(
         Teuchos::RCP<ROL::Vector<double> > z = rol_x.clone();
         Teuchos::RCP<ROL::ThyraVector<double> > rol_z = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(z);
         Teuchos::RCP<Thyra::VectorBase<double> > rol_z_VB = rol_z->getVector();
-        ::Thyra::put_scalar(1.0, rol_z_VB.ptr());
 
-        ::Thyra::put_scalar(1.0, rol_x.getVector().ptr());
+        double Lagrange_entry = rolParams.get<double>("Lagrange multiplier used to compute the expensive Hessian", 1.0);
+        ::Thyra::put_scalar(Lagrange_entry, rol_z_VB.ptr());
+
+        double solution_entry = rolParams.get<double>("Solution used to compute the expensive Hessian", 1.0);
+        double pert_solution_entry = rolParams.get<double>("Perturbation of the solution used to compute the expensive Hessian", 0.0);
+        for (size_t i=0; i<rol_x.dimension(); ++i) {
+          if (i%2)
+            ::Thyra::set_ele(i, solution_entry+pert_solution_entry, rol_x.getVector().ptr());
+          else
+            ::Thyra::set_ele(i, solution_entry-pert_solution_entry, rol_x.getVector().ptr());
+        }
+        double parameter_entry = rolParams.get<double>("Parameter used to compute the expensive Hessian", 1.0);
+        double pert_parameter_entry = rolParams.get<double>("Perturbation of the parameter used to compute the expensive Hessian", 0.0);
+        for (size_t i=0; i<rol_p.dimension(); ++i) {
+          if (i%2)
+            ::Thyra::set_ele(i, parameter_entry+pert_parameter_entry, rol_p.getVector().ptr());
+          else
+            ::Thyra::set_ele(i, parameter_entry-pert_parameter_entry, rol_p.getVector().ptr());
+        }
         constr.update(rol_x,rol_p);
 
         *out << "Checking Accuracy of the adjoint of the constraint Hessian (11) - computing all entries" << std::endl;
@@ -987,7 +1004,7 @@ Piro::PerformROLAnalysis(
         }
         *out << "Checking Accuracy of the adjoint of the constraint Hessian (12) - computing all entries" << std::endl;
         {
-          int dim = dim_max < rol_x.dimension() ? dim_max : rol_p.dimension();
+          int dim = dim_max < rol_x.dimension() ? dim_max : rol_x.dimension();
           for (size_t i=0; i<dim; ++i)
           {
             Teuchos::RCP<ROL::Vector<double> > e = (sopt_vec_direction2.get_1())->clone();
@@ -1017,7 +1034,7 @@ Piro::PerformROLAnalysis(
         }
         *out << "Checking Accuracy of the adjoint of the constraint Hessian (21) - computing all entries" << std::endl;
         {
-          int dim = dim_max < rol_p.dimension() ? dim_max : rol_x.dimension();
+          int dim = dim_max < rol_p.dimension() ? dim_max : rol_p.dimension();
           for (size_t i=0; i<dim; ++i)
           {
             Teuchos::RCP<ROL::Vector<double> > e = (sopt_vec_direction2.get_2())->clone();
