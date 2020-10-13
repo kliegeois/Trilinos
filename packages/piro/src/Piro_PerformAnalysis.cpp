@@ -954,25 +954,21 @@ Piro::PerformROLAnalysis(
         Teuchos::RCP<ROL::ThyraVector<double> > rol_z = Teuchos::rcp_static_cast<ROL::ThyraVector<double>>(z);
         Teuchos::RCP<Thyra::VectorBase<double> > rol_z_VB = rol_z->getVector();
 
-        double Lagrange_entry = rolParams.get<double>("Lagrange multiplier used to compute the expensive Hessian", 1.0);
-        ::Thyra::put_scalar(Lagrange_entry, rol_z_VB.ptr());
 
-        double solution_entry = rolParams.get<double>("Solution used to compute the expensive Hessian", 1.0);
-        double pert_solution_entry = rolParams.get<double>("Perturbation of the solution used to compute the expensive Hessian", 0.0);
-        for (size_t i=0; i<rol_x.dimension(); ++i) {
-          if (i%2)
-            ::Thyra::set_ele(i, solution_entry+pert_solution_entry, rol_x.getVector().ptr());
-          else
-            ::Thyra::set_ele(i, solution_entry-pert_solution_entry, rol_x.getVector().ptr());
-        }
-        double parameter_entry = rolParams.get<double>("Parameter used to compute the expensive Hessian", 1.0);
-        double pert_parameter_entry = rolParams.get<double>("Perturbation of the parameter used to compute the expensive Hessian", 0.0);
-        for (size_t i=0; i<rol_p.dimension(); ++i) {
-          if (i%2)
-            ::Thyra::set_ele(i, parameter_entry+pert_parameter_entry, rol_p.getVector().ptr());
-          else
-            ::Thyra::set_ele(i, parameter_entry-pert_parameter_entry, rol_p.getVector().ptr());
-        }
+        int seed = rolParams.get<int>("Seed For Thyra Randomize", 42);
+        ::Thyra::seed_randomize<double>( seed );
+
+        double Lagrange_entry_UB = rolParams.get<double>("Upper bound for the random Lagrange multiplier", 1.0);
+        double Lagrange_entry_LB = rolParams.get<double>("Lower bound for the random Lagrange multiplier", -1.0);
+        double solution_entry_UB = rolParams.get<double>("Upper bound for the random solution", 1.0);
+        double solution_entry_LB = rolParams.get<double>("Lower bound for the random solution", -1.0);
+        double parameter_entry_UB = rolParams.get<double>("Upper bound for the random parameter", 1.0);
+        double parameter_entry_LB = rolParams.get<double>("Lower bound for the random parameter", -1.0);
+
+        ::Thyra::randomize<double>( Lagrange_entry_LB, Lagrange_entry_UB, rol_z_VB.ptr());
+        ::Thyra::randomize<double>( solution_entry_LB, solution_entry_UB, rol_x.getVector().ptr());
+        ::Thyra::randomize<double>( parameter_entry_LB, parameter_entry_UB, rol_p.getVector().ptr());
+
         constr.update(rol_x,rol_p);
 
         *out << "Checking Accuracy of the adjoint of the constraint Hessian (11) - computing all entries" << std::endl;
