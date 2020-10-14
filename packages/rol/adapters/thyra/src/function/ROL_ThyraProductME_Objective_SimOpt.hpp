@@ -91,7 +91,9 @@ public:
     }
 
     const ThyraVector<Real>  & thyra_p = dynamic_cast<const ThyraVector<Real>&>(z);
-    const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(u);
+    Ptr<Vector<Real>> unew = u.clone();
+    unew->set(u);
+    const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(*unew);
     Teuchos::RCP< Thyra::VectorBase<Real> > g = Thyra::createMember<Real>(thyra_model.get_g_space(g_index));
     Teuchos::RCP<const Thyra::ProductVectorBase<Real> > thyra_prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
 
@@ -130,7 +132,9 @@ public:
     }
 
     const ThyraVector<Real>  & thyra_p = dynamic_cast<const ThyraVector<Real>&>(z);
-    const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(u);
+    Ptr<Vector<Real>> unew = u.clone();
+    unew->set(u);
+    const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(*unew);
 
     Teuchos::RCP<const  Thyra::ProductVectorBase<Real> > thyra_prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
     ThyraVector<Real>  & thyra_dgdx = dynamic_cast<ThyraVector<Real>&>(g);
@@ -200,7 +204,9 @@ public:
     }
 
     const ThyraVector<Real>  & thyra_p = dynamic_cast<const ThyraVector<Real>&>(z);
-    const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(u);
+    Ptr<Vector<Real>> unew = u.clone();
+    unew->set(u);
+    const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(*unew);
 
     Teuchos::RCP<const  Thyra::ProductVectorBase<Real> > thyra_prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
     ThyraVector<Real>  & thyra_dgdp = dynamic_cast<ThyraVector<Real>&>(g);
@@ -273,7 +279,9 @@ public:
     if(supports_deriv) { //use derivatives computed by model evaluator
 
       const ThyraVector<Real>  & thyra_p = dynamic_cast<const ThyraVector<Real>&>(z);
-      const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(u);
+      Ptr<Vector<Real>> unew = u.clone();
+      unew->set(u);
+      const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(*unew);
       const ThyraVector<Real>  & thyra_v = dynamic_cast<const ThyraVector<Real>&>(v);
 
       Teuchos::RCP<const  Thyra::ProductVectorBase<Real> > thyra_prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
@@ -319,6 +327,7 @@ public:
       // Compute Newton quotient
       hv.axpy(-1.0,*g);
       hv.scale(0.5/h);
+      this->update(u,z);
     }
   }
 
@@ -341,7 +350,9 @@ public:
 
     if(supports_deriv) { //use derivatives computed by model evaluator
       const ThyraVector<Real>  & thyra_p = dynamic_cast<const ThyraVector<Real>&>(z);
-      const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(u);
+      Ptr<Vector<Real>> unew = u.clone();
+      unew->set(u);
+      const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(*unew);
       const ThyraVector<Real>  & thyra_v = dynamic_cast<const ThyraVector<Real>&>(v);
 
       Teuchos::RCP<const  Thyra::ProductVectorBase<Real> > thyra_prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
@@ -400,6 +411,7 @@ public:
       // Compute Newton quotient
       hv.axpy(-1.0,*g);
       hv.scale(0.5/h);
+      this->update(u,z);
     }
   }
 
@@ -425,7 +437,9 @@ public:
 
     if(supports_deriv) { //use derivatives computed by model evaluator
       const ThyraVector<Real>  & thyra_p = dynamic_cast<const ThyraVector<Real>&>(z);
-      const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(u);
+      Ptr<Vector<Real>> unew = u.clone();
+      unew->set(u);
+      const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(*unew);
       const ThyraVector<Real>  & thyra_v = dynamic_cast<const ThyraVector<Real>&>(v);
 
       Teuchos::RCP<const  Thyra::ProductVectorBase<Real> > thyra_prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
@@ -477,6 +491,7 @@ public:
       // Compute Newton quotient
       hv.axpy(-1.0,*g);
       hv.scale(0.5/h);
+      this->update(u,z);
     }
   }
 
@@ -500,7 +515,9 @@ public:
 
     if(supports_deriv) { //use derivatives computed by model evaluator
       const ThyraVector<Real>  & thyra_p = dynamic_cast<const ThyraVector<Real>&>(z);
-      const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(u);
+      Ptr<Vector<Real>> unew = u.clone();
+      unew->set(u);
+      const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(*unew);
       const ThyraVector<Real>  & thyra_v = dynamic_cast<const ThyraVector<Real>&>(v);
 
       Teuchos::RCP<const  Thyra::ProductVectorBase<Real> > thyra_prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
@@ -567,6 +584,7 @@ public:
       // Compute Newton quotient
       hv.axpy(-1.0,*g);
       hv.scale(0.5/h);
+      this->update(u,z);
     }
   }
 
