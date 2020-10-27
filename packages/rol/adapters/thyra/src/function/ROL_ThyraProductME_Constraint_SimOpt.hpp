@@ -62,11 +62,15 @@ class ThyraProductME_Constraint_SimOpt : public Constraint_SimOpt<Real> {
 
 public:
 
-  ThyraProductME_Constraint_SimOpt(Thyra::ModelEvaluatorDefaultBase<double>& thyra_model_, int g_index_, const std::vector<int>& p_indices_,
-      Teuchos::RCP<Teuchos::ParameterList> params_ = Teuchos::null, Teuchos::EVerbosityLevel verbLevel= Teuchos::VERB_HIGH) :
-        thyra_model(thyra_model_), g_index(g_index_), p_indices(p_indices_), params(params_),
-        out(Teuchos::VerboseObjectBase::getDefaultOStream()),
-        verbosityLevel(verbLevel){
+  ThyraProductME_Constraint_SimOpt(
+      Thyra::ModelEvaluatorDefaultBase<double>& thyra_model_,
+      int g_index_,
+      const std::vector<int>& p_indices_,
+      Teuchos::RCP<Teuchos::ParameterList> params_ = Teuchos::null,
+      Teuchos::EVerbosityLevel verbLevel = Teuchos::VERB_HIGH)
+    : thyra_model(thyra_model_), g_index(g_index_), p_indices(p_indices_), params(params_),
+      out(Teuchos::VerboseObjectBase::getDefaultOStream()),
+      verbosityLevel(verbLevel){
     thyra_solver = Teuchos::null;
     computeValue = computeJacobian1 = solveConstraint = true;
     num_responses = -1;
@@ -88,7 +92,11 @@ public:
     num_responses = num_responses_;
   }
 
-  void value(Vector<Real> &c, const Vector<Real> &u, const Vector<Real> &z, Real &tol) {
+  void value(
+      Vector<Real> &c,
+      const Vector<Real> &u,
+      const Vector<Real> &z,
+      Real &tol) {
 #ifdef  HAVE_ROL_DEBUG
     //u and z should be updated in the update functions before calling value
     TEUCHOS_ASSERT(!u_hasChanged(u));
@@ -123,30 +131,6 @@ public:
 
       thyra_model.evalModel(inArgs, outArgs);
 
-      /*
-      {
-        const ThyraVector<Real>  & thyra_p = dynamic_cast<const ThyraVector<Real>&>(z);
-        const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(u);
-        const ThyraVector<Real>  & thyra_f = dynamic_cast<const ThyraVector<Real>&>(c);
-
-        Thyra::ConstDetachedVectorView<Real> x_view(thyra_x.getVector());
-        Thyra::ConstDetachedVectorView<Real> p_view(thyra_p.getVector());
-        Thyra::ConstDetachedVectorView<Real> f_view(thyra_f.getVector());
-
-        std::cout << "\nEnd of value... x:" << " ";
-        for (std::size_t i=0; i<x_view.subDim(); ++i)
-          std::cout << x_view(i) << " ";
-        std::cout << "\np:" << " ";
-        for (std::size_t i=0; i<p_view.subDim(); ++i)
-          std::cout << p_view(i) << " ";
-        std::cout << "\nf:" << " ";
-        for (std::size_t i=0; i<f_view.subDim(); ++i)
-          std::cout << f_view(i) << " ";
-
-        std::cout << "Norm: " << c.norm() <<std::endl;
-      }
-       */
-
       if (Teuchos::is_null(value_ptr_))
         value_ptr_ = c.clone();
       value_ptr_->set(c);
@@ -155,8 +139,12 @@ public:
     }
   }
 
-  void applyJacobian_1(Vector<Real> &jv, const Vector<Real> &v, const Vector<Real> &u,
-      const Vector<Real> &z, Real &tol) {
+  void applyJacobian_1(
+      Vector<Real> &jv,
+      const Vector<Real> &v,
+      const Vector<Real> &u,
+      const Vector<Real> &z,
+      Real &tol) {
 
     if(verbosityLevel >= Teuchos::VERB_MEDIUM)
       *out << "ROL::ThyraProductME_Constraint_SimOpt::applyJacobian_1" << std::endl;
@@ -256,30 +244,6 @@ public:
             "ROL::ThyraProductME_Constraint_SimOpt::applyJacobian_2():  " <<
             "The code related to df/dp multivector has been commented out because never tested.  " <<
             std::endl);
-
-        /*
-          if (ds.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM) && f_space_plus->isLocallyReplicated()) {
-          auto dfdp = Thyra::createMembers(p_space, f_space->dim());
-
-          Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>
-          dmv_dfdp(dfdp, Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM);
-          outArgs.set_DfDp(i,dmv_dfdp);
-        } else if (ds.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM) && p_space_plus->isLocallyReplicated()) {
-          auto dfdp = Thyra::createMembers(f_space, p_space->dim());
-          Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>
-          dmv_dfdp(dfdp, Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM);
-          outArgs.set_DfDp(i,dmv_dfdp);
-        }
-        else
-          TEUCHOS_TEST_FOR_EXCEPTION(
-              true, std::logic_error,
-              std::endl << "ROL::ThyraProductME_Constraint_SimOpt::applyJacobian_2():  " <<
-              "For df/dp(" << i <<") with adjoint sensitivities, " <<
-              "underlying ModelEvaluator must support DERIV_LINEAR_OP, " <<
-              "DERIV_MV_BY_COL with p not distributed, or "
-              "DERIV_TRANS_MV_BY_ROW with f not distributed." <<
-              std::endl);
-         */
       }
     }
 
@@ -304,47 +268,12 @@ public:
             "ROL::ThyraProductME_Constraint_SimOpt::applyJacobian_2():  " <<
             "The code related to df/dp multivector has been commented out because never tested.  " <<
             std::endl);
-        /*
-        Thyra::ModelEvaluatorBase::EDerivativeMultiVectorOrientation dfdp_orient =
-            outArgs.get_DfDp(i).getMultiVectorOrientation();
-        Thyra::ModelEvaluatorBase::EDerivativeMultiVectorOrientation dgdx_orient =
-            outArgs.get_DgDx(0).getMultiVectorOrientation();
-
-        Thyra::DetachedVectorView<Real> jv_view(thyra_jv.getVector());
-        Thyra::ConstDetachedMultiVectorView<Real> v_view(thyra_v.getVector());
-        Thyra::ConstDetachedMultiVectorView<Real> dfdp_view(dfdp);
-
-        if (dgdx_orient == Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM) {
-          if (dfdp_orient == Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM) {
-            for (std::size_t ip=0; ip<p_indices.size(); ++ip)
-              for (int ix=0; ix<dfdp_view.subDim(); ix++)
-                jv_view(ix) += v_view(ip,0)*dfdp_view(ip,ix);
-          }
-          else {
-            for (std::size_t ip=0; ip<p_indices.size(); ++ip)
-              for (int ix=0; ix<dfdp_view.numSubCols(); ix++)
-                jv_view(ix) += v_view(ip,0)*dfdp_view(ix,ip);
-          }
-        }
-        else {
-          if (dfdp_orient == Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM) {
-            for (std::size_t ip=0; ip<p_indices.size(); ++ip)
-              for (int ix=0; ix<dfdp_view.subDim(); ix++)
-                jv_view(ix) += v_view(0,ip)*dfdp_view(ip,ix);
-          }
-          else {
-            for (std::size_t ip=0; ip<p_indices.size(); ++ip)
-              for (int ix=0; ix<dfdp_view.numSubCols(); ix++)
-                jv_view(ix) += v_view(0,ip)*dfdp_view(ix,ip);
-          }
-        }
-         */
       }
     }
   }
 
-
-  void applyInverseJacobian_1(Vector<Real> &ijv,
+  void applyInverseJacobian_1(
+      Vector<Real> &ijv,
       const Vector<Real> &v,
       const Vector<Real> &u,
       const Vector<Real> &z,
@@ -386,7 +315,6 @@ public:
         *out << "ROL::ThyraProductME_Constraint_SimOpt::applyInverseJacobian_1, Skipping Jacobian Computation" << std::endl;
       lop = jac1;
     }
-
 
     Teuchos::RCP< const ::Thyra::DefaultLinearOpSource<double> > losb = Teuchos::rcp(new ::Thyra::DefaultLinearOpSource<double>(lop));
     Teuchos::RCP< ::Thyra::PreconditionerBase<double> > prec;
@@ -436,10 +364,12 @@ public:
         Teuchos::ptr(&solve_criteria));
   }
 
-
-
-  void applyAdjointJacobian_1(Vector<Real> &ajv, const Vector<Real> &v, const Vector<Real> &u,
-      const Vector<Real> &z, Real &tol) {
+  void applyAdjointJacobian_1(
+      Vector<Real> &ajv,
+      const Vector<Real> &v,
+      const Vector<Real> &u,
+      const Vector<Real> &z,
+      Real &tol) {
 
 #ifdef  HAVE_ROL_DEBUG
     //u and z should be updated in the update functions before calling applyAdjointJacobian_1
@@ -449,7 +379,6 @@ public:
 
     if(verbosityLevel >= Teuchos::VERB_MEDIUM)
       *out << "ROL::ThyraProductME_Constraint_SimOpt::applyAdjointJacobian_1" << std::endl;
-
 
     Teuchos::RCP< Thyra::LinearOpBase<double> > lop;
     if(computeJacobian1){
@@ -483,14 +412,14 @@ public:
       lop = jac1;
     }
 
-
     const ThyraVector<Real>  & thyra_v = dynamic_cast<const ThyraVector<Real>&>(v);
     ThyraVector<Real>  & thyra_ajv = dynamic_cast<ThyraVector<Real>&>(ajv);
     lop->apply(Thyra::TRANS, *thyra_v.getVector(), thyra_ajv.getVector().ptr(), 1.0, 0.0);
 
   }
 
-  void applyInverseAdjointJacobian_1(Vector<Real> &iajv,
+  void applyInverseAdjointJacobian_1(
+      Vector<Real> &iajv,
       const Vector<Real> &v,
       const Vector<Real> &u,
       const Vector<Real> &z,
@@ -523,22 +452,16 @@ public:
     Teuchos::RCP< const Thyra::LinearOpWithSolveFactoryBase<double> > lows_factory = thyra_model.get_W_factory();
     TEUCHOS_ASSERT(Teuchos::nonnull(lows_factory));
     Teuchos::RCP< Thyra::LinearOpBase<double> > lop;
+    Teuchos::RCP< const Thyra::LinearOpBase<double> > lopT;
 
-    bool explicitlyTransposMatrix = false;
-    if(params != Teuchos::null) {
-      explicitlyTransposMatrix = params->get("Enable Explicit Matrix Transpose", false);
-      if(explicitlyTransposMatrix)
-        params->set("Compute Transposed Jacobian", true);
-    }
-
-    if(computeJacobian1 || explicitlyTransposMatrix)
+    if(computeJacobian1)
       lop = thyra_model.create_W_op();
     else {
       if(verbosityLevel >= Teuchos::VERB_HIGH)
         *out << "ROL::ThyraProductME_Constraint_SimOpt::applyInverseAdjointJacobian_1, Skipping Jacobian Computation" << std::endl;
       lop = jac1;
+      lopT = jac1T;
     }
-
 
     Teuchos::RCP< const ::Thyra::DefaultLinearOpSource<double> > losb = Teuchos::rcp(new ::Thyra::DefaultLinearOpSource<double>(lop));
     Teuchos::RCP< ::Thyra::PreconditionerBase<double> > prec;
@@ -551,14 +474,16 @@ public:
     }
     const Teuchos::RCP<Thyra::LinearOpWithSolveBase<Real> > jacobian = lows_factory->createOp();
 
-    if(computeJacobian1 || explicitlyTransposMatrix)
+    if(computeJacobian1)
     {
       outArgs.set_W_op(lop);
       thyra_model.evalModel(inArgs, outArgs);
       outArgs.set_W_op(Teuchos::null);
       jac1 = lop;
+      lopT = Thyra::transpose<double>(lop);
+      jac1T = lopT;
 
-      computeJacobian1 = explicitlyTransposMatrix;
+      computeJacobian1 = false;
     }
 
     if (Teuchos::nonnull(prec_factory))
@@ -569,23 +494,13 @@ public:
     }
 
     if(Teuchos::nonnull(prec)) {
-      if(explicitlyTransposMatrix) {
-        Thyra::initializePreconditionedOp<double>(*lows_factory,
-          lop,
-          prec,
+      Thyra::initializePreconditionedOp<double>(*lows_factory,
+          lopT,
+          Thyra::unspecifiedPrec<double>(::Thyra::transpose<double>(prec->getUnspecifiedPrecOp())),
           jacobian.ptr());
-      } else {
-        Thyra::initializePreconditionedOp<double>(*lows_factory,
-            Thyra::transpose<double>(lop),
-            Thyra::unspecifiedPrec<double>(::Thyra::transpose<double>(prec->getUnspecifiedPrecOp())),
-            jacobian.ptr());
-      }
     }
     else {
-      if(explicitlyTransposMatrix)
-        Thyra::initializeOp<double>(*lows_factory, lop, jacobian.ptr());
-      else
-        Thyra::initializeOp<double>(*lows_factory, Thyra::transpose<double>(lop), jacobian.ptr());
+      Thyra::initializeOp<double>(*lows_factory, lopT, jacobian.ptr());
     }
     const Thyra::SolveCriteria<Real> solve_criteria;
 
@@ -598,10 +513,6 @@ public:
         *thyra_v.getVector(),
         thyra_iajv_ptr.ptr(),
         Teuchos::ptr(&solve_criteria));
-
-    if(params != Teuchos::null) {
-      params->set("Compute Transposed Jacobian", false);
-    }
 
   };
 
@@ -656,30 +567,6 @@ public:
             "ROL::ThyraProductME_Constraint_SimOpt::applyAdjointJacobian_2():  " <<
             "The code related to df/dp multivector has been commented out because never tested.  " <<
             std::endl);
-
-        /*
-          if (ds.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM) && f_space_plus->isLocallyReplicated()) {
-          auto dfdp = Thyra::createMembers(p_space, f_space->dim());
-
-          Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>
-          dmv_dfdp(dfdp, Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM);
-          outArgs.set_DfDp(i,dmv_dfdp);
-        } else if (ds.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM) && p_space_plus->isLocallyReplicated()) {
-          auto dfdp = Thyra::createMembers(f_space, p_space->dim());
-          Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>
-          dmv_dfdp(dfdp, Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM);
-          outArgs.set_DfDp(i,dmv_dfdp);
-        }
-        else
-          TEUCHOS_TEST_FOR_EXCEPTION(
-              true, std::logic_error,
-              std::endl << "ROL::ThyraProductME_Constraint_SimOpt::applyAdjointJacobian_2():  " <<
-              "For df/dp(" << i <<") with adjoint sensitivities, " <<
-              "underlying ModelEvaluator must support DERIV_LINEAR_OP, " <<
-              "DERIV_MV_BY_COL with p not distributed, or "
-              "DERIV_TRANS_MV_BY_ROW with f not distributed." <<
-              std::endl);
-         */
       }
     }
 
@@ -702,40 +589,6 @@ public:
             "ROL::ThyraProductME_Constraint_SimOpt::applyAdjointJacobian_2():  " <<
             "The code related to df/dp multivector has been commented out because never tested.  " <<
             std::endl);
-        /*
-        Thyra::ModelEvaluatorBase::EDerivativeMultiVectorOrientation dfdp_orient =
-            outArgs.get_DfDp(i).getMultiVectorOrientation();
-        Thyra::ModelEvaluatorBase::EDerivativeMultiVectorOrientation dgdx_orient =
-            outArgs.get_DgDx(0).getMultiVectorOrientation();
-
-        Thyra::DetachedVectorView<Real> ajv_view(thyra_ajv.getVector());
-        Thyra::ConstDetachedMultiVectorView<Real> v_view(thyra_v.getVector());
-        Thyra::ConstDetachedMultiVectorView<Real> dfdp_view(dfdp);
-        if (dgdx_orient == Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM) {
-          if (dfdp_orient == Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM) {
-            for (std::size_t ip=0; ip<p_indices.size(); ++ip)
-              for (int ix=0; ix<dfdp_view.subDim(); ix++)
-                ajv_view(ip) += v_view(ix,0)*dfdp_view(ip,ix);
-          }
-          else {
-            for (std::size_t ip=0; ip<p_indices.size(); ++ip)
-              for (int ix=0; ix<dfdp_view.numSubCols(); ix++)
-                ajv_view(ip) += v_view(ix,0)*dfdp_view(ix,ip);
-          }
-        }
-        else {
-          if (dfdp_orient == Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM) {
-            for (std::size_t ip=0; ip<p_indices.size(); ++ip)
-              for (int ix=0; ix<dfdp_view.subDim(); ix++)
-                ajv_view(ip) += v_view(0,ix)*dfdp_view(ip,ix);
-          }
-          else {
-            for (std::size_t ip=0; ip<p_indices.size(); ++ip)
-              for (int ix=0; ix<dfdp_view.numSubCols(); ix++)
-                ajv_view(ip) += v_view(0,ix)*dfdp_view(ix,ip);
-          }
-        }
-         */
       }
     }
   }
@@ -747,7 +600,6 @@ public:
 
     if(verbosityLevel >= Teuchos::VERB_MEDIUM)
       *out << "ROL::ThyraProductME_Constraint_SimOpt::solve" << std::endl;
-
 
     if(!solveConstraint) {
       TEUCHOS_ASSERT(Teuchos::nonnull(rol_u_ptr));
@@ -953,7 +805,6 @@ public:
       this->update(u,z);
     }
   }
-
 
   void applyAdjointHessian_21(Vector<Real> &ahwv,
       const Vector<Real> &w,
@@ -1227,9 +1078,9 @@ private:
   Teuchos::RCP<Teuchos::ParameterList> params;
   Teuchos::RCP<Teuchos::FancyOStream> out;
   Teuchos::RCP< Thyra::LinearOpBase<double> > jac1;
+  Teuchos::RCP< const Thyra::LinearOpBase<double> > jac1T;
   Teuchos::EVerbosityLevel verbosityLevel;
 
 };
-
 
 #endif

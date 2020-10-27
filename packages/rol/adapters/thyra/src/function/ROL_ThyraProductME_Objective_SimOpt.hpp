@@ -57,12 +57,18 @@ class ThyraProductME_Objective_SimOpt : public Objective_SimOpt<Real> {
 
 public:
 
-
-  ThyraProductME_Objective_SimOpt(Thyra::ModelEvaluatorDefaultBase<double>& thyra_model_, int g_index_, const std::vector<int>& p_indices_,
-      Teuchos::RCP<Teuchos::ParameterList> params_ = Teuchos::null, Teuchos::EVerbosityLevel verbLevel= Teuchos::VERB_HIGH) :
-        thyra_model(thyra_model_), g_index(g_index_), p_indices(p_indices_), params(params_),
-        out(Teuchos::VerboseObjectBase::getDefaultOStream()),
-        verbosityLevel(verbLevel) {
+  ThyraProductME_Objective_SimOpt(
+      Thyra::ModelEvaluatorDefaultBase<double>& thyra_model_,
+      int g_index_,
+      const std::vector<int>& p_indices_,
+      Teuchos::RCP<Teuchos::ParameterList> params_ = Teuchos::null,
+      Teuchos::EVerbosityLevel verbLevel = Teuchos::VERB_HIGH)
+    : thyra_model(thyra_model_),
+      g_index(g_index_),
+      p_indices(p_indices_),
+      params(params_),
+      out(Teuchos::VerboseObjectBase::getDefaultOStream()),
+      verbosityLevel(verbLevel) {
     computeValue = computeGradient1 = computeGradient2 = true;
     value_ = 0;
     rol_u_ptr = rol_z_ptr = Teuchos::null;
@@ -70,8 +76,7 @@ public:
       params->set<int>("Optimizer Iteration Number", -1);
       params->set<Teuchos::RCP<Vector<Real> > >("Optimization Variable", Teuchos::null);
     }
-  };
-
+  }
 
   Real value(const Vector<Real> &u, const Vector<Real> &z, Real &tol ) {
 
@@ -665,6 +670,5 @@ private:
   Teuchos::EVerbosityLevel verbosityLevel;
 
 };
-
 
 #endif

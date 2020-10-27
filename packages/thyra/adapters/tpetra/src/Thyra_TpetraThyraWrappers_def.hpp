@@ -48,7 +48,7 @@
 #include "Thyra_TpetraVector.hpp"
 #include "Thyra_TpetraMultiVector.hpp"
 #include "Thyra_TpetraLinearOp.hpp"
-
+#include "Thyra_TpetraScaledAdjointLinearOp.hpp"
 
 namespace Thyra {
 

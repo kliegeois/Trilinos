@@ -255,9 +255,6 @@ Piro::PerformROLAnalysis(
 
     ROL::ThyraVector<double> rol_p(p_prod);
 
-    if(analysisParams.isParameter("Enable Explicit Matrix Transpose")) {
-      analysisParams.sublist("Optimization Status").set("Enable Explicit Matrix Transpose", analysisParams.get<bool>("Enable Explicit Matrix Transpose"));
-    }
     ROL::ThyraProductME_Objective<double> obj(piroModel, g_index, p_indices, Teuchos::rcp(&analysisParams.sublist("Optimization Status"),false),verbosityLevel);
 
 
@@ -434,9 +431,6 @@ Piro::PerformROLAnalysis(
     }
 
     auto opt_paramList = Teuchos::rcp(&analysisParams.sublist("Optimization Status"),false);
-    if(analysisParams.isParameter("Enable Explicit Matrix Transpose")) {
-      opt_paramList->set("Enable Explicit Matrix Transpose", analysisParams.get<bool>("Enable Explicit Matrix Transpose"));
-    }
     opt_paramList->set("Parameter Names", Teuchos::rcpFromRef(p_names));
 
     Teuchos::Array<Teuchos::RCP<Thyra::VectorSpaceBase<double> const>> p_spaces(num_parameters);
@@ -745,7 +739,6 @@ Piro::getValidPiroAnalysisParameters()
   validPL->sublist("Dakota",    false, "");
   validPL->sublist("ROL",       false, "");
   validPL->set<int>("Write Interval", 1, "Iterval between writes to mesh");
-  validPL->set<bool>("Enable Explicit Matrix Transpose", false, "Wether to explicitly transpose the matrix when needed");
 
   return validPL;
 }
