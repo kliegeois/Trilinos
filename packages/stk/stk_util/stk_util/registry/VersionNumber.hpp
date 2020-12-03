@@ -11,6 +11,7 @@
 
 #include <ostream>
 #include <string>
+#include <sys/sysmacros.h>
 
 namespace stk 
 {
