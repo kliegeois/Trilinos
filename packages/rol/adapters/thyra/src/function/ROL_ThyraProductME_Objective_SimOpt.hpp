@@ -50,7 +50,7 @@
 #include "ROL_Types.hpp"
 #include "Teuchos_VerbosityLevel.hpp"
 
-using namespace ROL;
+namespace ROL {
 
 template <class Real>
 class ThyraProductME_Objective_SimOpt : public Objective_SimOpt<Real> {
@@ -58,7 +58,7 @@ class ThyraProductME_Objective_SimOpt : public Objective_SimOpt<Real> {
 public:
 
 
-  ThyraProductME_Objective_SimOpt(Thyra::ModelEvaluatorDefaultBase<double>& thyra_model_, int g_index_, const std::vector<int>& p_indices_,
+  ThyraProductME_Objective_SimOpt(const Thyra::ModelEvaluator<double>& thyra_model_, int g_index_, const std::vector<int>& p_indices_,
       Teuchos::RCP<Teuchos::ParameterList> params_ = Teuchos::null, Teuchos::EVerbosityLevel verbLevel= Teuchos::VERB_HIGH) :
         thyra_model(thyra_model_), g_index(g_index_), p_indices(p_indices_), params(params_),
         out(Teuchos::VerboseObjectBase::getDefaultOStream()),
@@ -154,21 +154,20 @@ public:
       outArgs.set_g(g_index, thyra_g);
     }
 
-    for(std::size_t i=0; i<p_indices.size(); ++i) {
-      const Thyra::ModelEvaluatorBase::DerivativeSupport dgdx_support =
-          outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDx, g_index);
-      Thyra::ModelEvaluatorBase::EDerivativeMultiVectorOrientation dgdx_orient;
-      if (dgdx_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM))
-        dgdx_orient = Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM;
-      else if(dgdx_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM))
-        dgdx_orient = Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM;
-      else {
-        ROL_TEST_FOR_EXCEPTION(true, std::logic_error,
-            "ROL::ThyraProductME_Objective: DgDx does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
-      }
-
-      outArgs.set_DgDx(g_index, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(thyra_dgdx.getVector(), dgdx_orient));
+    const Thyra::ModelEvaluatorBase::DerivativeSupport dgdx_support =
+        outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDx, g_index);
+    Thyra::ModelEvaluatorBase::EDerivativeMultiVectorOrientation dgdx_orient;
+    if (dgdx_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM))
+      dgdx_orient = Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM;
+    else if(dgdx_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM))
+      dgdx_orient = Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM;
+    else {
+      ROL_TEST_FOR_EXCEPTION(true, std::logic_error,
+          "ROL::ThyraProductME_Objective: DgDx does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
     }
+
+    outArgs.set_DgDx(g_index, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(thyra_dgdx.getVector(), dgdx_orient));
+
     thyra_model.evalModel(inArgs, outArgs);
 
     if(computeValue) {
@@ -264,11 +263,13 @@ public:
   void hessVec_11( Vector<Real> &hv, const Vector<Real> &v,
       const Vector<Real> &u,  const Vector<Real> &z, Real &/*tol*/ ) {
 
+/* Disabling check for now
 #ifdef  HAVE_ROL_DEBUG
     //u and z should be updated in the update functions before calling this function
     TEUCHOS_ASSERT(!u_hasChanged(u));
     TEUCHOS_ASSERT(!z_hasChanged(z));
 #endif
+*/
 
     if(verbosityLevel >= Teuchos::VERB_MEDIUM)
       *out << "ROL::ThyraProductME_Objective_SimOpt::hessVec_11" << std::endl;
@@ -334,11 +335,13 @@ public:
   void hessVec_12( Vector<Real> &hv, const Vector<Real> &v,
       const Vector<Real> &u, const Vector<Real> &z, Real &/*tol*/ ) {
 
+/* disabling check for now
 #ifdef  HAVE_ROL_DEBUG
     //u and z should be updated in the update functions before calling this function
     TEUCHOS_ASSERT(!u_hasChanged(u));
     TEUCHOS_ASSERT(!z_hasChanged(z));
 #endif
+*/
 
     if(verbosityLevel >= Teuchos::VERB_MEDIUM)
       *out << "ROL::ThyraProductME_Objective_SimOpt::hessVec_12" << std::endl;
@@ -418,11 +421,13 @@ public:
   void hessVec_21( Vector<Real> &hv, const Vector<Real> &v,
       const Vector<Real> &u, const Vector<Real> &z, Real &/*tol*/ ) {
 
+/* disabling check for now
 #ifdef  HAVE_ROL_DEBUG
     //u and z should be updated in the update functions before calling this function
     TEUCHOS_ASSERT(!u_hasChanged(u));
     TEUCHOS_ASSERT(!z_hasChanged(z));
 #endif
+*/
 
     if(verbosityLevel >= Teuchos::VERB_MEDIUM)
       *out << "ROL::ThyraProductME_Objective_SimOpt::hessVec_21" << std::endl;
@@ -498,11 +503,13 @@ public:
   void hessVec_22( Vector<Real> &hv, const Vector<Real> &v,
       const Vector<Real> &u,  const Vector<Real> &z, Real &/*tol*/ ) {
 
+/* disabling check for now
 #ifdef  HAVE_ROL_DEBUG
     //u and z should be updated in the update functions before calling this function
     TEUCHOS_ASSERT(!u_hasChanged(u));
     TEUCHOS_ASSERT(!z_hasChanged(z));
 #endif
+*/
 
     if(verbosityLevel >= Teuchos::VERB_MEDIUM)
       *out << "ROL::ThyraProductME_Objective_SimOpt::hessVec_22" << std::endl;
@@ -645,7 +652,7 @@ public:
   bool computeValue, computeGradient1, computeGradient2;
 
 private:
-  Thyra::ModelEvaluatorDefaultBase<Real>& thyra_model;
+  const Thyra::ModelEvaluator<Real>& thyra_model;
   const int g_index;
   const std::vector<int> p_indices;
   Real value_;
@@ -659,5 +666,5 @@ private:
 
 };
 
-
+}
 #endif

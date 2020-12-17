@@ -1149,6 +1149,8 @@ namespace MueLu {
       RAPparams.sublist("matrixmatrix: kernel params", false) = defaultList.sublist("matrixmatrix: kernel params");
     MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "transpose: use implicit", bool, RAPparams);
     MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "rap: fix zero diagonals", bool, RAPparams);
+    MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "rap: fix zero diagonals threshold", double, RAPparams);
+    MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "rap: fix zero diagonals replacement", Scalar, RAPparams);
 
     // if "rap: triple product" has not been set and algorithm is "unsmoothed" switch triple product on
     if (!paramList.isParameter("rap: triple product") &&
@@ -1406,11 +1408,13 @@ namespace MueLu {
       // RepartitionHeuristic
       auto repartheurFactory = rcp(new RepartitionHeuristicFactory());
       ParameterList repartheurParams;
-      MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "repartition: node repartition level",int,repartheurParams);
-      MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "repartition: start level",          int, repartheurParams);
-      MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "repartition: min rows per proc",    int, repartheurParams);
-      MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "repartition: target rows per proc", int, repartheurParams);
-      MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "repartition: max imbalance",     double, repartheurParams);
+      MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "repartition: node repartition level", int,    repartheurParams);
+      MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "repartition: start level",            int,    repartheurParams);
+      MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "repartition: min rows per proc",      int,    repartheurParams);
+      MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "repartition: target rows per proc",   int,    repartheurParams);
+      MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "repartition: min rows per thread",    int,    repartheurParams);
+      MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "repartition: target rows per thread", int,    repartheurParams);
+      MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "repartition: max imbalance",          double, repartheurParams);
       repartheurFactory->SetParameterList(repartheurParams);
       repartheurFactory->SetFactory("A",         manager.GetFactory("A"));
       manager.SetFactory("number of partitions", repartheurFactory);
@@ -1687,8 +1691,11 @@ namespace MueLu {
       Pparams.sublist("matrixmatrix: kernel params", false) = defaultList.sublist("matrixmatrix: kernel params");
     MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "sa: damping factor", double, Pparams);
     MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "sa: calculate eigenvalue estimate", bool, Pparams);
+    MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "sa: max eigenvalue", double, Pparams);
     MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "sa: eigenvalue estimate num iterations", int, Pparams);
     MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "sa: use rowsumabs diagonal scaling", bool, Pparams);
+    MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "sa: enforce constraints", bool, Pparams);
+    MUELU_TEST_AND_SET_PARAM_2LIST(paramList, defaultList, "tentative: calculate qr", bool, Pparams);
 
     P->SetParameterList(Pparams);
 

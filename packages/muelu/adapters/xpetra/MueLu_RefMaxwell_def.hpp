@@ -158,6 +158,33 @@ namespace MueLu {
   }
 
 
+  template<class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
+  void ApplyRowSumCriterion(const Xpetra::Matrix<Scalar,LocalOrdinal,GlobalOrdinal,Node>& A,
+                            const typename Teuchos::ScalarTraits<Scalar>::magnitudeType rowSumTol,
+                            Teuchos::ArrayRCP<bool>& dirichletRows)
+  {
+    typedef Teuchos::ScalarTraits<Scalar> STS;
+    RCP<const Xpetra::Map<LocalOrdinal,GlobalOrdinal,Node>> rowmap = A.getRowMap();
+    for (LocalOrdinal row = 0; row < Teuchos::as<LocalOrdinal>(rowmap->getNodeNumElements()); ++row) {
+      size_t nnz = A.getNumEntriesInLocalRow(row);
+      ArrayView<const LocalOrdinal> indices;
+      ArrayView<const Scalar> vals;
+      A.getLocalRowView(row, indices, vals);
+
+      Scalar rowsum = STS::zero();
+      Scalar diagval = STS::zero();
+      for (LocalOrdinal colID = 0; colID < Teuchos::as<LocalOrdinal>(nnz); colID++) {
+        LocalOrdinal col = indices[colID];
+        if (row == col)
+          diagval = vals[colID];
+        rowsum += vals[colID];
+      }
+      if (STS::real(rowsum) > STS::magnitude(diagval) * rowSumTol)
+        dirichletRows[row] = true;
+    }
+  }
+
+
 #ifdef HAVE_MUELU_KOKKOS_REFACTOR
 
   template<class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
@@ -190,7 +217,7 @@ namespace MueLu {
     TEUCHOS_ASSERT(dirichletDomain.extent(0) == domMap->getNodeNumElements());
     RCP<Xpetra::Vector<Scalar,LocalOrdinal,GlobalOrdinal,Node> > myColsToZero = Xpetra::VectorFactory<Scalar,LocalOrdinal,GlobalOrdinal,Node>::Build(colMap, /*zeroOut=*/true);
     // Find all local column indices that are in Dirichlet rows, record in myColsToZero as 1.0
-    auto myColsToZeroView = myColsToZero->template getLocalView<typename Node::device_type>();
+    auto myColsToZeroView = myColsToZero->getDeviceLocalView();
     auto localMatrix = A.getLocalMatrix();
     Kokkos::parallel_for("MueLu:RefMaxwell::DetectDirichletCols", range_type(0,rowMap->getNodeNumElements()),
                          KOKKOS_LAMBDA(const LocalOrdinal row) {
@@ -214,8 +241,35 @@ namespace MueLu {
     }
     else
       globalColsToZero = myColsToZero;
-    FindNonZeros<Scalar,LocalOrdinal,GlobalOrdinal,Node>(globalColsToZero->template getLocalView<typename Node::device_type>(),dirichletDomain);
-    FindNonZeros<Scalar,LocalOrdinal,GlobalOrdinal,Node>(myColsToZero->template getLocalView<typename Node::device_type>(),dirichletCols);
+    FindNonZeros<Scalar,LocalOrdinal,GlobalOrdinal,Node>(globalColsToZero->getDeviceLocalView(),dirichletDomain);
+    FindNonZeros<Scalar,LocalOrdinal,GlobalOrdinal,Node>(myColsToZero->getDeviceLocalView(),dirichletCols);
+  }
+
+
+  template<class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
+  void ApplyRowSumCriterion(const Xpetra::Matrix<Scalar,LocalOrdinal,GlobalOrdinal,Node>& A,
+                            const typename Teuchos::ScalarTraits<Scalar>::magnitudeType rowSumTol,
+                            Kokkos::View<bool*, typename Node::device_type> & dirichletRows)
+  {
+    typedef Teuchos::ScalarTraits<Scalar> STS;
+    RCP<const Xpetra::Map<LocalOrdinal,GlobalOrdinal,Node>> rowmap = A.getRowMap();
+    for (LocalOrdinal row = 0; row < Teuchos::as<LocalOrdinal>(rowmap->getNodeNumElements()); ++row) {
+      size_t nnz = A.getNumEntriesInLocalRow(row);
+      ArrayView<const LocalOrdinal> indices;
+      ArrayView<const Scalar> vals;
+      A.getLocalRowView(row, indices, vals);
+
+      Scalar rowsum = STS::zero();
+      Scalar diagval = STS::zero();
+      for (LocalOrdinal colID = 0; colID < Teuchos::as<LocalOrdinal>(nnz); colID++) {
+        LocalOrdinal col = indices[colID];
+        if (row == col)
+          diagval = vals[colID];
+        rowsum += vals[colID];
+      }
+      if (STS::real(rowsum) > STS::magnitude(diagval) * rowSumTol)
+        dirichletRows(row) = true;
+    }
   }
 
 #endif
@@ -322,21 +376,72 @@ namespace MueLu {
 
 
   template<class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
-  void RefMaxwell<Scalar,LocalOrdinal,GlobalOrdinal,Node>::compute(bool reuse) {
+  void RefMaxwell<Scalar,LocalOrdinal,GlobalOrdinal,Node>::detectBoundaryConditionsSM() {
+    // clean rows associated with boundary conditions
+    // Find rows with only 1 or 2 nonzero entries, record them in BCrows_.
+    // BCrows_[i] is true, iff i is a boundary row
+    // BCcols_[i] is true, iff i is a boundary column
+    int BCedgesLocal = 0;
+    int BCnodesLocal = 0;
+    magnitudeType rowSumTol = parameterList_.get("refmaxwell: row sum drop tol",-1.0);
+#ifdef HAVE_MUELU_KOKKOS_REFACTOR
+    if (useKokkos_) {
+      BCrowsKokkos_ = Utilities_kokkos::DetectDirichletRows(*SM_Matrix_,Teuchos::ScalarTraits<magnitudeType>::eps(),/*count_twos_as_dirichlet=*/true);
 
-#ifdef HAVE_MUELU_CUDA
-    if (parameterList_.get<bool>("refmaxwell: cuda profile setup", false)) cudaProfilerStart();
-#endif
+      if (rowSumTol > 0.)
+        ApplyRowSumCriterion(*SM_Matrix_, rowSumTol, BCrowsKokkos_);
 
-    std::string timerLabel;
-    if (reuse)
-      timerLabel = "MueLu RefMaxwell: compute (reuse)";
-    else
-      timerLabel = "MueLu RefMaxwell: compute";
-    RCP<Teuchos::TimeMonitor> tmCompute = getTimer(timerLabel);
+      BCcolsKokkos_ = Kokkos::View<bool*,typename Node::device_type>(Kokkos::ViewAllocateWithoutInitializing("dirichletCols"), D0_Matrix_->getColMap()->getNodeNumElements());
+      BCdomainKokkos_ = Kokkos::View<bool*,typename Node::device_type>(Kokkos::ViewAllocateWithoutInitializing("dirichletCols"), D0_Matrix_->getDomainMap()->getNodeNumElements());
+      DetectDirichletCols<Scalar,LocalOrdinal,GlobalOrdinal,Node>(*D0_Matrix_,BCrowsKokkos_,BCcolsKokkos_,BCdomainKokkos_);
 
-    ////////////////////////////////////////////////////////////////////////////////
-    // Remove explicit zeros from matrices
+      dump(BCrowsKokkos_,   "BCrows.m");
+      dump(BCcolsKokkos_,   "BCcols.m");
+      dump(BCdomainKokkos_, "BCdomain.m");
+
+      for (size_t i = 0; i<BCrowsKokkos_.size(); i++)
+        if (BCrowsKokkos_(i))
+          BCedgesLocal += 1;
+      for (size_t i = 0; i<BCdomainKokkos_.size(); i++)
+        if (BCdomainKokkos_(i))
+          BCnodesLocal += 1;
+    } else
+#endif // HAVE_MUELU_KOKKOS_REFACTOR
+    {
+      BCrows_ = Teuchos::arcp_const_cast<bool>(Utilities::DetectDirichletRows(*SM_Matrix_,Teuchos::ScalarTraits<magnitudeType>::eps(),/*count_twos_as_dirichlet=*/true));
+
+      if (rowSumTol > 0.)
+        ApplyRowSumCriterion(*SM_Matrix_, rowSumTol, BCrows_);
+
+      BCcols_.resize(D0_Matrix_->getColMap()->getNodeNumElements());
+      BCdomain_.resize(D0_Matrix_->getDomainMap()->getNodeNumElements());
+      DetectDirichletCols<Scalar,LocalOrdinal,GlobalOrdinal,Node>(*D0_Matrix_,BCrows_,BCcols_,BCdomain_);
+
+      dump(BCrows_,   "BCrows.m");
+      dump(BCcols_,   "BCcols.m");
+      dump(BCdomain_, "BCdomain.m");
+
+      for (auto it = BCrows_.begin(); it != BCrows_.end(); ++it)
+        if (*it)
+          BCedgesLocal += 1;
+      for (auto it = BCdomain_.begin(); it != BCdomain_.end(); ++it)
+        if (*it)
+          BCnodesLocal += 1;
+    }
+
+    MueLu_sumAll(SM_Matrix_->getRowMap()->getComm(), BCedgesLocal, BCedges_);
+    MueLu_sumAll(SM_Matrix_->getRowMap()->getComm(), BCnodesLocal, BCnodes_);
+
+    if (IsPrint(Statistics2)) {
+      GetOStream(Statistics2) << "MueLu::RefMaxwell::compute(): Detected " << BCedges_ << " BC rows and " << BCnodes_ << " BC columns." << std::endl;
+    }
+
+    allBoundary_ = Teuchos::as<Xpetra::global_size_t>(BCedges_) >= D0_Matrix_->getRangeMap()->getGlobalNumElements();
+  }
+
+
+  template<class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
+  void RefMaxwell<Scalar,LocalOrdinal,GlobalOrdinal,Node>::removeExplicitZeros() {
 
     bool defaultFilter = false;
 
@@ -357,23 +462,6 @@ namespace MueLu {
 
       // If D0 has too many zeros, maybe SM and M1 do as well.
       defaultFilter = true;
-    }
-
-    if (parameterList_.get<bool>("refmaxwell: filter SM", defaultFilter)) {
-      RCP<Vector> diag = VectorFactory::Build(SM_Matrix_->getRowMap());
-      // find a reasonable absolute value threshold
-      SM_Matrix_->getLocalDiagCopy(*diag);
-      magnitudeType threshold = 1.0e-8 * diag->normInf();
-
-      Level fineLevel;
-      fineLevel.SetFactoryManager(null);
-      fineLevel.SetLevelID(0);
-      fineLevel.Set("A",SM_Matrix_);
-      fineLevel.setlib(SM_Matrix_->getDomainMap()->lib());
-      RCP<ThresholdAFilterFactory> ThreshFact = rcp(new ThresholdAFilterFactory("A",threshold,/*keepDiagonal=*/true));
-      fineLevel.Request("A",ThreshFact.get());
-      ThreshFact->Build(fineLevel);
-      SM_Matrix_ = fineLevel.Get< RCP<Matrix> >("A",ThreshFact.get());
     }
 
     if (parameterList_.get<bool>("refmaxwell: filter M1", defaultFilter)) {
@@ -410,6 +498,43 @@ namespace MueLu {
       Ms_Matrix_ = fineLevel.Get< RCP<Matrix> >("A",ThreshFact.get());
     }
 
+    if (parameterList_.get<bool>("refmaxwell: filter SM", defaultFilter)) {
+      RCP<Vector> diag = VectorFactory::Build(SM_Matrix_->getRowMap());
+      // find a reasonable absolute value threshold
+      SM_Matrix_->getLocalDiagCopy(*diag);
+      magnitudeType threshold = 1.0e-8 * diag->normInf();
+
+      Level fineLevel;
+      fineLevel.SetFactoryManager(null);
+      fineLevel.SetLevelID(0);
+      fineLevel.Set("A",SM_Matrix_);
+      fineLevel.setlib(SM_Matrix_->getDomainMap()->lib());
+      RCP<ThresholdAFilterFactory> ThreshFact = rcp(new ThresholdAFilterFactory("A",threshold,/*keepDiagonal=*/true));
+      fineLevel.Request("A",ThreshFact.get());
+      ThreshFact->Build(fineLevel);
+      SM_Matrix_ = fineLevel.Get< RCP<Matrix> >("A",ThreshFact.get());
+    }
+
+  }
+
+  template<class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
+  void RefMaxwell<Scalar,LocalOrdinal,GlobalOrdinal,Node>::compute(bool reuse) {
+
+#ifdef HAVE_MUELU_CUDA
+    if (parameterList_.get<bool>("refmaxwell: cuda profile setup", false)) cudaProfilerStart();
+#endif
+
+    std::string timerLabel;
+    if (reuse)
+      timerLabel = "MueLu RefMaxwell: compute (reuse)";
+    else
+      timerLabel = "MueLu RefMaxwell: compute";
+    RCP<Teuchos::TimeMonitor> tmCompute = getTimer(timerLabel);
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Remove explicit zeros from matrices
+    removeExplicitZeros();
+
     if (IsPrint(Statistics2)) {
       RCP<ParameterList> params = rcp(new ParameterList());;
       params->set("printLoadBalancingInfo", true);
@@ -419,113 +544,16 @@ namespace MueLu {
 
     ////////////////////////////////////////////////////////////////////////////////
     // Detect Dirichlet boundary conditions
+    if (!reuse)
+       detectBoundaryConditionsSM();
 
-    if (!reuse) {
-      // clean rows associated with boundary conditions
-      // Find rows with only 1 or 2 nonzero entries, record them in BCrows_.
-      // BCrows_[i] is true, iff i is a boundary row
-      // BCcols_[i] is true, iff i is a boundary column
-      int BCedgesLocal = 0;
-      int BCnodesLocal = 0;
-#ifdef HAVE_MUELU_KOKKOS_REFACTOR
-      if (useKokkos_) {
-        BCrowsKokkos_ = Utilities_kokkos::DetectDirichletRows(*SM_Matrix_,Teuchos::ScalarTraits<magnitudeType>::eps(),/*count_twos_as_dirichlet=*/true);
-
-        double rowsumTol = parameterList_.get("refmaxwell: row sum drop tol",-1.0);
-        if (rowsumTol > 0.) {
-          typedef Teuchos::ScalarTraits<Scalar> STS;
-          RCP<const Map> rowmap = SM_Matrix_->getRowMap();
-          for (LO row = 0; row < Teuchos::as<LO>(SM_Matrix_->getRowMap()->getNodeNumElements()); ++row) {
-            size_t nnz = SM_Matrix_->getNumEntriesInLocalRow(row);
-            ArrayView<const LO> indices;
-            ArrayView<const SC> vals;
-            SM_Matrix_->getLocalRowView(row, indices, vals);
-
-            SC rowsum = STS::zero();
-            SC diagval = STS::zero();
-            for (LO colID = 0; colID < Teuchos::as<LO>(nnz); colID++) {
-              LO col = indices[colID];
-              if (row == col)
-                diagval = vals[colID];
-              rowsum += vals[colID];
-            }
-            if (STS::real(rowsum) > STS::magnitude(diagval) * rowsumTol)
-              BCrowsKokkos_(row) = true;
-          }
-        }
-
-        BCcolsKokkos_ = Kokkos::View<bool*,typename Node::device_type>(Kokkos::ViewAllocateWithoutInitializing("dirichletCols"), D0_Matrix_->getColMap()->getNodeNumElements());
-        BCdomainKokkos_ = Kokkos::View<bool*,typename Node::device_type>(Kokkos::ViewAllocateWithoutInitializing("dirichletCols"), D0_Matrix_->getDomainMap()->getNodeNumElements());
-        DetectDirichletCols<Scalar,LocalOrdinal,GlobalOrdinal,Node>(*D0_Matrix_,BCrowsKokkos_,BCcolsKokkos_,BCdomainKokkos_);
-
-        dump(BCrowsKokkos_,   "BCrows.m");
-        dump(BCcolsKokkos_,   "BCcols.m");
-        dump(BCdomainKokkos_, "BCdomain.m");
-
-        for (size_t i = 0; i<BCrowsKokkos_.size(); i++)
-          if (BCrowsKokkos_(i))
-            BCedgesLocal += 1;
-        for (size_t i = 0; i<BCdomainKokkos_.size(); i++)
-          if (BCdomainKokkos_(i))
-            BCnodesLocal += 1;
-      } else
-#endif // HAVE_MUELU_KOKKOS_REFACTOR
-        {
-          BCrows_ = Teuchos::arcp_const_cast<bool>(Utilities::DetectDirichletRows(*SM_Matrix_,Teuchos::ScalarTraits<magnitudeType>::eps(),/*count_twos_as_dirichlet=*/true));
-
-          double rowsumTol = parameterList_.get("refmaxwell: row sum drop tol",-1.0);
-          if (rowsumTol > 0.) {
-            typedef Teuchos::ScalarTraits<Scalar> STS;
-            RCP<const Map> rowmap = SM_Matrix_->getRowMap();
-            for (LO row = 0; row < Teuchos::as<LO>(SM_Matrix_->getRowMap()->getNodeNumElements()); ++row) {
-              size_t nnz = SM_Matrix_->getNumEntriesInLocalRow(row);
-              ArrayView<const LO> indices;
-              ArrayView<const SC> vals;
-              SM_Matrix_->getLocalRowView(row, indices, vals);
-
-              SC rowsum = STS::zero();
-              SC diagval = STS::zero();
-              for (LO colID = 0; colID < Teuchos::as<LO>(nnz); colID++) {
-                LO col = indices[colID];
-                if (row == col)
-                  diagval = vals[colID];
-                rowsum += vals[colID];
-              }
-              if (STS::real(rowsum) > STS::magnitude(diagval) * rowsumTol)
-                BCrows_[row] = true;
-            }
-          }
-
-          BCcols_.resize(D0_Matrix_->getColMap()->getNodeNumElements());
-          BCdomain_.resize(D0_Matrix_->getDomainMap()->getNodeNumElements());
-          DetectDirichletCols<Scalar,LocalOrdinal,GlobalOrdinal,Node>(*D0_Matrix_,BCrows_,BCcols_,BCdomain_);
-
-          dump(BCrows_,   "BCrows.m");
-          dump(BCcols_,   "BCcols.m");
-          dump(BCdomain_, "BCdomain.m");
-
-          for (auto it = BCrows_.begin(); it != BCrows_.end(); ++it)
-            if (*it)
-              BCedgesLocal += 1;
-          for (auto it = BCdomain_.begin(); it != BCdomain_.end(); ++it)
-            if (*it)
-              BCnodesLocal += 1;
-        }
-
-#ifdef HAVE_MPI
-      MueLu_sumAll(SM_Matrix_->getRowMap()->getComm(), BCedgesLocal, BCedges_);
-      MueLu_sumAll(SM_Matrix_->getRowMap()->getComm(), BCnodesLocal, BCnodes_);
-#else
-      BCedges_ = BCedgesLocal;
-      BCnodes_ = BCnodesLocal;
-#endif
-      if (IsPrint(Statistics2)) {
-        GetOStream(Statistics2) << "MueLu::RefMaxwell::compute(): Detected " << BCedges_ << " BC rows and " << BCnodes_ << " BC columns." << std::endl;
-      }
-
-      TEUCHOS_TEST_FOR_EXCEPTION(Teuchos::as<Xpetra::global_size_t>(BCedges_) >= D0_Matrix_->getRangeMap()->getGlobalNumElements(), Exceptions::RuntimeError,
-                                 "All edges are detected as boundary edges!");
-
+    if (allBoundary_) {
+      // All edges have been detected as boundary edges.
+      // Do not attempt to construct sub-hierarchies, but just set up a single level preconditioner.
+      GetOStream(Warnings0) << "All edges are detected as boundary edges!" << std::endl;
+      mode_ = "none";
+      setFineLevelSmoother();
+      return;
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -536,17 +564,6 @@ namespace MueLu {
       TEUCHOS_ASSERT(Nullspace_->getMap()->isCompatible(*(SM_Matrix_->getRowMap())));
     }
     else if(Nullspace_ == null && Coords_ != null) {
-      // normalize coordinates
-      Array<coordinateType> norms(Coords_->getNumVectors());
-      Coords_->norm2(norms);
-      for (size_t i=0;i<Coords_->getNumVectors();i++)
-        norms[i] = ((coordinateType)1.0)/norms[i];
-      Nullspace_ = MultiVectorFactory::Build(SM_Matrix_->getRowMap(),Coords_->getNumVectors());
-
-      // Cast coordinates to Scalar so they can be multiplied against D0
-      Array<Scalar> normsSC(Coords_->getNumVectors());
-      for (size_t i=0;i<Coords_->getNumVectors();i++)
-        normsSC[i] = (SC) norms[i];
 #ifdef HAVE_MUELU_KOKKOS_REFACTOR
       RCP<MultiVector> CoordsSC;
       if (useKokkos_)
@@ -556,7 +573,9 @@ namespace MueLu {
 #else
       RCP<MultiVector> CoordsSC = Utilities::RealValuedToScalarMultiVector(Coords_);
 #endif
+      Nullspace_ = MultiVectorFactory::Build(SM_Matrix_->getRowMap(),Coords_->getNumVectors());
       D0_Matrix_->apply(*CoordsSC,*Nullspace_);
+
       if (IsPrint(Statistics2)) {
         // compute edge lengths
         ArrayRCP<ArrayRCP<const Scalar> > localNullspace(Nullspace_->getNumVectors());
@@ -575,26 +594,35 @@ namespace MueLu {
           localMeanLen += len;
         }
         coordinateType minLen, maxLen, meanLen;
-#ifdef HAVE_MPI
         RCP<const Teuchos::Comm<int> > comm = Nullspace_->getMap()->getComm();
         MueLu_minAll(comm, localMinLen,  minLen);
         MueLu_sumAll(comm, localMeanLen, meanLen);
         MueLu_maxAll(comm, localMaxLen,  maxLen);
-#else
-        minLen  = localMinLen;
-        meanLen = localMeanLen;
-        maxLen  = localMaxLen;
-#endif
         meanLen /= Nullspace_->getMap()->getGlobalNumElements();
         GetOStream(Statistics0) << "Edge length (min/mean/max): " << minLen << " / " << meanLen << " / " << maxLen << std::endl;
       }
-      Nullspace_->scale(normsSC());
+
+      bool normalize = parameterList_.get<bool>("refmaxwell: normalize nullspace", MasterList::getDefault<bool>("refmaxwell: normalize nullspace"));
+      if (normalize) {
+        // normalize the nullspace
+        GetOStream(Runtime0) << "RefMaxwell::compute(): normalizing nullspace" << std::endl;
+
+        const Scalar one = Teuchos::ScalarTraits<Scalar>::one();
+        Array<coordinateType> norms(Coords_->getNumVectors());
+        Coords_->normInf(norms);
+
+        // Cast coordinates to Scalar so they can be multiplied against the nullspace
+        Array<Scalar> normsSC(Coords_->getNumVectors());
+        for (size_t i=0; i < Coords_->getNumVectors(); i++)
+          normsSC[i] = one / Teuchos::as<Scalar>(norms[i]);
+        Nullspace_->scale(normsSC());
+      }
     }
     else {
       GetOStream(Errors) << "MueLu::RefMaxwell::compute(): either the nullspace or the nodal coordinates must be provided." << std::endl;
     }
 
-    if (!reuse) {
+    if (!reuse && skipFirstLevel_) {
       // Nuke the BC edges in nullspace
 #ifdef HAVE_MUELU_KOKKOS_REFACTOR
       if (useKokkos_)
@@ -630,6 +658,7 @@ namespace MueLu {
         ParameterList rapList = *(rapFact->GetValidParameterList());
         rapList.set("transpose: use implicit", true);
         rapList.set("rap: fix zero diagonals", parameterList_.get<bool>("rap: fix zero diagonals", true));
+        rapList.set("rap: fix zero diagonals threshold", parameterList_.get<double>("rap: fix zero diagonals threshold", Teuchos::ScalarTraits<double>::eps()));
         rapList.set("rap: triple product", parameterList_.get<bool>("rap: triple product", false));
         rapFact->SetParameterList(rapList);
 
@@ -939,6 +968,7 @@ namespace MueLu {
         ParameterList rapList = *(rapFact->GetValidParameterList());
         rapList.set("transpose: use implicit", true);
         rapList.set("rap: fix zero diagonals", parameterList_.get<bool>("rap: fix zero diagonals", true));
+        rapList.set("rap: fix zero diagonals threshold", parameterList_.get<double>("rap: fix zero diagonals threshold", Teuchos::ScalarTraits<double>::eps()));
         rapList.set("rap: triple product", parameterList_.get<bool>("rap: triple product", false));
         rapFact->SetParameterList(rapList);
 
@@ -1154,117 +1184,7 @@ namespace MueLu {
       dump(*D0_Matrix_, "D0_nuked.m");
     }
 
-    {
-      if (parameterList_.isType<std::string>("smoother: type") &&
-          parameterList_.get<std::string>("smoother: type") == "hiptmair" &&
-          SM_Matrix_->getDomainMap()->lib() == Xpetra::UseTpetra &&
-          A22_->getDomainMap()->lib() == Xpetra::UseTpetra &&
-          D0_Matrix_->getDomainMap()->lib() == Xpetra::UseTpetra) {
-#if defined(MUELU_REFMAXWELL_CAN_USE_HIPTMAIR)
-        ParameterList hiptmairPreList, hiptmairPostList, smootherPreList, smootherPostList;
-
-        if (smootherList_.isSublist("smoother: pre params"))
-          smootherPreList = smootherList_.sublist("smoother: pre params");
-        else if (smootherList_.isSublist("smoother: params"))
-          smootherPreList = smootherList_.sublist("smoother: params");
-        hiptmairPreList.set("hiptmair: smoother type 1",
-                            smootherPreList.get<std::string>("hiptmair: smoother type 1", "CHEBYSHEV"));
-        hiptmairPreList.set("hiptmair: smoother type 2",
-                            smootherPreList.get<std::string>("hiptmair: smoother type 2", "CHEBYSHEV"));
-        if(smootherPreList.isSublist("hiptmair: smoother list 1"))
-          hiptmairPreList.set("hiptmair: smoother list 1", smootherPreList.sublist("hiptmair: smoother list 1"));
-        if(smootherPreList.isSublist("hiptmair: smoother list 2"))
-          hiptmairPreList.set("hiptmair: smoother list 2", smootherPreList.sublist("hiptmair: smoother list 2"));
-        hiptmairPreList.set("hiptmair: pre or post",
-                            smootherPreList.get<std::string>("hiptmair: pre or post", "pre"));
-        hiptmairPreList.set("hiptmair: zero starting solution",
-                            smootherPreList.get<bool>("hiptmair: zero starting solution", true));
-
-        if (smootherList_.isSublist("smoother: post params"))
-          smootherPostList = smootherList_.sublist("smoother: post params");
-        else if (smootherList_.isSublist("smoother: params"))
-          smootherPostList = smootherList_.sublist("smoother: params");
-        hiptmairPostList.set("hiptmair: smoother type 1",
-                             smootherPostList.get<std::string>("hiptmair: smoother type 1", "CHEBYSHEV"));
-        hiptmairPostList.set("hiptmair: smoother type 2",
-                             smootherPostList.get<std::string>("hiptmair: smoother type 2", "CHEBYSHEV"));
-        if(smootherPostList.isSublist("hiptmair: smoother list 1"))
-          hiptmairPostList.set("hiptmair: smoother list 1", smootherPostList.sublist("hiptmair: smoother list 1"));
-        if(smootherPostList.isSublist("hiptmair: smoother list 2"))
-          hiptmairPostList.set("hiptmair: smoother list 2", smootherPostList.sublist("hiptmair: smoother list 2"));
-        hiptmairPostList.set("hiptmair: pre or post",
-                             smootherPostList.get<std::string>("hiptmair: pre or post", "post"));
-        hiptmairPostList.set("hiptmair: zero starting solution",
-                             smootherPostList.get<bool>("hiptmair: zero starting solution", false));
-
-        typedef Tpetra::RowMatrix<SC, LO, GO, NO> TROW;
-        RCP<const TROW > EdgeMatrix = Utilities::Op2NonConstTpetraRow(SM_Matrix_);
-        RCP<const TROW > NodeMatrix = Utilities::Op2NonConstTpetraRow(A22_);
-        RCP<const TROW > PMatrix = Utilities::Op2NonConstTpetraRow(D0_Matrix_);
-
-        hiptmairPreSmoother_  = rcp( new Ifpack2::Hiptmair<TROW>(EdgeMatrix,NodeMatrix,PMatrix) );
-        hiptmairPreSmoother_ -> setParameters(hiptmairPreList);
-        hiptmairPreSmoother_ -> initialize();
-        hiptmairPreSmoother_ -> compute();
-        hiptmairPostSmoother_ = rcp( new Ifpack2::Hiptmair<TROW>(EdgeMatrix,NodeMatrix,PMatrix) );
-        hiptmairPostSmoother_ -> setParameters(hiptmairPostList);
-        hiptmairPostSmoother_ -> initialize();
-        hiptmairPostSmoother_ -> compute();
-        useHiptmairSmoothing_ = true;
-#else
-        throw(Xpetra::Exceptions::RuntimeError("MueLu must be compiled with Ifpack2 for Hiptmair smoothing."));
-#endif  // defined(MUELU_REFMAXWELL_CAN_USE_HIPTMAIR)
-      } else {
-        if (parameterList_.isType<std::string>("smoother: pre type") && parameterList_.isType<std::string>("smoother: post type")) {
-          std::string preSmootherType = parameterList_.get<std::string>("smoother: pre type");
-          std::string postSmootherType = parameterList_.get<std::string>("smoother: post type");
-
-          ParameterList preSmootherList, postSmootherList;
-          if (parameterList_.isSublist("smoother: pre params"))
-            preSmootherList = parameterList_.sublist("smoother: pre params");
-          if (parameterList_.isSublist("smoother: post params"))
-            postSmootherList = parameterList_.sublist("smoother: post params");
-
-          Level level;
-          RCP<MueLu::FactoryManagerBase> factoryHandler = rcp(new FactoryManager());
-          level.SetFactoryManager(factoryHandler);
-          level.SetLevelID(0);
-          level.setObjectLabel("RefMaxwell (1,1)");
-          level.Set("A",SM_Matrix_);
-          level.setlib(SM_Matrix_->getDomainMap()->lib());
-
-          RCP<SmootherPrototype> preSmootherPrototype = rcp(new TrilinosSmoother(preSmootherType, preSmootherList));
-          RCP<SmootherFactory> preSmootherFact = rcp(new SmootherFactory(preSmootherPrototype));
-
-          RCP<SmootherPrototype> postSmootherPrototype = rcp(new TrilinosSmoother(postSmootherType, postSmootherList));
-          RCP<SmootherFactory> postSmootherFact = rcp(new SmootherFactory(postSmootherPrototype));
-
-          level.Request("PreSmoother",preSmootherFact.get());
-          preSmootherFact->Build(level);
-          PreSmoother_ = level.Get<RCP<SmootherBase> >("PreSmoother",preSmootherFact.get());
-
-          level.Request("PostSmoother",postSmootherFact.get());
-          postSmootherFact->Build(level);
-          PostSmoother_ = level.Get<RCP<SmootherBase> >("PostSmoother",postSmootherFact.get());
-        } else {
-          std::string smootherType = parameterList_.get<std::string>("smoother: type", "CHEBYSHEV");
-          Level level;
-          RCP<MueLu::FactoryManagerBase> factoryHandler = rcp(new FactoryManager());
-          level.SetFactoryManager(factoryHandler);
-          level.SetLevelID(0);
-          level.setObjectLabel("RefMaxwell (1,1)");
-          level.Set("A",SM_Matrix_);
-          level.setlib(SM_Matrix_->getDomainMap()->lib());
-          RCP<SmootherPrototype> smootherPrototype = rcp(new TrilinosSmoother(smootherType, smootherList_));
-          RCP<SmootherFactory> SmootherFact = rcp(new SmootherFactory(smootherPrototype));
-          level.Request("PreSmoother",SmootherFact.get());
-          SmootherFact->Build(level);
-          PreSmoother_ = level.Get<RCP<SmootherBase> >("PreSmoother",SmootherFact.get());
-          PostSmoother_ = PreSmoother_;
-        }
-        useHiptmairSmoothing_ = false;
-      }
-    }
+    setFineLevelSmoother();
 
     if (!reuse) {
       if (!ImporterH_.is_null()) {
@@ -1324,6 +1244,120 @@ namespace MueLu {
 #ifdef HAVE_MUELU_CUDA
     if (parameterList_.get<bool>("refmaxwell: cuda profile setup", false)) cudaProfilerStop();
 #endif
+  }
+
+
+  template<class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
+  void RefMaxwell<Scalar,LocalOrdinal,GlobalOrdinal,Node>::setFineLevelSmoother() {
+    if (parameterList_.isType<std::string>("smoother: type") &&
+        parameterList_.get<std::string>("smoother: type") == "hiptmair" &&
+        SM_Matrix_->getDomainMap()->lib() == Xpetra::UseTpetra &&
+        A22_->getDomainMap()->lib() == Xpetra::UseTpetra &&
+        D0_Matrix_->getDomainMap()->lib() == Xpetra::UseTpetra) {
+#if defined(MUELU_REFMAXWELL_CAN_USE_HIPTMAIR)
+      ParameterList hiptmairPreList, hiptmairPostList, smootherPreList, smootherPostList;
+
+      if (smootherList_.isSublist("smoother: pre params"))
+        smootherPreList = smootherList_.sublist("smoother: pre params");
+      else if (smootherList_.isSublist("smoother: params"))
+        smootherPreList = smootherList_.sublist("smoother: params");
+      hiptmairPreList.set("hiptmair: smoother type 1",
+                          smootherPreList.get<std::string>("hiptmair: smoother type 1", "CHEBYSHEV"));
+      hiptmairPreList.set("hiptmair: smoother type 2",
+                          smootherPreList.get<std::string>("hiptmair: smoother type 2", "CHEBYSHEV"));
+      if(smootherPreList.isSublist("hiptmair: smoother list 1"))
+        hiptmairPreList.set("hiptmair: smoother list 1", smootherPreList.sublist("hiptmair: smoother list 1"));
+      if(smootherPreList.isSublist("hiptmair: smoother list 2"))
+        hiptmairPreList.set("hiptmair: smoother list 2", smootherPreList.sublist("hiptmair: smoother list 2"));
+      hiptmairPreList.set("hiptmair: pre or post",
+                          smootherPreList.get<std::string>("hiptmair: pre or post", "pre"));
+      hiptmairPreList.set("hiptmair: zero starting solution",
+                          smootherPreList.get<bool>("hiptmair: zero starting solution", true));
+
+      if (smootherList_.isSublist("smoother: post params"))
+        smootherPostList = smootherList_.sublist("smoother: post params");
+      else if (smootherList_.isSublist("smoother: params"))
+        smootherPostList = smootherList_.sublist("smoother: params");
+      hiptmairPostList.set("hiptmair: smoother type 1",
+                           smootherPostList.get<std::string>("hiptmair: smoother type 1", "CHEBYSHEV"));
+      hiptmairPostList.set("hiptmair: smoother type 2",
+                           smootherPostList.get<std::string>("hiptmair: smoother type 2", "CHEBYSHEV"));
+      if(smootherPostList.isSublist("hiptmair: smoother list 1"))
+        hiptmairPostList.set("hiptmair: smoother list 1", smootherPostList.sublist("hiptmair: smoother list 1"));
+      if(smootherPostList.isSublist("hiptmair: smoother list 2"))
+        hiptmairPostList.set("hiptmair: smoother list 2", smootherPostList.sublist("hiptmair: smoother list 2"));
+      hiptmairPostList.set("hiptmair: pre or post",
+                           smootherPostList.get<std::string>("hiptmair: pre or post", "post"));
+      hiptmairPostList.set("hiptmair: zero starting solution",
+                           smootherPostList.get<bool>("hiptmair: zero starting solution", false));
+
+      typedef Tpetra::RowMatrix<SC, LO, GO, NO> TROW;
+      RCP<const TROW > EdgeMatrix = Utilities::Op2NonConstTpetraRow(SM_Matrix_);
+      RCP<const TROW > NodeMatrix = Utilities::Op2NonConstTpetraRow(A22_);
+      RCP<const TROW > PMatrix = Utilities::Op2NonConstTpetraRow(D0_Matrix_);
+
+      hiptmairPreSmoother_  = rcp( new Ifpack2::Hiptmair<TROW>(EdgeMatrix,NodeMatrix,PMatrix) );
+      hiptmairPreSmoother_ -> setParameters(hiptmairPreList);
+      hiptmairPreSmoother_ -> initialize();
+      hiptmairPreSmoother_ -> compute();
+      hiptmairPostSmoother_ = rcp( new Ifpack2::Hiptmair<TROW>(EdgeMatrix,NodeMatrix,PMatrix) );
+      hiptmairPostSmoother_ -> setParameters(hiptmairPostList);
+      hiptmairPostSmoother_ -> initialize();
+      hiptmairPostSmoother_ -> compute();
+      useHiptmairSmoothing_ = true;
+#else
+      throw(Xpetra::Exceptions::RuntimeError("MueLu must be compiled with Ifpack2 for Hiptmair smoothing."));
+#endif  // defined(MUELU_REFMAXWELL_CAN_USE_HIPTMAIR)
+    } else {
+      if (parameterList_.isType<std::string>("smoother: pre type") && parameterList_.isType<std::string>("smoother: post type")) {
+        std::string preSmootherType = parameterList_.get<std::string>("smoother: pre type");
+        std::string postSmootherType = parameterList_.get<std::string>("smoother: post type");
+
+        ParameterList preSmootherList, postSmootherList;
+        if (parameterList_.isSublist("smoother: pre params"))
+          preSmootherList = parameterList_.sublist("smoother: pre params");
+        if (parameterList_.isSublist("smoother: post params"))
+          postSmootherList = parameterList_.sublist("smoother: post params");
+
+        Level level;
+        RCP<MueLu::FactoryManagerBase> factoryHandler = rcp(new FactoryManager());
+        level.SetFactoryManager(factoryHandler);
+        level.SetLevelID(0);
+        level.setObjectLabel("RefMaxwell (1,1)");
+        level.Set("A",SM_Matrix_);
+        level.setlib(SM_Matrix_->getDomainMap()->lib());
+
+        RCP<SmootherPrototype> preSmootherPrototype = rcp(new TrilinosSmoother(preSmootherType, preSmootherList));
+        RCP<SmootherFactory> preSmootherFact = rcp(new SmootherFactory(preSmootherPrototype));
+
+        RCP<SmootherPrototype> postSmootherPrototype = rcp(new TrilinosSmoother(postSmootherType, postSmootherList));
+        RCP<SmootherFactory> postSmootherFact = rcp(new SmootherFactory(postSmootherPrototype));
+
+        level.Request("PreSmoother",preSmootherFact.get());
+        preSmootherFact->Build(level);
+        PreSmoother_ = level.Get<RCP<SmootherBase> >("PreSmoother",preSmootherFact.get());
+
+        level.Request("PostSmoother",postSmootherFact.get());
+        postSmootherFact->Build(level);
+        PostSmoother_ = level.Get<RCP<SmootherBase> >("PostSmoother",postSmootherFact.get());
+      } else {
+        std::string smootherType = parameterList_.get<std::string>("smoother: type", "CHEBYSHEV");
+        Level level;
+        RCP<MueLu::FactoryManagerBase> factoryHandler = rcp(new FactoryManager());
+        level.SetFactoryManager(factoryHandler);
+        level.SetLevelID(0);
+        level.setObjectLabel("RefMaxwell (1,1)");
+        level.Set("A",SM_Matrix_);
+        level.setlib(SM_Matrix_->getDomainMap()->lib());
+        RCP<SmootherPrototype> smootherPrototype = rcp(new TrilinosSmoother(smootherType, smootherList_));
+        RCP<SmootherFactory> SmootherFact = rcp(new SmootherFactory(smootherPrototype));
+        level.Request("PreSmoother",SmootherFact.get());
+        SmootherFact->Build(level);
+        PreSmoother_ = level.Get<RCP<SmootherBase> >("PreSmoother",SmootherFact.get());
+        PostSmoother_ = PreSmoother_;
+      }
+      useHiptmairSmoothing_ = false;
+    }
   }
 
 
@@ -1639,7 +1673,7 @@ namespace MueLu {
                                  }
                                });
 
-          auto localNullspace = Nullspace_->template getLocalView<device_t>();
+          auto localNullspace = Nullspace_->getDeviceLocalView();
 
           // enter values
           if (D0_Matrix_->getNodeMaxNumRowEntries()>2) {
@@ -1738,7 +1772,7 @@ namespace MueLu {
                                  }
                                });
 
-          auto localNullspace = Nullspace_->template getLocalView<device_t>();
+          auto localNullspace = Nullspace_->getDeviceLocalView();
 
           // enter values
           if (D0_Matrix_->getNodeMaxNumRowEntries()>2) {
@@ -2239,8 +2273,25 @@ namespace MueLu {
       }
     }
 
-    if (!skipFirstLevel_)
-      Xpetra::MatrixUtils<SC,LO,GO,NO>::CheckRepairMainDiagonal(AH_, true, GetOStream(Warnings1));
+    if (!AH_.is_null() && !skipFirstLevel_) {
+      ArrayRCP<bool> AHBCrows;
+      AHBCrows.resize(AH_->getRowMap()->getNodeNumElements());
+      size_t dim = Nullspace_->getNumVectors();
+#ifdef HAVE_MUELU_KOKKOS_REFACTOR
+      if (useKokkos_)
+        for (size_t i = 0; i < BCdomainKokkos_.size(); i++)
+          for (size_t k = 0; k < dim; k++)
+            AHBCrows[i*dim+k] = BCdomainKokkos_(i);
+      else
+#endif
+        for (size_t i = 0; i < static_cast<size_t>(BCdomain_.size()); i++)
+          for (size_t k = 0; k < dim; k++)
+            AHBCrows[i*dim+k] = BCdomain_[i];
+      magnitudeType rowSumTol = parameterList_.get("refmaxwell: row sum drop tol (1,1)",-1.0);
+      if (rowSumTol > 0.)
+        ApplyRowSumCriterion(*AH_, rowSumTol, AHBCrows);
+      Utilities::ApplyOAZToMatrixRows(AH_, AHBCrows);
+    }
 
     if (!AH_.is_null()) {
       size_t dim = Nullspace_->getNumVectors();
@@ -2398,31 +2449,6 @@ namespace MueLu {
 
 
   template<class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
-  void RefMaxwell<Scalar,LocalOrdinal,GlobalOrdinal,Node>::applyInverse121(const MultiVector& RHS, MultiVector& X) const {
-
-    // precondition (1,1)-block
-    solveH(RHS,X);
-    // precondition (2,2)-block
-    solve22(RHS,X);
-    // precondition (1,1)-block
-    solveH(RHS,X);
-
-  }
-
-
-  template<class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
-  void RefMaxwell<Scalar,LocalOrdinal,GlobalOrdinal,Node>::applyInverse212(const MultiVector& RHS, MultiVector& X) const {
-
-    // precondition (2,2)-block
-    solve22(RHS,X);
-    // precondition (1,1)-block
-    solveH(RHS,X);
-    // precondition (2,2)-block
-    solve22(RHS,X);
-
-  }
-
-  template<class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
   void RefMaxwell<Scalar,LocalOrdinal,GlobalOrdinal,Node>::solveH(const MultiVector& RHS, MultiVector& X) const {
 
     Scalar one = Teuchos::ScalarTraits<Scalar>::one();
@@ -2525,7 +2551,7 @@ namespace MueLu {
     RCP<Teuchos::TimeMonitor> tm = getTimer("MueLu RefMaxwell: solve");
 
     // make sure that we have enough temporary memory
-    if (X.getNumVectors() != P11res_->getNumVectors())
+    if (!allBoundary_ && X.getNumVectors() != P11res_->getNumVectors())
       allocateMemory(X.getNumVectors());
 
     { // apply pre-smoothing
@@ -2546,15 +2572,52 @@ namespace MueLu {
     // do solve for the 2x2 block system
     if(mode_=="additive")
       applyInverseAdditive(RHS,X);
-    else if(mode_=="121")
-      applyInverse121(RHS,X);
-    else if(mode_=="212")
-      applyInverse212(RHS,X);
-    else if(mode_=="1")
+    else if(mode_=="121") {
+      solveH(RHS,X);
+      solve22(RHS,X);
+      solveH(RHS,X);
+    } else if(mode_=="212") {
+      solve22(RHS,X);
+      solveH(RHS,X);
+      solve22(RHS,X);
+    } else if(mode_=="1")
       solveH(RHS,X);
     else if(mode_=="2")
       solve22(RHS,X);
-    else if(mode_=="none") {
+    else if(mode_=="7") {
+      solveH(RHS,X);
+      { // apply pre-smoothing
+
+        RCP<Teuchos::TimeMonitor> tmSm = getTimer("MueLu RefMaxwell: smoothing");
+
+#if defined(MUELU_REFMAXWELL_CAN_USE_HIPTMAIR)
+        if (useHiptmairSmoothing_) {
+          Tpetra::MultiVector<Scalar, LocalOrdinal, GlobalOrdinal, Node> tX = Utilities::MV2NonConstTpetraMV(X);
+          Tpetra::MultiVector<Scalar, LocalOrdinal, GlobalOrdinal, Node> tRHS = Utilities::MV2TpetraMV(RHS);
+          hiptmairPreSmoother_->apply(tRHS, tX);
+        }
+        else
+#endif
+          PreSmoother_->Apply(X, RHS, false);
+      }
+      solve22(RHS,X);
+      { // apply post-smoothing
+
+        RCP<Teuchos::TimeMonitor> tmSm = getTimer("MueLu RefMaxwell: smoothing");
+
+#if defined(MUELU_REFMAXWELL_CAN_USE_HIPTMAIR)
+        if (useHiptmairSmoothing_)
+          {
+            Tpetra::MultiVector<Scalar, LocalOrdinal, GlobalOrdinal, Node> tX = Utilities::MV2NonConstTpetraMV(X);
+            Tpetra::MultiVector<Scalar, LocalOrdinal, GlobalOrdinal, Node> tRHS = Utilities::MV2TpetraMV(RHS);
+            hiptmairPostSmoother_->apply(tRHS, tX);
+          }
+        else
+#endif
+          PostSmoother_->Apply(X, RHS, false);
+      }
+      solveH(RHS,X);
+    } else if(mode_=="none") {
       // do nothing
     }
     else
