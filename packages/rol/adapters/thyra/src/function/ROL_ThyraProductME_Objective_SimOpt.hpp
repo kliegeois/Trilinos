@@ -259,6 +259,46 @@ public:
     computeGradient2 = false;
   }
 
+  void hessian_22(const Vector<Real> &u,
+                  const Vector<Real> &z) {
+    if(verbosityLevel >= Teuchos::VERB_MEDIUM)
+      *out << "ROL::ThyraProductME_Objective_SimOpt::hessian_22" << std::endl;
+
+    Thyra::ModelEvaluatorBase::OutArgs<Real> outArgs = thyra_model.createOutArgs();
+    bool supports_deriv = true;
+    for(std::size_t i=0; i<p_indices.size(); ++i)
+      supports_deriv = supports_deriv &&  outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_g_pp, g_index, p_indices[i], p_indices[i]);
+
+    if(supports_deriv) { //use derivatives computed by model evaluator
+      const ThyraVector<Real>  & thyra_p = dynamic_cast<const ThyraVector<Real>&>(z);
+      Ptr<Vector<Real>> unew = u.clone();
+      unew->set(u);
+      const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(*unew);
+
+      Teuchos::RCP<const  Thyra::ProductVectorBase<Real> > thyra_prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
+
+      Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model.createInArgs();
+
+      for(std::size_t i=0; i<p_indices.size(); ++i) {
+        inArgs.set_p(p_indices[i], thyra_prodvec_p->getVectorBlock(i));
+      }
+      inArgs.set_x(thyra_x.getVector());
+
+      Teuchos::RCP< Thyra::VectorBase<Real> > multiplier_g = Thyra::createMember<Real>(thyra_model.get_g_multiplier_space(g_index));
+      Thyra::put_scalar(1.0, multiplier_g.ptr());
+      inArgs.set_g_multiplier(g_index, multiplier_g);
+
+      Thyra::ModelEvaluatorBase::OutArgs<Real> outArgs = thyra_model.createOutArgs();
+
+      for(std::size_t i=0; i<p_indices.size(); ++i) {
+        bool supports_deriv = outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_g_pp, g_index, p_indices[i], p_indices[i]);
+        ROL_TEST_FOR_EXCEPTION( !supports_deriv, std::logic_error, "ROL::ThyraProductME_Objective_SimOpt: H_pp is not supported");
+        Teuchos::RCP<Thyra::LinearOpBase<Real>> hess_g_pp = thyra_model.create_hess_g_pp(g_index, p_indices[i], p_indices[i]);
+        outArgs.set_hess_g_pp(g_index, p_indices[i], p_indices[i], hess_g_pp);
+      }
+      thyra_model.evalModel(inArgs, outArgs);
+    }
+  }
 
   void hessVec_11( Vector<Real> &hv, const Vector<Real> &v,
       const Vector<Real> &u,  const Vector<Real> &z, Real &/*tol*/ ) {

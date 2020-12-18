@@ -497,6 +497,8 @@ Piro::PerformROLAnalysis(
 
       int dim_max = rolParams.get<int>("Number of columns computed of the Hessian", 100);
 
+      obj.hessian_22(rol_x, rol_p);
+
       if(computed_Hessian)
       {
         typedef Tpetra::Vector<>::scalar_type Scalar;
@@ -787,6 +789,9 @@ Piro::PerformROLAnalysis(
                   << "\n";
       }
 
+      *out << "Checking Accuracy of constraint Hessian" << std::endl;
+      constr.checkApplyAdjointHessian(sopt_vec, rol_x_direction1, sopt_vec_direction2, sopt_vec_direction2, true,*out,num_steps,order);
+
       if(computed_Hessian)
       {
         typedef Tpetra::Vector<>::scalar_type Scalar;
@@ -931,10 +936,6 @@ Piro::PerformROLAnalysis(
           }
         }
       }
-     }
-      *out << "Checking Accuracy of constraint Hessian" << std::endl;
-      constr.checkApplyAdjointHessian(sopt_vec, rol_x_direction1, sopt_vec_direction2, sopt_vec_direction2, true,*out,num_steps,order);
-
     }
   }
 
