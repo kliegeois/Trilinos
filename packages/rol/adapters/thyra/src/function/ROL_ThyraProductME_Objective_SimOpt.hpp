@@ -45,6 +45,7 @@
 #define ROL_THYRAPRODUCTME_OBJECTIVE_SIMOPT
 
 #include "Thyra_ProductVectorBase.hpp"
+#include "Thyra_PhysicallyBlockedLinearOpBase.hpp"
 #include "ROL_StdVector.hpp"
 #include "ROL_Objective_SimOpt.hpp"
 #include "ROL_Types.hpp"
@@ -259,7 +260,8 @@ public:
     computeGradient2 = false;
   }
 
-  void hessian_22(const Vector<Real> &u,
+  void hessian_22(const Teuchos::RCP<Thyra::PhysicallyBlockedLinearOpBase<Real>> H,
+                  const Vector<Real> &u,
                   const Vector<Real> &z) {
     if(verbosityLevel >= Teuchos::VERB_MEDIUM)
       *out << "ROL::ThyraProductME_Objective_SimOpt::hessian_22" << std::endl;
@@ -279,6 +281,8 @@ public:
 
       Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model.createInArgs();
 
+      H->beginBlockFill(p_indices.size(), p_indices.size());
+
       for(std::size_t i=0; i<p_indices.size(); ++i) {
         inArgs.set_p(p_indices[i], thyra_prodvec_p->getVectorBlock(i));
       }
@@ -293,9 +297,13 @@ public:
       for(std::size_t i=0; i<p_indices.size(); ++i) {
         bool supports_deriv = outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_g_pp, g_index, p_indices[i], p_indices[i]);
         ROL_TEST_FOR_EXCEPTION( !supports_deriv, std::logic_error, "ROL::ThyraProductME_Objective_SimOpt: H_pp is not supported");
+
         Teuchos::RCP<Thyra::LinearOpBase<Real>> hess_g_pp = thyra_model.create_hess_g_pp(g_index, p_indices[i], p_indices[i]);
         outArgs.set_hess_g_pp(g_index, p_indices[i], p_indices[i], hess_g_pp);
+        H->setBlock(p_indices[i], p_indices[i], hess_g_pp);
       }
+      H->endBlockFill();
+
       thyra_model.evalModel(inArgs, outArgs);
     }
   }
