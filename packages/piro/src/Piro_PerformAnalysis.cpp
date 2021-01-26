@@ -556,14 +556,10 @@ Piro::PerformROLAnalysis(
 
   //this is for testing the PrimalScaledThyraVector. At the moment the scaling is set to 1, so it is not changing the dot product
   Teuchos::RCP<Thyra::VectorBase<double> > scaling_vector_x = x->clone_v();
-  Teuchos::RCP<Thyra::VectorBase<double> > scaling_vector_p = p->clone_v();
   ::Thyra::put_scalar<double>( 1.0, scaling_vector_x.ptr());
-  ::Thyra::put_scalar<double>( 1.0, scaling_vector_p.ptr());
   //::Thyra::randomize<double>( 0.5, 2.0, scaling_vector_x.ptr());
   ROL::PrimalScaledThyraVector<double> rol_x_primal(x, scaling_vector_x);
   ROL::PrimalHessianScaledThyraVector<double> rol_p_primal(p, H, invH, removeMeanOfTheRHS);
-
-  // Pass a null pointer as the H (and invH); if zero pointer, do not scale.
 
   // Run Algorithm
   std::vector<std::string> output;
