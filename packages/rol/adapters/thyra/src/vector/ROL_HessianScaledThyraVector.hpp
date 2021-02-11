@@ -68,7 +68,7 @@ class PrimalHessianScaledThyraVector : public ThyraVector<Real> {
     const Teuchos::RCP<const Thyra::LinearOpBase<Real> > hessian_;
     const Teuchos::RCP<const Thyra::LinearOpBase<Real> > invHessian_;
 
-    const bool useHessianPseudoInverse_;
+    const bool removeMeanOfTheRHS_;
 
     mutable Teuchos::RCP<DualHessianScaledThyraVector<Real> > dual_vec_;
     mutable bool isDualInitialized_;
@@ -87,21 +87,21 @@ class PrimalHessianScaledThyraVector : public ThyraVector<Real> {
     PrimalHessianScaledThyraVector(const Teuchos::RCP<Thyra::VectorBase<Real> > &thyra_vec,
                                    const Teuchos::RCP<const Thyra::LinearOpBase<Real> > hessian,
                                    const Teuchos::RCP<const Thyra::LinearOpBase<Real> > invHessian,
-                                   const bool useHessianPseudoInverse)
+                                   const bool removeMeanOfTheRHS)
         : ThyraVector<Real>(thyra_vec),
           hessian_(hessian),
           invHessian_(invHessian),
-          useHessianPseudoInverse_(useHessianPseudoInverse),
+          removeMeanOfTheRHS_(removeMeanOfTheRHS),
           isDualInitialized_(false) {}
 
     PrimalHessianScaledThyraVector(const Teuchos::RCP<Thyra::VectorBase<Real> > &thyra_vec,
                                    const Teko::BlockedLinearOp hessian,
                                    const Teko::BlockedLinearOp invHessian,
-                                   const bool useHessianPseudoInverse)
+                                   const bool removeMeanOfTheRHS)
         : ThyraVector<Real>(thyra_vec),
           hessian_(Teko::toLinearOp(hessian)),
           invHessian_(Teko::toLinearOp(invHessian)),
-          useHessianPseudoInverse_(useHessianPseudoInverse),
+          removeMeanOfTheRHS_(removeMeanOfTheRHS),
           isDualInitialized_(false) {}
 
     Real dot(const Vector<Real> &x) const {
@@ -118,14 +118,14 @@ class PrimalHessianScaledThyraVector : public ThyraVector<Real> {
 
     Teuchos::RCP<Vector<Real> > clone() const {
         Teuchos::RCP<const Thyra::VectorBase<Real> > vec = ThyraVector<Real>::getVector();
-        return Teuchos::rcp(new PrimalHessianScaledThyraVector<Real>(vec->clone_v(), hessian_, invHessian_, useHessianPseudoInverse_));
+        return Teuchos::rcp(new PrimalHessianScaledThyraVector<Real>(vec->clone_v(), hessian_, invHessian_, removeMeanOfTheRHS_));
     }
 
     const Vector<Real> &dual() const {
         if (!isDualInitialized_) {
             // Create new memory for dual vector
             Teuchos::RCP<const Thyra::VectorBase<Real> > vec = ThyraVector<Real>::getVector();
-            dual_vec_ = Teuchos::rcp(new DualHessianScaledThyraVector<Real>(vec->clone_v(), hessian_, invHessian_, useHessianPseudoInverse_));
+            dual_vec_ = Teuchos::rcp(new DualHessianScaledThyraVector<Real>(vec->clone_v(), hessian_, invHessian_, removeMeanOfTheRHS_));
             isDualInitialized_ = true;
         }
         // Scale this with scaling_vec_ and place in dual vector
@@ -141,7 +141,7 @@ class DualHessianScaledThyraVector : public ThyraVector<Real> {
     const Teuchos::RCP<const Thyra::LinearOpBase<Real> > hessian_;
     const Teuchos::RCP<const Thyra::LinearOpBase<Real> > invHessian_;
 
-    const bool useHessianPseudoInverse_;
+    const bool removeMeanOfTheRHS_;
 
     mutable Teuchos::RCP<PrimalHessianScaledThyraVector<Real> > primal_vec_;
     mutable bool isDualInitialized_;
@@ -152,7 +152,7 @@ class DualHessianScaledThyraVector : public ThyraVector<Real> {
             Thyra::copy(*in, out.ptr());
         else {
             Teuchos::RCP<Thyra::VectorBase<Real> > in2 = in->clone_v();
-            if(useHessianPseudoInverse_) {
+            if(removeMeanOfTheRHS_) {
                 const Real meanValue = -Thyra::sum(*in2)/(in2->space()->dim());
                 Thyra::add_scalar(meanValue, in2.ptr());
             }
@@ -166,21 +166,21 @@ class DualHessianScaledThyraVector : public ThyraVector<Real> {
     DualHessianScaledThyraVector(const Teuchos::RCP<Thyra::VectorBase<Real> > &thyra_vec,
                                  const Teuchos::RCP<const Thyra::LinearOpBase<Real> > hessian,
                                  const Teuchos::RCP<const Thyra::LinearOpBase<Real> > invHessian,
-                                 const bool useHessianPseudoInverse)
+                                 const bool removeMeanOfTheRHS)
         : ThyraVector<Real>(thyra_vec),
           hessian_(hessian),
           invHessian_(invHessian),
-          useHessianPseudoInverse_(useHessianPseudoInverse),
+          removeMeanOfTheRHS_(removeMeanOfTheRHS),
           isDualInitialized_(false) {}
 
     DualHessianScaledThyraVector(const Teuchos::RCP<Thyra::VectorBase<Real> > &thyra_vec,
                                  const Teko::BlockedLinearOp hessian,
                                  const Teko::BlockedLinearOp invHessian,
-                                 const bool useHessianPseudoInverse)
+                                 const bool removeMeanOfTheRHS)
         : ThyraVector<Real>(thyra_vec),
           hessian_(Teko::toLinearOp(hessian)),
           invHessian_(Teko::toLinearOp(invHessian)),
-          useHessianPseudoInverse_(useHessianPseudoInverse),
+          removeMeanOfTheRHS_(removeMeanOfTheRHS),
           isDualInitialized_(false) {}
 
     Real dot(const Vector<Real> &x) const {
@@ -197,14 +197,14 @@ class DualHessianScaledThyraVector : public ThyraVector<Real> {
 
     Teuchos::RCP<Vector<Real> > clone() const {
         Teuchos::RCP<const Thyra::VectorBase<Real> > vec = ThyraVector<Real>::getVector();
-        return Teuchos::rcp(new DualHessianScaledThyraVector<Real>(vec->clone_v(), hessian_, invHessian_, useHessianPseudoInverse_));
+        return Teuchos::rcp(new DualHessianScaledThyraVector<Real>(vec->clone_v(), hessian_, invHessian_, removeMeanOfTheRHS_));
     }
 
     const Vector<Real> &dual() const {
         if (!isDualInitialized_) {
             // Create new memory for dual vector
             Teuchos::RCP<const Thyra::VectorBase<Real> > vec = ThyraVector<Real>::getVector();
-            primal_vec_ = Teuchos::rcp(new PrimalHessianScaledThyraVector<Real>(vec->clone_v(), hessian_, invHessian_, useHessianPseudoInverse_));
+            primal_vec_ = Teuchos::rcp(new PrimalHessianScaledThyraVector<Real>(vec->clone_v(), hessian_, invHessian_, removeMeanOfTheRHS_));
             isDualInitialized_ = true;
         }
         // Scale this with scaling_vec_ and place in dual vector
