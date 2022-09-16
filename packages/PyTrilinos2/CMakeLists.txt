@@ -155,14 +155,33 @@ IF (PYTRILINOS2_GENERATE_SRC)
   ENDFOREACH(line)
   file(WRITE ${all_include_list} ${CONTENTS})
 
+  set(eti_files_with_dir "")
+  set(eti_files_without_dir "")
+
+  # Get ETI files for Tpetra:
+  file(GLOB tpetra_ETI_files
+      "${CMAKE_CURRENT_BINARY_DIR}/../tpetra/core/src/*.cpp"
+  )
+  foreach(tpetra_ETI_file IN LISTS tpetra_ETI_files)
+    list(APPEND eti_files_with_dir "${tpetra_ETI_file}")
+    get_filename_component(tpetra_ETI_file_without_dir "${tpetra_ETI_file}" NAME)
+    list(APPEND eti_files_without_dir "${tpetra_ETI_file_without_dir}")
+  endforeach()
+
   SET(CONTENTS "")
   FOREACH(line IN LISTS PyTrilinos2_all_include_files_with_dir)
+    SET(CONTENTS "${CONTENTS}${line}\n")
+  ENDFOREACH(line)
+  FOREACH(line IN LISTS eti_files_with_dir)
     SET(CONTENTS "${CONTENTS}${line}\n")
   ENDFOREACH(line)
   file(WRITE ${all_header_with_dir_list} ${CONTENTS})
 
   SET(CONTENTS "")
   FOREACH(line IN LISTS PyTrilinos2_all_include_files_without_dir)
+    SET(CONTENTS "${CONTENTS}${line}\n")
+  ENDFOREACH(line)
+  FOREACH(line IN LISTS eti_files_without_dir)
     SET(CONTENTS "${CONTENTS}${line}\n")
   ENDFOREACH(line)
   file(WRITE ${all_header_without_dir_list} ${CONTENTS})
@@ -173,6 +192,9 @@ IF (PYTRILINOS2_GENERATE_SRC)
   EXECUTE_PROCESS(COMMAND
   ${PyTrilinos2_BINDER_EXECUTABLE} --root-module PyTrilinos2 --prefix ${CMAKE_CURRENT_BINARY_DIR}/binder -max-file-size=1000000 --bind Teuchos --bind Tpetra --config ${CMAKE_CURRENT_SOURCE_DIR}/scripts/PyTrilinos2_config.cfg ${binder_include_name} -- -std=c++17 -I${CMAKE_CURRENT_BINARY_DIR}/include_tmp -I${CMAKE_CURRENT_SOURCE_DIR}/src --gcc-toolchain=${PyTrilinos2_BINDER_GCC_TOOLCHAIN} -DNDEBUG
   )
+#  EXECUTE_PROCESS(COMMAND
+#  ${PyTrilinos2_BINDER_EXECUTABLE} --root-module PyTrilinos2 --prefix ${CMAKE_CURRENT_BINARY_DIR}/binder -max-file-size=1000000 --bind Teuchos --bind Tpetra --config ${CMAKE_CURRENT_SOURCE_DIR}/scripts/PyTrilinos2_config.cfg ${binder_include_name} -- -std=c++17 -I${CMAKE_CURRENT_BINARY_DIR}/../tpetra/core/src -I${CMAKE_CURRENT_BINARY_DIR}/include_tmp -I${CMAKE_CURRENT_SOURCE_DIR}/src --gcc-toolchain=${PyTrilinos2_BINDER_GCC_TOOLCHAIN} -DNDEBUG
+#  )  
   IF(PYTRILINOS2_UPDATE_GENERATED_SRC)
     FILE(COPY ${CMAKE_CURRENT_BINARY_DIR}/binder DESTINATION ${CMAKE_CURRENT_SOURCE_DIR})
   ENDIF()
