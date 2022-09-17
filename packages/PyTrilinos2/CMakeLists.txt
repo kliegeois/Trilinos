@@ -110,6 +110,8 @@ IF (PYTRILINOS2_GENERATE_SRC)
   set(binder_include_name "${CMAKE_CURRENT_BINARY_DIR}/trilinos_includes.hpp")
   set(all_header_with_dir_list "${CMAKE_CURRENT_BINARY_DIR}/list_with_dir.txt")
   set(all_header_without_dir_list "${CMAKE_CURRENT_BINARY_DIR}/list_without_dir.txt")
+  set(all_ETI_files_list "${CMAKE_CURRENT_BINARY_DIR}/all_ETI_files_list.txt")
+  set(all_ETI_classes_list "${CMAKE_CURRENT_BINARY_DIR}/all_ETI_classes_list.txt")
   set(all_include_list "${CMAKE_CURRENT_BINARY_DIR}/list_include.txt")
 
   set(all_include_dirs "")
@@ -185,6 +187,26 @@ IF (PYTRILINOS2_GENERATE_SRC)
     SET(CONTENTS "${CONTENTS}${line}\n")
   ENDFOREACH(line)
   file(WRITE ${all_header_without_dir_list} ${CONTENTS})
+
+  SET(CONTENTS "")
+  FOREACH(line IN LISTS eti_files_without_dir)
+    SET(CONTENTS "${CONTENTS}${line}\n")
+  ENDFOREACH(line)
+  file(WRITE ${all_ETI_files_list} ${CONTENTS})
+
+  SET(ETI_classes "")
+  list(APPEND ETI_classes "Tpetra_CrsMatrix")
+  list(APPEND ETI_classes "Tpetra_Vector")
+  list(APPEND ETI_classes "Tpetra_MultiVector")
+  SET(CONTENTS "")
+  FOREACH(line IN LISTS ETI_classes)
+    SET(CONTENTS "${CONTENTS}${line}\n")
+  ENDFOREACH(line)
+  file(WRITE ${all_ETI_classes_list} ${CONTENTS})
+
+  EXECUTE_PROCESS(COMMAND
+  ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/scripts/gather_ETI.py ${CMAKE_CURRENT_SOURCE_DIR} ${all_ETI_files_list} ${all_ETI_classes_list} "src/PyTrilinos2_Tpetra_ETI.hpp"
+  )
 
   EXECUTE_PROCESS(COMMAND
   ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/scripts/gather_includes.py ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} ${all_header_with_dir_list} ${all_header_without_dir_list} ${binder_include_name}
