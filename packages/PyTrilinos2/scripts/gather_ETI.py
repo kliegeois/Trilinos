@@ -6,7 +6,7 @@ def get_list_of_ETI_files_to_include(list_all_ETI_files, list_all_classes_to_ETI
     list_ETI_files = []
     for ETI_file in list_all_ETI_files:
         for ETI_class in list_all_classes_to_ETI:
-            if ETI_file.startswith(ETI_class) and not ETI_file.startswith(ETI_class+'_DOUBLE_DOUBLE'):
+            if ETI_file.startswith(ETI_class):
                 list_ETI_files.append(ETI_file)
                 break
     return list_ETI_files
@@ -35,13 +35,13 @@ def write_ETI_getTpetraTypeName_file(source_dir, filename, list_ETI_files):
 
                 class_name = tmp[1].lower()
                 class_name_internal = class_name
-                if class_name = 'vector':
+                if class_name == 'vector':
                     class_name_internal = 'Vector'
-                if class_name = 'multivector':
+                if class_name == 'multivector':
                     class_name_internal = 'MultiVector'
-                if class_name = 'crsgraph':
+                if class_name == 'crsgraph':
                     class_name_internal = 'CrsGraph'
-                if class_name = 'crsmatrix':
+                if class_name == 'crsmatrix':
                     class_name_internal = 'CrsMatrix'
                 scalar_type = tmp[2].lower()
                 scalar_type_internal = scalar_type
@@ -82,10 +82,15 @@ if __name__ == '__main__':
 
     with open(list_all_classes_to_ETI, 'r') as fh:
         all_ETI_classes = fh.read().splitlines()
+    
+    reduce_list = True
 
-    print('all_ETI_files = '+str(all_ETI_files))
-    print('all_ETI_classes = '+str(all_ETI_classes))
-    list_ETI_files = get_list_of_ETI_files_to_include(all_ETI_files, all_ETI_classes)
-    print('list_ETI_files = '+str(list_ETI_files))
+    if reduce_list:
+        print('all_ETI_files = '+str(all_ETI_files))
+        print('all_ETI_classes = '+str(all_ETI_classes))
+        list_ETI_files = get_list_of_ETI_files_to_include(all_ETI_files, all_ETI_classes)
+        print('list_ETI_files = '+str(list_ETI_files))
+    else:
+        list_ETI_files = all_ETI_files
     write_ETI_include_file(CMAKE_CURRENT_SOURCE_DIR, output_file, list_ETI_files)
     write_ETI_getTpetraTypeName_file(CMAKE_CURRENT_SOURCE_DIR+'/python',  'getTpetraTypeName.py', list_ETI_files)
