@@ -65,6 +65,12 @@ def write_ETI_getTpetraTypeName_file(source_dir, filename, list_ETI_files):
 
                 if node_type == 'serial':
                     node_type_internal = 'Kokkos_Compat_KokkosDeviceWrapperNode_Kokkos_Serial_Kokkos_HostSpace'
+                if node_type == 'threads':
+                    node_type_internal = 'Kokkos_Compat_KokkosDeviceWrapperNode_Kokkos_Threads_Kokkos_HostSpace_t'
+                if node_type == 'openmp':
+                    node_type_internal = 'Kokkos_Compat_KokkosDeviceWrapperNode_Kokkos_OpenMP_Kokkos_HostSpace_t'
+                if node_type == 'cuda':
+                    node_type_internal = 'Kokkos_Compat_KokkosDeviceWrapperNode_Kokkos_Cuda'
                 fh.write('\tif class_name.lower() == "'+class_name+'" and scalar_type.lower() == "'+scalar_type+'" and local_ordinal_type.lower() == "'+local_ordinal_type+'" and global_ordinal_type.lower() == "'+global_ordinal_type+'" and node_type.lower() == "'+node_type+'":\n')
                 fh.write('\t\treturn Tpetra.'+class_name_internal+'_'+scalar_type_internal+'_'+local_ordinal_type_internal+'_'+global_ordinal_type_internal+'_'+node_type_internal+'_t\n')
         fh.write('\tprint("Warning: Unknown type, the function returns None.")\n')
