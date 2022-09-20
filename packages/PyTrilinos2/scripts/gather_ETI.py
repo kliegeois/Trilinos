@@ -28,6 +28,8 @@ def write_ETI_getTpetraTypeName_file(source_dir, filename, list_ETI_files):
         fh.write('from PyTrilinos2.PyTrilinos2 import Tpetra\n\n')
         fh.write('def getTypeName(class_name, scalar_type, local_ordinal_type, global_ordinal_type, node_type):\n')
 
+        related_classes = {}
+
         for ETI_file in list_ETI_files:
             tmp = ETI_file[:ETI_file.index('.')].split("_")
 
@@ -39,8 +41,6 @@ def write_ETI_getTpetraTypeName_file(source_dir, filename, list_ETI_files):
                     class_name_internal = 'Vector'
                 if class_name == 'multivector':
                     class_name_internal = 'MultiVector'
-                if class_name == 'crsgraph':
-                    class_name_internal = 'CrsGraph'
                 if class_name == 'crsmatrix':
                     class_name_internal = 'CrsMatrix'
                 scalar_type = tmp[2].lower()
@@ -66,17 +66,27 @@ def write_ETI_getTpetraTypeName_file(source_dir, filename, list_ETI_files):
                 if node_type == 'serial':
                     node_type_internal = 'Kokkos_Compat_KokkosDeviceWrapperNode_Kokkos_Serial_Kokkos_HostSpace'
                 if node_type == 'threads':
-                    node_type_internal = 'Kokkos_Compat_KokkosDeviceWrapperNode_Kokkos_Threads_Kokkos_HostSpace_t'
+                    node_type_internal = 'Kokkos_Compat_KokkosDeviceWrapperNode_Kokkos_Threads_Kokkos_HostSpace'
                 if node_type == 'openmp':
-                    node_type_internal = 'Kokkos_Compat_KokkosDeviceWrapperNode_Kokkos_OpenMP_Kokkos_HostSpace_t'
+                    node_type_internal = 'Kokkos_Compat_KokkosDeviceWrapperNode_Kokkos_OpenMP_Kokkos_HostSpace'
                 if node_type == 'cuda':
                     node_type_internal = 'Kokkos_Compat_KokkosDeviceWrapperNode_Kokkos_Cuda'
                 fh.write('\tif class_name.lower() == "'+class_name+'" and scalar_type.lower() == "'+scalar_type+'" and local_ordinal_type.lower() == "'+local_ordinal_type+'" and global_ordinal_type.lower() == "'+global_ordinal_type+'" and node_type.lower() == "'+node_type+'":\n')
                 fh.write('\t\treturn Tpetra.'+class_name_internal+'_'+scalar_type_internal+'_'+local_ordinal_type_internal+'_'+global_ordinal_type_internal+'_'+node_type_internal+'_t\n')
                 if class_name == 'vector':
-                    # Need to add the Map
-                    fh.write('\tif class_name.lower() == "map" and local_ordinal_type.lower() == "'+local_ordinal_type+'" and global_ordinal_type.lower() == "'+global_ordinal_type+'" and node_type.lower() == "'+node_type+'":\n')
-                    fh.write('\t\treturn Tpetra.Map_'+local_ordinal_type_internal+'_'+global_ordinal_type_internal+'_'+node_type_internal+'_t\n')         
+                    related_class_name = 'Map_'+local_ordinal_type_internal+'_'+global_ordinal_type_internal+'_'+node_type_internal+'_t'
+                    if not related_class_name in related_classes:
+                        # Need to add the Map
+                        fh.write('\tif class_name.lower() == "map" and local_ordinal_type.lower() == "'+local_ordinal_type+'" and global_ordinal_type.lower() == "'+global_ordinal_type+'" and node_type.lower() == "'+node_type+'":\n')
+                        fh.write('\t\treturn Tpetra.'+related_class_name+'\n')
+                        related_classes[related_class_name] = True
+                if class_name == 'crsmatrix':
+                    related_class_name = 'CrsGraph_'+local_ordinal_type_internal+'_'+global_ordinal_type_internal+'_'+node_type_internal+'_t'
+                    if not related_class_name in related_classes:
+                        # Need to add the Map
+                        fh.write('\tif class_name.lower() == "crsgraph" and local_ordinal_type.lower() == "'+local_ordinal_type+'" and global_ordinal_type.lower() == "'+global_ordinal_type+'" and node_type.lower() == "'+node_type+'":\n')
+                        fh.write('\t\treturn Tpetra.'+related_class_name+'\n')
+                        related_classes[related_class_name] = True  
         fh.write('\tprint("Warning: Unknown type, the function returns None.")\n')
         fh.write('\treturn None\n')
 
