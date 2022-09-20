@@ -1,7 +1,8 @@
 import unittest
 from mpi4py import MPI
-from PyTrilinos2 import Teuchos
-from PyTrilinos2 import Tpetra
+from PyTrilinos2.PyTrilinos2 import Teuchos
+from PyTrilinos2.PyTrilinos2 import Tpetra
+from PyTrilinos2 import getTpetraTypeName
 
 def CG(A, x, b, max_iter=20, tol=1e-8):
     r = type(b)(b, Teuchos.DataAccess.Copy)
@@ -32,11 +33,18 @@ class TestCG(unittest.TestCase):
     def test_all(self):
         comm = Teuchos.getTeuchosComm(MPI.COMM_WORLD)
 
-        mapType = Tpetra.Map_int_long_long_Kokkos_Compat_KokkosDeviceWrapperNode_Kokkos_Serial_Kokkos_HostSpace_t
-        graphType = Tpetra.CrsGraph_int_long_long_Kokkos_Compat_KokkosDeviceWrapperNode_Kokkos_Serial_Kokkos_HostSpace_t
-        matrixType = Tpetra.CrsMatrix_double_int_long_long_Kokkos_Compat_KokkosDeviceWrapperNode_Kokkos_Serial_Kokkos_HostSpace_t
-        vectorType = Tpetra.Vector_double_int_long_long_Kokkos_Compat_KokkosDeviceWrapperNode_Kokkos_Serial_Kokkos_HostSpace_t
-        multivectorType = Tpetra.MultiVector_double_int_long_long_Kokkos_Compat_KokkosDeviceWrapperNode_Kokkos_Serial_Kokkos_HostSpace_t
+        openmp = False
+
+        if openmp == True:
+            backend = "OpenMP"
+        else:
+            backend = "Serial"
+
+        mapType = getTpetraTypeName('Map', 'double', 'int', 'long long', backend)
+        graphType = getTpetraTypeName('CrsGraph', 'double', 'int', 'long long', backend)
+        matrixType = getTpetraTypeName('CrsMatrix', 'double', 'int', 'long long', backend)
+        vectorType = getTpetraTypeName('Vector', 'double', 'int', 'long long', backend)
+        multivectorType = getTpetraTypeName('MultiVector', 'double', 'int', 'long long', backend)
 
         mapT=mapType(14,0,comm)
         print(mapT)

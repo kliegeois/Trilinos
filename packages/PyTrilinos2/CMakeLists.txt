@@ -92,6 +92,10 @@ function(get_all_include_dirs  LIBRARY_NAME all_include_dirs all_visited_libs)
   endif()
 endfunction()
 
+# Python files to install
+FILE(GLOB PyTrilinos2PyFiles ${CMAKE_CURRENT_SOURCE_DIR}/python/*.py)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos2)
+
 IF (PYTRILINOS2_GENERATE_SRC)
   MESSAGE("-- PyTrilinos2_BINDER_EXECUTABLE:")
   IF(NOT DEFINED PyTrilinos2_BINDER_EXECUTABLE)
@@ -201,15 +205,21 @@ IF (PYTRILINOS2_GENERATE_SRC)
   ENDFOREACH(line)
   file(WRITE ${all_ETI_classes_list} ${CONTENTS})
 
+  file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/python)
+  file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/src)
+
   EXECUTE_PROCESS(COMMAND
-  ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/scripts/gather_ETI.py ${CMAKE_CURRENT_SOURCE_DIR} ${all_ETI_files_list} ${all_ETI_classes_list} "src/PyTrilinos2_Tpetra_ETI.hpp"
+  ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/scripts/gather_ETI.py ${CMAKE_CURRENT_BINARY_DIR} ${all_ETI_files_list} ${all_ETI_classes_list} "src/PyTrilinos2_Tpetra_ETI.hpp"
   )
+
+  file (GLOB PyTrilinos2PyFiles2 "${CMAKE_CURRENT_BINARY_DIR}/python/*.py")
+  list (APPEND PyTrilinos2PyFiles ${PyTrilinos2PyFiles2})
 
   EXECUTE_PROCESS(COMMAND
   ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/scripts/gather_includes.py ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} ${all_header_with_dir_list} ${all_header_without_dir_list} ${binder_include_name}
   )
   EXECUTE_PROCESS(COMMAND
-  ${PyTrilinos2_BINDER_EXECUTABLE} --root-module PyTrilinos2 --prefix ${CMAKE_CURRENT_BINARY_DIR}/binder -max-file-size=1000000 --bind Teuchos --bind Tpetra --config ${CMAKE_CURRENT_SOURCE_DIR}/scripts/PyTrilinos2_config.cfg ${binder_include_name} -- -std=c++17 -I${CMAKE_CURRENT_BINARY_DIR}/include_tmp -I${CMAKE_CURRENT_SOURCE_DIR}/src --gcc-toolchain=${PyTrilinos2_BINDER_GCC_TOOLCHAIN} -DNDEBUG
+  ${PyTrilinos2_BINDER_EXECUTABLE} --root-module PyTrilinos2 --prefix ${CMAKE_CURRENT_BINARY_DIR}/binder -max-file-size=1000000 --bind Teuchos --bind Tpetra --config ${CMAKE_CURRENT_SOURCE_DIR}/scripts/PyTrilinos2_config.cfg ${binder_include_name} -- -fopenmp=libomp -std=c++17 -I/usr/lib/gcc/x86_64-redhat-linux/4.8.2/include -I${CMAKE_CURRENT_BINARY_DIR}/include_tmp -I${CMAKE_CURRENT_BINARY_DIR}/src -I${CMAKE_CURRENT_SOURCE_DIR}/src --gcc-toolchain=${PyTrilinos2_BINDER_GCC_TOOLCHAIN} -DNDEBUG
   )
   IF(PYTRILINOS2_UPDATE_GENERATED_SRC)
     FILE(COPY ${CMAKE_CURRENT_BINARY_DIR}/binder DESTINATION ${CMAKE_CURRENT_SOURCE_DIR})
@@ -228,6 +238,10 @@ ENDIF()
 # Set the PyTrilinos2 install prefix
 SET(PyTrilinos2_INSTALL_PREFIX ${PyTrilinos2_DEFAULT_INSTALL_PREFIX}
   CACHE PATH "The path prefix for where PyTrilinos2 will be installed, e.g. /usr/local")
+
+INSTALL(FILES
+  ${PyTrilinos2PyFiles}
+  DESTINATION ${PyTrilinos2_INSTALL_PREFIX})
 
 # Get the python version
 EXECUTE_PROCESS(COMMAND ${PYTHON_EXECUTABLE} -c
@@ -264,7 +278,11 @@ EXECUTE_PROCESS(COMMAND
 
 ADD_SUBDIRECTORY( src )
 
-SET(PyTrilinos2_PYTHONPATH "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR}/src")
+#file (GLOB PyTrilinos2PyFilesSo "${CMAKE_CURRENT_BINARY_DIR}/src/*.so")
+file(COPY ${PyTrilinos2PyFiles} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos2/.)
+#file(COPY ${PyTrilinos2PyFilesSo} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos2/.)
+
+SET(PyTrilinos2_PYTHONPATH "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos2")
 
 TRIBITS_ADD_TEST_DIRECTORIES(test)
 

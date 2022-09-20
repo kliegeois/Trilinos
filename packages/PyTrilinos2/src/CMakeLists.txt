@@ -19,3 +19,8 @@ set_target_properties(PyTrilinos2 PROPERTIES SUFFIX ".so")
 
 INSTALL(TARGETS PyTrilinos2
   DESTINATION ${PyTrilinos2_INSTALL_DIR})
+
+add_custom_command(TARGET PyTrilinos2 POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos2.so ${CMAKE_CURRENT_BINARY_DIR}/../PyTrilinos2/.
+    COMMENT "Copy ${PROJECT_BINARY_DIR}/src/PyTrilinos2.so"
+)

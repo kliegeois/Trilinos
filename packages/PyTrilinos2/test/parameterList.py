@@ -1,6 +1,6 @@
 import unittest
 from mpi4py import MPI
-from PyTrilinos2 import Teuchos
+from PyTrilinos2.PyTrilinos2 import Teuchos
 
 class TestParameterList(unittest.TestCase):
     def test_all(self):

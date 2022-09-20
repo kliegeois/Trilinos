@@ -25,7 +25,7 @@ def write_ETI_include_file(source_dir, filename, list_ETI_files):
 
 def write_ETI_getTpetraTypeName_file(source_dir, filename, list_ETI_files):
     with open(source_dir+'/'+filename, 'w') as fh:
-        fh.write('from PyTrilinos2 import Tpetra\n\n')
+        fh.write('from PyTrilinos2.PyTrilinos2 import Tpetra\n\n')
         fh.write('def getTypeName(class_name, scalar_type, local_ordinal_type, global_ordinal_type, node_type):\n')
 
         for ETI_file in list_ETI_files:
@@ -73,6 +73,10 @@ def write_ETI_getTpetraTypeName_file(source_dir, filename, list_ETI_files):
                     node_type_internal = 'Kokkos_Compat_KokkosDeviceWrapperNode_Kokkos_Cuda'
                 fh.write('\tif class_name.lower() == "'+class_name+'" and scalar_type.lower() == "'+scalar_type+'" and local_ordinal_type.lower() == "'+local_ordinal_type+'" and global_ordinal_type.lower() == "'+global_ordinal_type+'" and node_type.lower() == "'+node_type+'":\n')
                 fh.write('\t\treturn Tpetra.'+class_name_internal+'_'+scalar_type_internal+'_'+local_ordinal_type_internal+'_'+global_ordinal_type_internal+'_'+node_type_internal+'_t\n')
+                if class_name == 'vector':
+                    # Need to add the Map
+                    fh.write('\tif class_name.lower() == "map" and local_ordinal_type.lower() == "'+local_ordinal_type+'" and global_ordinal_type.lower() == "'+global_ordinal_type+'" and node_type.lower() == "'+node_type+'":\n')
+                    fh.write('\t\treturn Tpetra.Map_'+local_ordinal_type_internal+'_'+global_ordinal_type_internal+'_'+node_type_internal+'_t\n')         
         fh.write('\tprint("Warning: Unknown type, the function returns None.")\n')
         fh.write('\treturn None\n')
 
