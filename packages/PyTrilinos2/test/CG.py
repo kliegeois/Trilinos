@@ -34,18 +34,11 @@ class TestCG(unittest.TestCase):
     def test_all(self):
         comm = Teuchos.getTeuchosComm(MPI.COMM_WORLD)
 
-        openmp = True
-
-        if openmp == True:
-            backend = "openmp"
-        else:
-            backend = "serial"
-
-        mapType = getTypeName('Map', 'double', 'int', 'long long', backend)
-        graphType = getTypeName('CrsGraph', 'double', 'int', 'long long', backend)
-        matrixType = getTypeName('CrsMatrix', 'double', 'int', 'long long', backend)
-        vectorType = getTypeName('Vector', 'double', 'int', 'long long', backend)
-        multivectorType = getTypeName('MultiVector', 'double', 'int', 'long long', backend)
+        mapType = getTypeName('Map')
+        graphType = getTypeName('CrsGraph')
+        matrixType = getTypeName('CrsMatrix')
+        vectorType = getTypeName('Vector')
+        multivectorType = getTypeName('MultiVector')
 
         mapT=mapType(14,0,comm)
         print(mapT)

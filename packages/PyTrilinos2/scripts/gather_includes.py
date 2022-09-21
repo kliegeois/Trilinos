@@ -15,16 +15,23 @@ def get_without_subfolder(line):
 
 def get_angular_include(line, remove_subfolder=False):
     first=True
-    for i in range(len(line)):
-        if line[i] == '"':
+    i0 = 0
+    i1 = 0
+    newline = line
+    for i in range(len(newline)):
+        if newline[i] == '"':
             if first:
-                line = line[:i] + '<' + line[i+1:]
+                newline = newline[:i] + '<' + newline[i+1:]
                 first = False
+                i0 = i+1
             else:
-                line = line[:i] + '>' + line[i+1:]
+                newline = newline[:i] + '>' + newline[i+1:]
+                i1 = i
+    if newline[i0:i1] in ['storage_class.h', 'cuda_cc7_asm_atomic_op.inc_predicate', 'cuda_cc7_asm_atomic_fetch_op.inc_predicate']:
+        return line
     if remove_subfolder:
-        return get_without_subfolder(line)
-    return line
+        return get_without_subfolder(newline)
+    return newline
 
 def make_all_includes(all_include_filename, folders):
     all_includes = []
@@ -81,6 +88,8 @@ def copy_and_angular_includes(filenames, filenames_witout_dir, to_dir):
         except UnicodeDecodeError:
             with open(filename, 'r', encoding='iso-8859-1') as from_f:
                 lines = from_f.readlines()
+        except PermissionError:
+            continue
 
         with open(to_dir+'/'+filename_witout_dir, 'w') as to_f:
             for line in lines:
