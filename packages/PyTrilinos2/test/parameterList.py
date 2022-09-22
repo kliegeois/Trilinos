@@ -29,8 +29,11 @@ class TestParameterList(unittest.TestCase):
 
         print(b['Ifpack2 Settings']['relaxation: damping factor'])
         b['Ifpack2 Settings']['relaxation: damping factor'] = 0.5
+        b['Ifpack2 Settings']['damped'] = True
+        b['Ifpack2 Settings']['not damped'] = False
         print(b['Ifpack2 Settings']['relaxation: damping factor'])
         self.assertEqual(b['Ifpack2 Settings']['relaxation: damping factor'], 0.5)
+        self.assertEqual(b['Ifpack2 Settings']['not damped'], False)
 
 if __name__ == '__main__':
     unittest.main()

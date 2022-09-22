@@ -36,8 +36,7 @@ bool setPythonParameter(Teuchos::RCP<Teuchos::ParameterList> plist,
   // Boolean values
   if (PyBool_Check(value.ptr ()))
   {
-    if (value == Py_True) plist->set(name,true );
-    else                  plist->set(name,false);
+    plist->set(name, h.cast<bool>());
   }
 
   // Integer values
