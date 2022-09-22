@@ -57,9 +57,11 @@ void convert_np_to_kokkos_1d(pybind11::array_t<typename ViewType::non_const_valu
     auto np_array = array.template unchecked<1>();
 
     auto kokkos_array_host = Kokkos::create_mirror_view(kokkos_array_device);
-    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
+    //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
+      for (int i=0; i<array.shape(0); ++i) {
         kokkos_array_host(i) = np_array(i);
-    });
+      }
+    //});
     Kokkos::fence();
     Kokkos::deep_copy(kokkos_array_device, kokkos_array_host);
 }
@@ -70,11 +72,13 @@ void convert_np_to_kokkos_2d(pybind11::array_t<typename ViewType::non_const_valu
     auto np_array = array.template unchecked<2>();
 
     auto kokkos_array_host = Kokkos::create_mirror_view(kokkos_array_device);
-    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
+    //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
+      for (int i=0; i<array.shape(0); ++i) {
         for (int j=0; j<array.shape(1); ++j) {
             kokkos_array_host(i,j) = np_array(i,j);
         }
-    });
+      }
+    //});
     Kokkos::fence();
     Kokkos::deep_copy(kokkos_array_device, kokkos_array_host);
 }
@@ -89,9 +93,11 @@ struct cknp1d {
         const int dim_out_0 = kokkos_array_host.extent(0);
         result = pybind11::array_t<typename T::value_type>(dim_out_0);
         auto data = result.template mutable_unchecked<1>();
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
+        //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
+          for (int i=0; i<dim_out_0; ++i) {
             data(i) = kokkos_array_host(i);
-        });
+          }
+        //});
         Kokkos::fence();
 
     }
@@ -118,11 +124,13 @@ struct cknp2d {
         result = pybind11::array_t<typename T::value_type>(dim_out_0*dim_out_1);
         result.resize({dim_out_0,dim_out_1});
         auto data = result.template mutable_unchecked<T::rank>();
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
+        //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
+          for (int i=0; i<dim_out_0; ++i) {
             for (int j=0; j<dim_out_1; ++j) {
                 data(i,j) = kokkos_array_host(i,j);
             }
-        });
+          }
+        //});
         Kokkos::fence();
 
     }

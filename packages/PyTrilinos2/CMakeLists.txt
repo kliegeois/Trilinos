@@ -138,6 +138,10 @@ IF (PYTRILINOS2_GENERATE_SRC)
         "${include_dir}/*/*.h"
         "${include_dir}/*/*/*.hpp"
         "${include_dir}/*/*/*.h"
+        "${include_dir}/*/*/*/*.hpp"
+        "${include_dir}/*/*/*/*.h"
+        "${include_dir}/*/*/*/*.inc"
+        "${include_dir}/*/*/*/*.inc_predicate"
     )
     foreach(include_file IN LISTS include_files)
       list(APPEND PyTrilinos2_all_include_files_with_dir "${include_file}")
@@ -219,7 +223,7 @@ IF (PYTRILINOS2_GENERATE_SRC)
   ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/scripts/gather_includes.py ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} ${all_header_with_dir_list} ${all_header_without_dir_list} ${binder_include_name}
   )
   EXECUTE_PROCESS(COMMAND
-  ${PyTrilinos2_BINDER_EXECUTABLE} --root-module PyTrilinos2 --prefix ${CMAKE_CURRENT_BINARY_DIR}/binder -max-file-size=1000000 --bind Teuchos --bind Tpetra --config ${CMAKE_CURRENT_SOURCE_DIR}/scripts/PyTrilinos2_config.cfg ${binder_include_name} -- -fopenmp=libomp -std=c++17 -I/usr/lib/gcc/x86_64-redhat-linux/4.8.2/include -I${CMAKE_CURRENT_BINARY_DIR}/include_tmp -I${CMAKE_CURRENT_BINARY_DIR}/src -I${CMAKE_CURRENT_SOURCE_DIR}/src --gcc-toolchain=${PyTrilinos2_BINDER_GCC_TOOLCHAIN} -DNDEBUG
+  ${PyTrilinos2_BINDER_EXECUTABLE} --root-module PyTrilinos2 --prefix ${CMAKE_CURRENT_BINARY_DIR}/binder -max-file-size=1000000 --bind Teuchos --bind Tpetra --config ${CMAKE_CURRENT_SOURCE_DIR}/scripts/PyTrilinos2_config.cfg ${binder_include_name} -- -x cuda --cuda-host-only --cuda-gpu-arch=sm_70 --cuda-path=/home/projects/ppc64le-pwr9-nvidia/cuda/10.1.105 -std=c++14 -I/usr/lib/gcc/x86_64-redhat-linux/4.8.2/include -I${CMAKE_CURRENT_BINARY_DIR}/include_tmp -I${CMAKE_CURRENT_BINARY_DIR}/src -I${CMAKE_CURRENT_SOURCE_DIR}/src --gcc-toolchain=${PyTrilinos2_BINDER_GCC_TOOLCHAIN} -DNDEBUG
   )
   IF(PYTRILINOS2_UPDATE_GENERATED_SRC)
     FILE(COPY ${CMAKE_CURRENT_BINARY_DIR}/binder DESTINATION ${CMAKE_CURRENT_SOURCE_DIR})
