@@ -222,8 +222,31 @@ IF (PYTRILINOS2_GENERATE_SRC)
   EXECUTE_PROCESS(COMMAND
   ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/scripts/gather_includes.py ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} ${all_header_with_dir_list} ${all_header_without_dir_list} ${binder_include_name}
   )
+
+  set(BINDER_OPTIONS "")
+  list(APPEND BINDER_OPTIONS ${binder_include_name})
+  list(APPEND BINDER_OPTIONS --root-module PyTrilinos2)
+  list(APPEND BINDER_OPTIONS --prefix ${CMAKE_CURRENT_BINARY_DIR}/binder)
+  list(APPEND BINDER_OPTIONS -max-file-size=1000000)
+  list(APPEND BINDER_OPTIONS --bind Teuchos)
+  list(APPEND BINDER_OPTIONS --bind Tpetra)
+  list(APPEND BINDER_OPTIONS --config ${CMAKE_CURRENT_SOURCE_DIR}/scripts/PyTrilinos2_config.cfg)
+  list(APPEND BINDER_OPTIONS --)
+  IF(TPL_ENABLE_CUDA)
+    list(APPEND BINDER_OPTIONS -x cuda --cuda-host-only)
+  ENDIF()
+  list(APPEND BINDER_OPTIONS ${PyTrilinos2_BINDER_FLAGS})
+  list(APPEND BINDER_OPTIONS -std=c++14)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_BINARY_DIR}/include_tmp)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_BINARY_DIR}/src)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/src)
+  list(APPEND BINDER_OPTIONS --gcc-toolchain=${PyTrilinos2_BINDER_GCC_TOOLCHAIN})
+  list(APPEND BINDER_OPTIONS -DNDEBUG)
+
+  message("BINDER_OPTIONS='${BINDER_OPTIONS}'")
+
   EXECUTE_PROCESS(COMMAND
-  ${PyTrilinos2_BINDER_EXECUTABLE} --root-module PyTrilinos2 --prefix ${CMAKE_CURRENT_BINARY_DIR}/binder -max-file-size=1000000 --bind Teuchos --bind Tpetra --config ${CMAKE_CURRENT_SOURCE_DIR}/scripts/PyTrilinos2_config.cfg ${binder_include_name} -- -x cuda --cuda-host-only --cuda-gpu-arch=sm_70 --cuda-path=/home/projects/ppc64le-pwr9-nvidia/cuda/10.1.105 -std=c++14 -I/usr/lib/gcc/x86_64-redhat-linux/4.8.2/include -I${CMAKE_CURRENT_BINARY_DIR}/include_tmp -I${CMAKE_CURRENT_BINARY_DIR}/src -I${CMAKE_CURRENT_SOURCE_DIR}/src --gcc-toolchain=${PyTrilinos2_BINDER_GCC_TOOLCHAIN} -DNDEBUG
+  ${PyTrilinos2_BINDER_EXECUTABLE} ${BINDER_OPTIONS}
   )
   IF(PYTRILINOS2_UPDATE_GENERATED_SRC)
     FILE(COPY ${CMAKE_CURRENT_BINARY_DIR}/binder DESTINATION ${CMAKE_CURRENT_SOURCE_DIR})
