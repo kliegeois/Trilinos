@@ -4,6 +4,7 @@ from mpi4py import MPI
 import numpy as np
 from PyTrilinos2.PyTrilinos2 import Teuchos
 from PyTrilinos2.PyTrilinos2 import Tpetra
+from PyTrilinos2.PyTrilinos2 import MueLu
 from PyTrilinos2.getTpetraTypeName import getTypeName
 from math import sqrt
 
@@ -149,7 +150,7 @@ class TestCG(unittest.TestCase):
         local_x = x.getLocalViewHost()
         local_b = b.getLocalViewHost()
 
-        self.assertAlmostEqual(np.linalg.norm(2*local_x-local_b), 0., delta=1e-5)
+        self.assertAlmostEqual(resNorm, 0., delta=1e-5)
 
 
 if __name__ == '__main__':
