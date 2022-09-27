@@ -109,6 +109,66 @@ namespace MueLu {
     return rcp(new TpetraOperator<SC,LO,GO,NO>(H));
   }
 
+  template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
+  Teuchos::RCP<MueLu::TpetraOperator<Scalar,LocalOrdinal,GlobalOrdinal,Node> >
+  CreateTpetraPreconditioner2(Tpetra::Operator<Scalar, LocalOrdinal, GlobalOrdinal, Node>  &inA,
+                             Teuchos::ParameterList& inParamList)
+  {
+    typedef Scalar          SC;
+    typedef LocalOrdinal    LO;
+    typedef GlobalOrdinal   GO;
+    typedef Node            NO;
+
+    using   Teuchos::ParameterList;
+
+    typedef Xpetra::MultiVector<SC,LO,GO,NO>            MultiVector;
+    typedef Xpetra::Matrix<SC,LO,GO,NO>                 Matrix;
+    typedef Hierarchy<SC,LO,GO,NO>                      Hierarchy;
+    typedef Tpetra::CrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node> crs_matrix_type;
+    typedef Tpetra::BlockCrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node> block_crs_matrix_type;
+
+    return Teuchos::null;
+
+  }
+
+  template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
+  Teuchos::RCP<MueLu::TpetraOperator<Scalar,LocalOrdinal,GlobalOrdinal,Node> >
+  CreateTpetraPreconditioner3(const std::shared_ptr<Tpetra::Operator<Scalar, LocalOrdinal, GlobalOrdinal, Node> >  &inA,
+                             Teuchos::ParameterList& inParamList)
+  {
+    typedef Scalar          SC;
+    typedef LocalOrdinal    LO;
+    typedef GlobalOrdinal   GO;
+    typedef Node            NO;
+
+    using   Teuchos::ParameterList;
+
+    typedef Xpetra::MultiVector<SC,LO,GO,NO>            MultiVector;
+    typedef Xpetra::Matrix<SC,LO,GO,NO>                 Matrix;
+    typedef Hierarchy<SC,LO,GO,NO>                      Hierarchy;
+    typedef Tpetra::CrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node> crs_matrix_type;
+    typedef Tpetra::BlockCrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node> block_crs_matrix_type;
+
+    return null;
+
+  }
+
+  template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
+  Teuchos::RCP<MueLu::TpetraOperator<Scalar,LocalOrdinal,GlobalOrdinal,Node> >
+  CreateTpetraPreconditioner4(const Teuchos::RCP<Tpetra::CrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node> > &inA,
+                             Teuchos::ParameterList& inParamList)
+  {
+    return Teuchos::null;
+  }
+
+  template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
+  Teuchos::RCP<MueLu::TpetraOperator<Scalar,LocalOrdinal,GlobalOrdinal,Node> >
+  CreateTpetraPreconditioner5(const Teuchos::RCP<Tpetra::RowMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node> > &inA,
+                             Teuchos::ParameterList& inParamList)
+  {
+    return Teuchos::null;
+  }
+
 
   /*!
     @brief Helper function to create a MueLu preconditioner that can be used by Tpetra.
@@ -167,6 +227,25 @@ namespace MueLu {
 
     RCP<Hierarchy> H = Op.GetHierarchy();
     RCP<Matrix>    A = TpetraCrs_To_XpetraMatrix<SC,LO,GO,NO>(inA);
+
+    MueLu::ReuseXpetraPreconditioner<SC,LO,GO,NO>(A, H);
+  }
+
+  template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
+  void ReuseTpetraPreconditioner(const Teuchos::RCP<Tpetra::BlockCrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node> >& inA,
+                                 MueLu::TpetraOperator<Scalar,LocalOrdinal,GlobalOrdinal,Node>& Op) {
+    typedef Scalar          SC;
+    typedef LocalOrdinal    LO;
+    typedef GlobalOrdinal   GO;
+    typedef Node            NO;
+
+    typedef Xpetra::Matrix<SC,LO,GO,NO>     Matrix;
+    typedef MueLu ::Hierarchy<SC,LO,GO,NO>  Hierarchy;
+
+    RCP<Hierarchy> H = Op.GetHierarchy();
+    RCP<Xpetra::CrsMatrix<SC,LO,GO,NO> > temp = rcp(new Xpetra::TpetraBlockCrsMatrix<SC,LO,GO,NO>(inA));
+    TEUCHOS_TEST_FOR_EXCEPTION(temp==Teuchos::null, Exceptions::RuntimeError, "ReuseTpetraPreconditioner: cast from Tpetra::BlockCrsMatrix to Xpetra::TpetraBlockCrsMatrix failed.");
+    RCP<Matrix> A = rcp(new Xpetra::CrsMatrixWrap<SC,LO,GO,NO>(temp));
 
     MueLu::ReuseXpetraPreconditioner<SC,LO,GO,NO>(A, H);
   }
