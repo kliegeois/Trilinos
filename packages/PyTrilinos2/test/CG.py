@@ -147,9 +147,6 @@ class TestCG(unittest.TestCase):
         resNorm = residual.norm2()
         print('Norm of residual after {} iterations of CG = {} '.format(its, resNorm))
 
-        local_x = x.getLocalViewHost()
-        local_b = b.getLocalViewHost()
-
         self.assertAlmostEqual(resNorm, 0., delta=1e-5)
 
 
