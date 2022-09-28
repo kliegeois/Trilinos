@@ -304,4 +304,32 @@ void define_MultiVector_member_functions(T cl) {
   });
 }
 
+template <typename T>
+void def_initialize_Kokkos(T m) {
+  m.def("initialize_Kokkos",[](int num_threads, 
+                               int num_numa,
+                               int device_id,
+                               int ndevices,
+                               int skip_device,
+                               bool disable_warnings){
+        if(!Kokkos::is_initialized()) {
+          Kokkos::InitArguments args;
+          args.num_threads = num_threads;
+          args.num_numa = num_numa;
+          args.device_id = device_id;
+          args.ndevices = ndevices;
+          args.skip_device = skip_device;
+          args.disable_warnings = disable_warnings;
+          Kokkos::initialize(args);
+        }
+      }, 
+      py::arg("num_threads") = -1,
+      py::arg("num_numa") = 1,
+      py::arg("device_id") = 0,
+      py::arg("ndevices") = 0,
+      py::arg("skip_device") = 0,
+      py::arg("disable_warnings") = 0
+    );
+}
+
 #endif // PYTRILINOS2_TPETRA_CUSTOM
