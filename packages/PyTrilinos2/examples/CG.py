@@ -8,6 +8,12 @@ from PyTrilinos2.PyTrilinos2 import MueLu
 from PyTrilinos2.getTpetraTypeName import getTypeName
 from math import sqrt
 
+import matplotlib as mpl
+mpl.use('Agg')
+mpl.rcParams.update(mpl.rcParamsDefault)
+import matplotlib.pyplot as plt
+
+
 def CG(A, x, b, max_iter=20, tol=1e-8, prec=None):
     r = type(b)(b, Teuchos.DataAccess.Copy)
     A.apply(x,r,Teuchos.ETransp.NO_TRANS,alpha=-1,beta=1)
@@ -48,6 +54,8 @@ def CG(A, x, b, max_iter=20, tol=1e-8, prec=None):
     return max_iter
 
 comm = Teuchos.getTeuchosComm(MPI.COMM_WORLD)
+rank = comm.getRank()
+Tpetra.initialize_Kokkos(num_threads=12)
 
 mapType = getTypeName('Map')
 graphType = getTypeName('CrsGraph')
@@ -58,22 +66,10 @@ multivectorType = getTypeName('MultiVector')
 n = 3000
 
 mapT=mapType(n, 0, comm)
-print(mapT)
-print('mapT.getMinLocalIndex() = '+str(mapT.getMinLocalIndex()))
-print('mapT.getMaxLocalIndex() = '+str(mapT.getMaxLocalIndex()))
-print('mapT.getMinGlobalIndex() = '+str(mapT.getMinGlobalIndex()))
-print('mapT.getMaxGlobalIndex() = '+str(mapT.getMaxGlobalIndex()))
-print('Tpetra.getDefaultComm().getSize() = '+str(Tpetra.getDefaultComm().getSize()))
-mv=multivectorType(mapT, 3, True)
-mv.replaceLocalValue(0,0,1.23)
-mv.replaceLocalValue(0,1,1.23)
-#mv.randomize(0,-2)
-v0=mv.getVector(0)
-v1=mv.getVector(1)
-print(mv.description())
-print(v0.description())
-print(v0.norm2())
-print(v0.dot(v1))
+n0 = 0
+if rank == 0:
+    n0 = n
+mapT0=mapType(n, n0, 0, comm)
 
 graph = graphType(mapT, 3)
 for i in range(mapT.getMinLocalIndex(), mapT.getMaxLocalIndex()+1):
@@ -87,7 +83,6 @@ for i in range(mapT.getMinLocalIndex(), mapT.getMaxLocalIndex()+1):
 graph.fillComplete()
 
 A = matrixType(graph)
-
 for i in range(mapT.getMinLocalIndex(), mapT.getMaxLocalIndex()+1):
     global_i = mapT.getGlobalElement(i)
     indices = [global_i]
@@ -99,46 +94,40 @@ for i in range(mapT.getMinLocalIndex(), mapT.getMaxLocalIndex()+1):
         indices.append(global_i+1)
         vals.append(-1.)
     A.replaceGlobalValues(global_i, indices, vals)
-
 A.fillComplete()
-
-print(A.getGlobalNumEntries())
-print(A.description())
-print(A.getFrobeniusNorm())
-
-print(v0.norm2())
-print(v1.norm2())
-A.apply(v0,v1)
-print(v1.norm2())
-
 
 x = vectorType(mapT, True)
 b = vectorType(mapT, False)
 residual = vectorType(mapT, False)
 
-b.randomize(0,-2)
-
-print('Norm of x before CG = {}'.format(x.norm2()))
-print('Norm of b = '+str(b.norm2()))
-its = CG(A, x, b, max_iter=n)
-print('Norm of x after {} iterations of CG = {} '.format(its, x.norm2()))
-
-A.apply(x, residual)
-residual.update(1, b, -1)
-resNorm = residual.norm2()
-print('Norm of residual after {} iterations of CG = {} '.format(its, resNorm))
-
+b_view = b.getLocalViewHost()
+b_view[:] = 1.
+b.setLocalViewHost(b_view)
 
 p = Teuchos.ParameterList()
 P = MueLu.CreateTpetraPreconditioner(A, p)
 
 x.putScalar(0.)
-print('Norm of x before CG = {}'.format(x.norm2()))
+norm_x = x.norm2()
+if rank == 0:
+    print('Norm of x before CG = {}'.format(norm_x))
 its = CG(A, x, b, max_iter=30, prec=P)
-print('Norm of x after {} iterations of CG = {} '.format(its, x.norm2()))
+norm_x = x.norm2()
+if rank == 0:
+    print('Norm of x after {} iterations of CG = {} '.format(its, norm_x))
 
 A.apply(x, residual)
 residual.update(1, b, -1)
 resNorm = residual.norm2()
-print('Norm of residual after {} iterations of CG = {} '.format(its, resNorm))
+if rank == 0:
+    print('Norm of residual after {} iterations of CG = {} '.format(its, resNorm))
 
+x0 = vectorType(mapT0, True)
+export = Tpetra.Export_int_long_long_Kokkos_Compat_KokkosDeviceWrapperNode_Kokkos_OpenMP_Kokkos_HostSpace_t(mapT0, mapT)
+x0.doImport(source=x, exporter=export, CM=Tpetra.CombineMode.REPLACE)
+
+if rank == 0:
+    x0_view = x0.getLocalViewHost()
+    plt.figure()
+    plt.plot(x0_view)
+    plt.savefig('x0_view.jpeg', dpi=800, bbox_inches='tight',pad_inches = 0)

@@ -324,10 +324,10 @@ void def_initialize_Kokkos(T m) {
         }
       }, 
       py::arg("num_threads") = -1,
-      py::arg("num_numa") = 1,
-      py::arg("device_id") = 0,
-      py::arg("ndevices") = 0,
-      py::arg("skip_device") = 0,
+      py::arg("num_numa") = -1,
+      py::arg("device_id") = -1,
+      py::arg("ndevices") = -1,
+      py::arg("skip_device") = -1,
       py::arg("disable_warnings") = 0
     );
 }
