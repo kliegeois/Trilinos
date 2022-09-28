@@ -272,10 +272,6 @@ ENDIF()
 SET(PyTrilinos2_INSTALL_PREFIX ${PyTrilinos2_DEFAULT_INSTALL_PREFIX}
   CACHE PATH "The path prefix for where PyTrilinos2 will be installed, e.g. /usr/local")
 
-INSTALL(FILES
-  ${PyTrilinos2PyFiles}
-  DESTINATION ${PyTrilinos2_INSTALL_PREFIX})
-
 # Get the python version
 EXECUTE_PROCESS(COMMAND ${PYTHON_EXECUTABLE} -c
                         "import sys; print(sys.version[:3])"
@@ -290,6 +286,10 @@ SET(PyTrilinos2_INSTALL_DIR
   CACHE PATH "The path where PyTrilinos2 will be installed"
   )
 MESSAGE(STATUS "PyTrilinos2 installation path: ${PyTrilinos2_INSTALL_DIR}")
+
+INSTALL(FILES
+  ${PyTrilinos2PyFiles}
+  DESTINATION ${PyTrilinos2_INSTALL_DIR})
 
 # Find the pybind11 CMake module
 EXECUTE_PROCESS(COMMAND
