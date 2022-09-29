@@ -152,6 +152,18 @@ def write_ETI_getTpetraTypeName_file(source_dir, filename, list_ETI_files):
                         fh.write('\tif class_name.lower() == "map" and local_ordinal_type.lower() == "'+local_ordinal_type+'" and global_ordinal_type.lower() == "'+global_ordinal_type+'" and node_type.lower() == "'+node_type+'":\n')
                         fh.write('\t\treturn Tpetra.'+related_class_name+'\n')
                         related_classes[related_class_name] = True
+                    related_class_name = 'Export_'+local_ordinal_type_internal+'_'+global_ordinal_type_internal+'_'+node_type_internal+'_t'
+                    if not related_class_name in related_classes:
+                        # Need to add the Export
+                        fh.write('\tif class_name.lower() == "export" and local_ordinal_type.lower() == "'+local_ordinal_type+'" and global_ordinal_type.lower() == "'+global_ordinal_type+'" and node_type.lower() == "'+node_type+'":\n')
+                        fh.write('\t\treturn Tpetra.'+related_class_name+'\n')
+                        related_classes[related_class_name] = True
+                    related_class_name = 'Import_'+local_ordinal_type_internal+'_'+global_ordinal_type_internal+'_'+node_type_internal+'_t'
+                    if not related_class_name in related_classes:
+                        # Need to add the Import
+                        fh.write('\tif class_name.lower() == "import" and local_ordinal_type.lower() == "'+local_ordinal_type+'" and global_ordinal_type.lower() == "'+global_ordinal_type+'" and node_type.lower() == "'+node_type+'":\n')
+                        fh.write('\t\treturn Tpetra.'+related_class_name+'\n')
+                        related_classes[related_class_name] = True
                 if class_name == 'crsmatrix':
                     related_class_name = 'CrsGraph_'+local_ordinal_type_internal+'_'+global_ordinal_type_internal+'_'+node_type_internal+'_t'
                     if not related_class_name in related_classes:

@@ -123,7 +123,7 @@ if rank == 0:
     print('Norm of residual after {} iterations of CG = {} '.format(its, resNorm))
 
 x0 = vectorType(mapT0, True)
-export = Tpetra.Export_int_long_long_Kokkos_Compat_KokkosDeviceWrapperNode_Kokkos_OpenMP_Kokkos_HostSpace_t(mapT0, mapT)
+export = getTypeName('Export')(mapT0, mapT)
 x0.doImport(source=x, exporter=export, CM=Tpetra.CombineMode.REPLACE)
 
 if rank == 0:
