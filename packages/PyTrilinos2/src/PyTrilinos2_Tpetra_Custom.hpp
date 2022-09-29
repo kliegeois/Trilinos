@@ -330,6 +330,11 @@ void def_initialize_Kokkos(T m) {
       py::arg("skip_device") = -1,
       py::arg("disable_warnings") = 0
     );
+  m.def("finalize_Kokkos",[](){
+      if(Kokkos::is_initialized())
+          Kokkos::finalize_all();
+      }
+    );
 }
 
 #endif // PYTRILINOS2_TPETRA_CUSTOM
