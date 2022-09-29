@@ -5,7 +5,7 @@ import numpy as np
 from PyTrilinos2.PyTrilinos2 import Teuchos
 from PyTrilinos2.PyTrilinos2 import Tpetra
 from PyTrilinos2.PyTrilinos2 import MueLu
-from PyTrilinos2.getTpetraTypeName import getTypeName
+from PyTrilinos2.getTpetraTypeName import *
 from math import sqrt
 
 import matplotlib as mpl
@@ -55,7 +55,10 @@ def CG(A, x, b, max_iter=20, tol=1e-8, prec=None):
 
 comm = Teuchos.getTeuchosComm(MPI.COMM_WORLD)
 rank = comm.getRank()
-Tpetra.initialize_Kokkos(num_threads=12)
+if getDefaultNodeType() == 'cuda':
+    Tpetra.initialize_Kokkos(ndevices=4)
+else:
+    Tpetra.initialize_Kokkos(num_threads=12)
 
 mapType = getTypeName('Map')
 graphType = getTypeName('CrsGraph')
