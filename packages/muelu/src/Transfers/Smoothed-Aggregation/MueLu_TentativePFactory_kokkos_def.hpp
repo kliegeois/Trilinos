@@ -82,7 +82,7 @@ namespace MueLu {
       }
 
       KOKKOS_INLINE_FUNCTION
-      void join (volatile LocalOrdinal& dst, const volatile LocalOrdinal& src) const {
+      void join (LocalOrdinal& dst, const LocalOrdinal& src) const {
         if (dst < src) {
           dst = src;
         }
@@ -1000,11 +1000,14 @@ namespace MueLu {
     //    const size_t numFinePointRows = rangeMap->getLocalNumElements();
     const size_t numFineBlockRows = rowMap->getLocalNumElements();
 
-    typedef Teuchos::ScalarTraits<SC> STS;
-    typedef typename STS::magnitudeType Magnitude;
-    //    const SC     zero      = STS::zero();
-    const SC     one       = STS::one();
+    // typedef Teuchos::ScalarTraits<SC> STS;
+    // typedef typename STS::magnitudeType Magnitude;
     const LO     INVALID   = Teuchos::OrdinalTraits<LO>::invalid();
+
+    typedef Kokkos::ArithTraits<SC>     ATS;
+    using impl_SC = typename ATS::val_type;
+    using impl_ATS = Kokkos::ArithTraits<impl_SC>;
+    const impl_SC one = impl_ATS::one();
 
     //    const GO     numAggs   = aggregates->GetNumAggregates();
     const size_t NSDim     = fineNullspace->getNumVectors();
@@ -1130,7 +1133,7 @@ namespace MueLu {
     typedef typename Xpetra::Matrix<SC,LO,GO,NO>::local_matrix_type    local_matrix_type;
     typedef typename local_matrix_type::row_map_type::non_const_type   rows_type;
     typedef typename local_matrix_type::index_type::non_const_type     cols_type;
-    typedef typename local_matrix_type::values_type::non_const_type    vals_type;
+    // typedef typename local_matrix_type::values_type::non_const_type    vals_type;
 
 
     // Device View for status (error messages...)
@@ -1184,7 +1187,7 @@ namespace MueLu {
       SubFactoryMonitor m2(*this, "Stage 2 (CompressData)", coarseLevel);
       // Fill i_temp with the correct row starts
       rows_type i_temp(Kokkos::ViewAllocateWithoutInitializing("BlockGraph_rowptr"), numFineBlockRows+1);
-      size_t nnz=0;
+      LO nnz=0;
       Kokkos::parallel_scan("MueLu:TentativePF:BlockCrs:compress_rows", range_type(0,numFineBlockRows),
                             KOKKOS_LAMBDA(const LO i, LO& upd, const bool& final) {
                               if(final) 
