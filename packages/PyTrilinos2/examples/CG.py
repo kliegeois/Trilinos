@@ -53,24 +53,12 @@ def CG(A, x, b, max_iter=20, tol=1e-8, prec=None):
             p.update(1, Br, beta)
     return max_iter
 
-def main():
-    comm = Teuchos.getTeuchosComm(MPI.COMM_WORLD)
-    rank = comm.getRank()
-
+def assemble1DLaplacian(n, comm):
     mapType = getTypeName('Map')
     graphType = getTypeName('CrsGraph')
     matrixType = getTypeName('CrsMatrix')
-    vectorType = getTypeName('Vector')
-    multivectorType = getTypeName('MultiVector')
-
-    n = 300000
 
     mapT=mapType(n, 0, comm)
-    n0 = 0
-    if rank == 0:
-        n0 = n
-    mapT0=mapType(n, n0, 0, comm)
-
     graph = graphType(mapT, 3)
     for i in range(mapT.getMinLocalIndex(), mapT.getMaxLocalIndex()+1):
         global_i = mapT.getGlobalElement(i)
@@ -96,13 +84,30 @@ def main():
         A.replaceGlobalValues(global_i, indices, vals)
     A.fillComplete()
 
+    return A
+
+
+def main():
+    comm = Teuchos.getTeuchosComm(MPI.COMM_WORLD)
+    rank = comm.getRank()
+
+    vectorType = getTypeName('Vector')
+
+    n = 300000
+
+    A = assemble1DLaplacian(n, comm)
+    mapT = A.getRowMap()
+
+    n0 = 0
+    if rank == 0:
+        n0 = n
+    mapT0=type(mapT)(n, n0, 0, comm)
+
     x = vectorType(mapT, True)
     b = vectorType(mapT, False)
     residual = vectorType(mapT, False)
 
-    b_view = b.getLocalViewHost()
-    b_view[:] = 1.
-    b.setLocalViewHost(b_view)
+    b.putScalar(1.)
 
     p = Teuchos.ParameterList()
     P = MueLu.CreateTpetraPreconditioner(A, p)
