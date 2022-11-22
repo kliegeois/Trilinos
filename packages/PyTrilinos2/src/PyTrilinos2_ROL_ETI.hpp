@@ -5,16 +5,11 @@
 //#include "ROL_Constraint.hpp"
 
 #define BINDER_ROL_VECTOR(SCALAR) \
-  inline void initiate(Vector<SCALAR> p) {};
+  template class Vector<SCALAR>;
 
 namespace ROL {
 
-    template <typename T>
-    void initiate(T) {};
-
   BINDER_ROL_VECTOR(double)
-
-  using my_vector = Vector<double>;
 
 }
 
