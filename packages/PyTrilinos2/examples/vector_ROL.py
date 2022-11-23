@@ -80,13 +80,13 @@ class tVector(ROL.Vector_double_t):
             map = self.tvector.getMap()
             view = self.tvector.getLocalViewHost()
             global_indices = range(*index.indices(self.dimension()))
-            len_output = len(global_indices)
-            output = np.zeros((len_output,))
+            local_indices = np.empty(np.size(global_indices), dtype=int)
             for i in range(0, len(global_indices)):
                 if map.isNodeGlobalElement(global_indices[i]):
-                    local_index = map.getLocalElement(global_indices[i])
-                    output[i] = view[local_index]
-            return output
+                    local_indices[i] = map.getLocalElement(global_indices[i])
+                else:
+                    local_indices[i] = 0
+            return view[local_indices]
     def __setitem__(self, index, val):
         if isinstance( index, int ):
             map = self.tvector.getMap()
@@ -99,11 +99,13 @@ class tVector(ROL.Vector_double_t):
             map = self.tvector.getMap()
             view = self.tvector.getLocalViewHost()
             global_indices = range(*index.indices(self.dimension()))
-            len_output = len(global_indices)
+            local_indices = np.empty(np.size(global_indices), dtype=int)
             for i in range(0, len(global_indices)):
                 if map.isNodeGlobalElement(global_indices[i]):
-                    local_index = map.getLocalElement(global_indices[i])
-                    view[local_index] = val
+                    local_indices[i] = map.getLocalElement(global_indices[i])
+                else:
+                    local_indices[i] = 0
+            view[local_indices] = val
             self.tvector.setLocalViewHost(view)
     # To implement: applyUnary, applyBinary, reduce, randomize * 3
 
@@ -127,5 +129,5 @@ a = b
 print(a.apply(b))
 print(b.norm())
 print(b[0])
-b[0:2]=-1.
+b[0:2]=[-1., 3.]
 print(b[0:3])
