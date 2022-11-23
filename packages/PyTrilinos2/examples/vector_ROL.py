@@ -109,9 +109,38 @@ class tVector(ROL.Vector_double_t):
             self.tvector.setLocalViewHost(view)
     # To implement: applyUnary, applyBinary, reduce, randomize * 3
 
+class norm2Obj(ROL.Objective_double_t):
+    def __init__(self, target=None):
+        self.target = target
+        super().__init__()
+    def setTarget(self, target):
+        self.target = target
+    def value(self, x, tol):
+        if self.target is None:
+            return x.norm()
+        tmp = x.clone()
+        tmp.plus(x)
+        tmp.axpy(-1, self.target)
+        return tmp.norm()
+
+# Matrix from rol/example/quadratic/example_01.cpp
+class matrix(ROL.LinearOperator_double_t):
+    def __init__(self, dim):
+        self.dim = dim
+        super().__init__()
+    def apply(self, Hv, v, tol):
+        for i in range(0, self.dim):
+            Hv[i] = 2.*v[i]
+            if i > 0:
+                Hv[i] -= v[i-1]
+            if i < self.dim - 1:
+                Hv[i] -= v[i+1]
+
+
 vector_type = tVector
 
-obj = ROL.Objective_double_t()
+obj = norm2Obj()
+op = matrix(10)
 c = ROL.Constraint_double_t()
 a = vector_type(10, 1.)
 b = vector_type(10, 1.)
@@ -131,3 +160,15 @@ print(b.norm())
 print(b[0])
 b[0:2]=[-1., 3.]
 print(b[0:3])
+
+print(obj.value(a, 1e-8))
+
+op.apply(b,a,1e-8)
+print(b[0:3])
+g = vector_type(10, 1.)
+
+params = ROL.getParametersFromXmlFile("input.xml")
+
+print(params)
+
+#obj = ROL.QuadraticObjective_double_t(op, g)

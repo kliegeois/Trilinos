@@ -41,6 +41,10 @@
 // ************************************************************************
 // @HEADER
 
+#ifndef ROL_SECANTFACTORY_H
+#include "ROL_SecantFactory.hpp"
+#else
+
 #ifndef ROL_BARZILAIBORWEIN_H
 #define ROL_BARZILAIBORWEIN_H
 
@@ -100,4 +104,5 @@ public:
 
 }
 
+#endif
 #endif
