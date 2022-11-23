@@ -28,7 +28,8 @@ class myVector(ROL.Vector_double_t):
         self.values[:] = new_value
     # To implement: applyUnary, applyBinary, reduce, randomize * 3
 
-
+obj = ROL.Objective_double_t()
+c = ROL.Constraint_double_t()
 a = myVector(10, 1.)
 b = myVector(10, 1.)
 a.scale(2.)
