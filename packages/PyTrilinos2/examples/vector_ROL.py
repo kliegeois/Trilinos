@@ -70,17 +70,40 @@ class tVector(ROL.Vector_double_t):
     def setScalar(self, new_value):
         self.tvector.putScalar(new_value)
     def __getitem__(self, index):
-        map = self.tvector.getMap()
-        if map.isNodeGlobalElement(index):
-            local_index = map.getLocalElement(index)
+        if isinstance( index, int ):
+            map = self.tvector.getMap()
+            if map.isNodeGlobalElement(index):
+                local_index = map.getLocalElement(index)
+                view = self.tvector.getLocalViewHost()
+                return view[local_index]
+        if isinstance( index, slice ):
+            map = self.tvector.getMap()
             view = self.tvector.getLocalViewHost()
-            return view[local_index]
+            global_indices = range(*index.indices(self.dimension()))
+            len_output = len(global_indices)
+            output = np.zeros((len_output,))
+            for i in range(0, len(global_indices)):
+                if map.isNodeGlobalElement(global_indices[i]):
+                    local_index = map.getLocalElement(global_indices[i])
+                    output[i] = view[local_index]
+            return output
     def __setitem__(self, index, val):
-        map = self.tvector.getMap()
-        if map.isNodeGlobalElement(index):
-            local_index = map.getLocalElement(index)
+        if isinstance( index, int ):
+            map = self.tvector.getMap()
+            if map.isNodeGlobalElement(index):
+                local_index = map.getLocalElement(index)
+                view = self.tvector.getLocalViewHost()
+                view[local_index] = val
+                self.tvector.setLocalViewHost(view)
+        if isinstance( index, slice ):
+            map = self.tvector.getMap()
             view = self.tvector.getLocalViewHost()
-            view[local_index] = val
+            global_indices = range(*index.indices(self.dimension()))
+            len_output = len(global_indices)
+            for i in range(0, len(global_indices)):
+                if map.isNodeGlobalElement(global_indices[i]):
+                    local_index = map.getLocalElement(global_indices[i])
+                    view[local_index] = val
             self.tvector.setLocalViewHost(view)
     # To implement: applyUnary, applyBinary, reduce, randomize * 3
 
@@ -104,5 +127,5 @@ a = b
 print(a.apply(b))
 print(b.norm())
 print(b[0])
-b[0]=-1.
-print(b[0])
+b[0:2]=-1.
+print(b[0:3])
