@@ -26,7 +26,7 @@ namespace ROL {
 
   BINDER_ROL_VECTOR(double)
   BINDER_ROL_OBJECTIVE(double)
-  //BINDER_ROL_CONSTRAINT(double)
+  BINDER_ROL_CONSTRAINT(double)
   //BINDER_ROL_SOLVER(double)
   //BINDER_ROL_PROBLEM(double)
 
