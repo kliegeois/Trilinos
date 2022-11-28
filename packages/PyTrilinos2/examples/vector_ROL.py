@@ -2,12 +2,9 @@ from mpi4py import MPI
 
 from PyTrilinos2.PyTrilinos2 import ROL
 from PyTrilinos2.PyTrilinos2 import Teuchos
-from PyTrilinos2.PyTrilinos2 import Tpetra
 from PyTrilinos2.getTpetraTypeName import *
 import numpy as np
 from numpy import linalg as LA
-
-tpetraVectorType = getTypeName('Vector')
 
 
 class npVector(ROL.Vector_double_t):
@@ -45,12 +42,18 @@ class npVector(ROL.Vector_double_t):
 
 
 class tVector(ROL.Vector_double_t):
-    def __init__(self, dimension=1, default_value=0., map=None, comm=None):
+    def __init__(self, dimension=1, default_value=0., map=None, comm=None, scalar_type=getDefaultScalarType(), local_ordinal_type=getDefaultLocalOrdinalType(), global_ordinal_type=getDefaultGlobalOrdinalType(), node_type=getDefaultNodeType()):
+        self.scalar_type = scalar_type
+        self.local_ordinal_type = local_ordinal_type
+        self.global_ordinal_type = global_ordinal_type
+        self.node_type = node_type
+        self.mapType = getTypeName('Map', local_ordinal_type=self.local_ordinal_type, global_ordinal_type=self.global_ordinal_type, node_type=self.node_type)
+        self.vectorType = getTypeName('Vector', scalar_type=self.scalar_type, local_ordinal_type=self.local_ordinal_type, global_ordinal_type=self.global_ordinal_type, node_type=self.node_type)
         if map is None:
             if comm is None:
                 comm = Teuchos.getTeuchosComm(MPI.COMM_WORLD)
-            map = getTypeName('Map')(dimension, 0, comm)
-        self.tvector = tpetraVectorType(map, False)
+            map = self.mapType(dimension, 0, comm)
+        self.tvector = self.vectorType(map, False)
         self.tvector.putScalar(default_value)
         super().__init__()
     def plus(self, b):
@@ -62,7 +65,7 @@ class tVector(ROL.Vector_double_t):
     def norm(self):
         return self.tvector.norm2()
     def clone(self):
-        return tVector(map=self.tvector.getMap())
+        return tVector(map=self.tvector.getMap(), scalar_type=self.scalar_type, local_ordinal_type=self.local_ordinal_type, global_ordinal_type=self.global_ordinal_type, node_type=self.node_type)
     def axpy(self, scale_factor, x):
         self.tvector.update(scale_factor, x.tvector, 1.)
     def dimension(self):
@@ -91,37 +94,37 @@ class tVector(ROL.Vector_double_t):
         if isinstance( index, int ):
             map = self.tvector.getMap()
             if map.isNodeGlobalElement(index):
-                local_index = map.getLocalElement(index)
-                view = self.tvector.getLocalViewHost()
-                view[local_index] = val
-                self.tvector.setLocalViewHost(view)
+                self.tvector.replaceGlobalValue(index, val)
         if isinstance( index, slice ):
             map = self.tvector.getMap()
-            view = self.tvector.getLocalViewHost()
             global_indices = range(*index.indices(self.dimension()))
-            local_indices = np.empty(np.size(global_indices), dtype=int)
             for i in range(0, len(global_indices)):
                 if map.isNodeGlobalElement(global_indices[i]):
-                    local_indices[i] = map.getLocalElement(global_indices[i])
-                else:
-                    local_indices[i] = 0
-            view[local_indices] = val
-            self.tvector.setLocalViewHost(view)
+                    if len(val) > 1:
+                        self.tvector.replaceGlobalValue(global_indices[i], val[i])
+                    else:
+                        self.tvector.replaceGlobalValue(global_indices[i], val)
     # To implement: applyUnary, applyBinary, reduce, randomize * 3
 
 class norm2Obj(ROL.Objective_double_t):
-    def __init__(self, target=None):
-        self.target = target
+    def __init__(self, H, g, c=0):
+        self.H = H
+        self.g = g
+        self.c = c
         super().__init__()
-    def setTarget(self, target):
-        self.target = target
     def value(self, x, tol):
-        if self.target is None:
-            return x.norm()
         tmp = x.clone()
-        tmp.plus(x)
-        tmp.axpy(-1, self.target)
-        return tmp.norm()
+        self.H.apply(tmp, x, tol)
+        tmp.scale(0.5)
+        tmp.plus(self.g)
+        return x.apply(tmp) + self.c
+    def gradient(self, g, x, tol):
+        self.H.apply(g, x, tol)
+        g.plus(self.g)
+    def hessVec(self, hv, v, x, tol):
+        self.H.apply(hv, v, tol)
+    def invHessVec(self, hv, v, x, tol):
+        self.H.applyInverse(hv, v, tol)
 
 # Matrix from rol/example/quadratic/example_01.cpp
 class matrix(ROL.LinearOperator_double_t):
@@ -139,8 +142,10 @@ class matrix(ROL.LinearOperator_double_t):
 
 vector_type = tVector
 
-obj = norm2Obj()
+
 op = matrix(10)
+g = vector_type(10, 1.)
+obj = norm2Obj(op, g)
 c = ROL.Constraint_double_t()
 a = vector_type(10, 1.)
 b = vector_type(10, 1.)
@@ -169,6 +174,6 @@ g = vector_type(10, 1.)
 
 params = ROL.getParametersFromXmlFile("input.xml")
 
-print(params)
+#print(params)
 
 #obj = ROL.QuadraticObjective_double_t(op, g)
