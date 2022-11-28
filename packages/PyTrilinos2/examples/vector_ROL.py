@@ -145,6 +145,7 @@ vector_type = tVector
 
 op = matrix(10)
 g = vector_type(10, 1.)
+x = vector_type(10, 0.)
 obj = norm2Obj(op, g)
 c = ROL.Constraint_double_t()
 a = vector_type(10, 1.)
@@ -173,6 +174,9 @@ print(b[0:3])
 g = vector_type(10, 1.)
 
 params = ROL.getParametersFromXmlFile("input.xml")
+
+problem = ROL.Problem_double_t(obj, x)
+#solver = ROL.Solver_double_t(problem, params)
 
 #print(params)
 
