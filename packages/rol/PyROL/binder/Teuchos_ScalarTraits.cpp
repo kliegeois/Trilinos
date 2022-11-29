@@ -1,9 +1,11 @@
 #include <Teuchos_BLAS.hpp>
 #include <Teuchos_BLAS_types.hpp>
 #include <Teuchos_DataAccess.hpp>
+#include <Teuchos_LAPACK.hpp>
 #include <Teuchos_OrdinalTraits.hpp>
 #include <Teuchos_ScalarTraits.hpp>
 #include <Teuchos_SerialDenseMatrix.hpp>
+#include <Teuchos_SerialDenseVector.hpp>
 #include <complex>
 #include <cwchar>
 #include <ios>
@@ -35,7 +37,7 @@ struct PyCallBack_Teuchos_SerialDenseMatrix_int_double_t : public Teuchos::Seria
 
 };
 
-// Teuchos::SerialDenseVector file: line:60
+// Teuchos::SerialDenseVector file:Teuchos_SerialDenseVector.hpp line:60
 struct PyCallBack_Teuchos_SerialDenseVector_int_double_t : public Teuchos::SerialDenseVector<int,double> {
 	using Teuchos::SerialDenseVector<int,double>::SerialDenseVector;
 
@@ -200,7 +202,7 @@ void bind_Teuchos_ScalarTraits(std::function< pybind11::module &(std::string con
 		cl.def("TRSM", (void (Teuchos::BLAS<int,double>::*)(enum Teuchos::ESide, enum Teuchos::EUplo, enum Teuchos::ETransp, enum Teuchos::EDiag, const int &, const int &, const double &, const double *, const int &, double *, const int &) const) &Teuchos::BLAS<int, double>::TRSM, "C++: Teuchos::BLAS<int, double>::TRSM(enum Teuchos::ESide, enum Teuchos::EUplo, enum Teuchos::ETransp, enum Teuchos::EDiag, const int &, const int &, const double &, const double *, const int &, double *, const int &) const --> void", pybind11::arg("side"), pybind11::arg("uplo"), pybind11::arg("transa"), pybind11::arg("diag"), pybind11::arg("m"), pybind11::arg("n"), pybind11::arg("alpha"), pybind11::arg("A"), pybind11::arg("lda"), pybind11::arg("B"), pybind11::arg("ldb"));
 		cl.def("assign", (class Teuchos::BLAS<int, double> & (Teuchos::BLAS<int,double>::*)(const class Teuchos::BLAS<int, double> &)) &Teuchos::BLAS<int, double>::operator=, "C++: Teuchos::BLAS<int, double>::operator=(const class Teuchos::BLAS<int, double> &) --> class Teuchos::BLAS<int, double> &", pybind11::return_value_policy::automatic, pybind11::arg(""));
 	}
-	{ // Teuchos::SerialDenseVector file: line:60
+	{ // Teuchos::SerialDenseVector file:Teuchos_SerialDenseVector.hpp line:60
 		pybind11::class_<Teuchos::SerialDenseVector<int,double>, Teuchos::RCP<Teuchos::SerialDenseVector<int,double>>, PyCallBack_Teuchos_SerialDenseVector_int_double_t, Teuchos::SerialDenseMatrix<int,double>> cl(M("Teuchos"), "SerialDenseVector_int_double_t", "");
 		cl.def( pybind11::init( [](){ return new Teuchos::SerialDenseVector<int,double>(); }, [](){ return new PyCallBack_Teuchos_SerialDenseVector_int_double_t(); } ) );
 		cl.def( pybind11::init( [](int const & a0){ return new Teuchos::SerialDenseVector<int,double>(a0); }, [](int const & a0){ return new PyCallBack_Teuchos_SerialDenseVector_int_double_t(a0); } ), "doc");
@@ -283,10 +285,10 @@ void bind_Teuchos_ScalarTraits(std::function< pybind11::module &(std::string con
 		cl.def("TRSM", (void (Teuchos::BLAS<int,double>::*)(enum Teuchos::ESide, enum Teuchos::EUplo, enum Teuchos::ETransp, enum Teuchos::EDiag, const int &, const int &, const double &, const double *, const int &, double *, const int &) const) &Teuchos::BLAS<int, double>::TRSM, "C++: Teuchos::BLAS<int, double>::TRSM(enum Teuchos::ESide, enum Teuchos::EUplo, enum Teuchos::ETransp, enum Teuchos::EDiag, const int &, const int &, const double &, const double *, const int &, double *, const int &) const --> void", pybind11::arg("side"), pybind11::arg("uplo"), pybind11::arg("transa"), pybind11::arg("diag"), pybind11::arg("m"), pybind11::arg("n"), pybind11::arg("alpha"), pybind11::arg("A"), pybind11::arg("lda"), pybind11::arg("B"), pybind11::arg("ldb"));
 		cl.def("assign", (class Teuchos::BLAS<int, double> & (Teuchos::BLAS<int,double>::*)(const class Teuchos::BLAS<int, double> &)) &Teuchos::BLAS<int, double>::operator=, "C++: Teuchos::BLAS<int, double>::operator=(const class Teuchos::BLAS<int, double> &) --> class Teuchos::BLAS<int, double> &", pybind11::return_value_policy::automatic, pybind11::arg(""));
 	}
-	// Teuchos::convert_Fortran_complex_to_CXX_complex(_Complex double) file: line:95
+	// Teuchos::convert_Fortran_complex_to_CXX_complex(_Complex double) file:Teuchos_LAPACK.hpp line:95
 	M("Teuchos").def("convert_Fortran_complex_to_CXX_complex", (struct std::complex<double> (*)(_Complex double)) &Teuchos::convert_Fortran_complex_to_CXX_complex, "C++: Teuchos::convert_Fortran_complex_to_CXX_complex(_Complex double) --> struct std::complex<double>", pybind11::arg("val"));
 
-	// Teuchos::convert_Fortran_complex_to_CXX_complex(_Complex float) file: line:97
+	// Teuchos::convert_Fortran_complex_to_CXX_complex(_Complex float) file:Teuchos_LAPACK.hpp line:97
 	M("Teuchos").def("convert_Fortran_complex_to_CXX_complex", (struct std::complex<float> (*)(_Complex float)) &Teuchos::convert_Fortran_complex_to_CXX_complex, "C++: Teuchos::convert_Fortran_complex_to_CXX_complex(_Complex float) --> struct std::complex<float>", pybind11::arg("val"));
 
 }

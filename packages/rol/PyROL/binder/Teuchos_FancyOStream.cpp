@@ -662,8 +662,6 @@ void bind_Teuchos_FancyOStream(std::function< pybind11::module &(std::string con
 
 		cl.def("__str__", [](Teuchos::ParameterList const &o) -> std::string { std::ostringstream s; s << o; return s.str(); } );
 
-		def_ParameterList_member_functions(cl);
-
 		{ // Teuchos::ParameterList::PrintOptions file:Teuchos_ParameterList.hpp line:150
 			auto & enclosing_class = cl;
 			pybind11::class_<Teuchos::ParameterList::PrintOptions, Teuchos::RCP<Teuchos::ParameterList::PrintOptions>> cl(enclosing_class, "PrintOptions", "Utility class for setting and passing in print options. ");
