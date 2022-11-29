@@ -111,4 +111,4 @@ if __name__ == '__main__':
         all_include_filenames_without_dir = fh.read().splitlines()
 
     copy_and_angular_includes(all_include_filenames_with_dir, all_include_filenames_without_dir, CMAKE_CURRENT_BINARY_DIR+'/include_tmp')
-    make_all_includes_from_filenames(binder_include_name, [CMAKE_CURRENT_SOURCE_DIR+'/src/PyTrilinos2_Binder_Input.hpp'])
+    make_all_includes_from_filenames(binder_include_name, [CMAKE_CURRENT_SOURCE_DIR+'/src/Binder_Input.hpp'])

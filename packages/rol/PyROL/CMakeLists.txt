@@ -3,7 +3,7 @@
 # @HEADER
 # ***********************************************************************
 #
-#          PyTrilinos2: Automatic Python Interfaces to Trilinos Packages
+#              PyROL: Automatic Python Interfaces to ROL
 #                 Copyright (2022) Sandia Corporation
 #
 # Under the terms of Contract DE-AC04-94AL85000 with Sandia
@@ -42,23 +42,21 @@
 # ***********************************************************************
 # @HEADER
 
-# Set the package name
-TRIBITS_PACKAGE(PyTrilinos2 DISABLE_STRONG_WARNINGS)
 
 IF(NOT BUILD_SHARED_LIBS)
-  MESSAGE(FATAL_ERROR "PyTrilinos2 can only be built with shared libraries. Building of shared libraries is currently set to OFF. To enable shared libraries please set the cache variable \"BUILD_SHARED_LIBS\" to ON")
+  MESSAGE(FATAL_ERROR "PyROL can only be built with shared libraries. Building of shared libraries is currently set to OFF. To enable shared libraries please set the cache variable \"BUILD_SHARED_LIBS\" to ON")
 ENDIF()
 
 # Set the package version number
-SET(PyTrilinos2_VERSION ${Trilinos_VERSION})
+SET(PyROL_VERSION ${Trilinos_VERSION})
 
-TRIBITS_ADD_OPTION_AND_DEFINE(${PACKAGE_NAME}_ENABLE_Binder
-  PYTRILINOS2_GENERATE_SRC
+TRIBITS_ADD_OPTION_AND_DEFINE(PyROL_ENABLE_Binder
+  PYROL_GENERATE_SRC
   "Enable regeneration of source files with Binder."
   OFF )
 
-TRIBITS_ADD_OPTION_AND_DEFINE(${PACKAGE_NAME}_ENABLE_Update_Binder
-  PYTRILINOS2_UPDATE_GENERATED_SRC
+TRIBITS_ADD_OPTION_AND_DEFINE(PyROL_ENABLE_Update_Binder
+  PYROL_UPDATE_GENERATED_SRC
   "Enable the update of the generated source files with Binder."
   OFF )
 
@@ -93,18 +91,18 @@ function(get_all_include_dirs  LIBRARY_NAME all_include_dirs all_visited_libs)
 endfunction()
 
 # Python files to install
-FILE(GLOB PyTrilinos2PyFiles ${CMAKE_CURRENT_SOURCE_DIR}/python/*.py)
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos2)
+FILE(GLOB PyROLPyFiles ${CMAKE_CURRENT_SOURCE_DIR}/python/*.py)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/PyROL)
 
-IF (PYTRILINOS2_GENERATE_SRC)
-  MESSAGE("-- PyTrilinos2_BINDER_EXECUTABLE:")
-  IF(NOT DEFINED PyTrilinos2_BINDER_EXECUTABLE)
-    find_program(PyTrilinos2_BINDER_EXECUTABLE
+IF (PYROL_GENERATE_SRC)
+  MESSAGE("-- PyROL_BINDER_EXECUTABLE:")
+  IF(NOT DEFINED PyROL_BINDER_EXECUTABLE)
+    find_program(PyROL_BINDER_EXECUTABLE
         NAMES binder
         )
-    MESSAGE("  -- CMake has set: PyTrilinos2_BINDER_EXECUTABLE = ${PyTrilinos2_BINDER_EXECUTABLE}")
+    MESSAGE("  -- CMake has set: PyROL_BINDER_EXECUTABLE = ${PyROL_BINDER_EXECUTABLE}")
   ELSE()
-    MESSAGE("  -- User has set: PyTrilinos2_BINDER_EXECUTABLE = ${PyTrilinos2_BINDER_EXECUTABLE}")
+    MESSAGE("  -- User has set: PyROL_BINDER_EXECUTABLE = ${PyROL_BINDER_EXECUTABLE}")
   ENDIF()
   file(REMOVE_RECURSE ${CMAKE_CURRENT_BINARY_DIR}/include_tmp)
   file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include_tmp)
@@ -114,13 +112,12 @@ IF (PYTRILINOS2_GENERATE_SRC)
   set(binder_include_name "${CMAKE_CURRENT_BINARY_DIR}/trilinos_includes.hpp")
   set(all_header_with_dir_list "${CMAKE_CURRENT_BINARY_DIR}/list_with_dir.txt")
   set(all_header_without_dir_list "${CMAKE_CURRENT_BINARY_DIR}/list_without_dir.txt")
-  set(all_ETI_files_list "${CMAKE_CURRENT_BINARY_DIR}/all_ETI_files_list.txt")
   set(all_ETI_classes_list "${CMAKE_CURRENT_BINARY_DIR}/all_ETI_classes_list.txt")
   set(all_include_list "${CMAKE_CURRENT_BINARY_DIR}/list_include.txt")
 
   set(all_include_dirs "")
   set(all_visited_libs "")
-  foreach(depPkg IN LISTS PyTrilinos2_LIB_ENABLED_DEPENDENCIES)
+  foreach(depPkg IN LISTS ROL_LIB_ENABLED_DEPENDENCIES)
     get_all_include_dirs(${depPkg}::all_libs "${all_include_dirs}" "${all_visited_libs}")
   endforeach()
 
@@ -128,8 +125,8 @@ IF (PYTRILINOS2_GENERATE_SRC)
   list(REMOVE_ITEM all_include_dirs "")
   #MESSAGE("all_include_dirs = ${all_include_dirs}")
 
-  set(PyTrilinos2_all_include_files_with_dir "")
-  set(PyTrilinos2_all_include_files_without_dir "")
+  set(PyROL_all_include_files_with_dir "")
+  set(PyROL_all_include_files_without_dir "")
   foreach(include_dir IN LISTS all_include_dirs)
     file(GLOB include_files
         "${include_dir}/*.hpp"
@@ -144,20 +141,20 @@ IF (PYTRILINOS2_GENERATE_SRC)
         "${include_dir}/*/*/*/*.inc_predicate"
     )
     foreach(include_file IN LISTS include_files)
-      list(APPEND PyTrilinos2_all_include_files_with_dir "${include_file}")
+      list(APPEND PyROL_all_include_files_with_dir "${include_file}")
       string(REPLACE "${include_dir}/" "" include_file_without_dir "${include_file}")
-      list(APPEND PyTrilinos2_all_include_files_without_dir "${include_file_without_dir}")
+      list(APPEND PyROL_all_include_files_without_dir "${include_file_without_dir}")
     endforeach()
   endforeach()
 
 
-  #list(REMOVE_DUPLICATES PyTrilinos2_all_include_files_without_dir)
-  #list(REMOVE_ITEM PyTrilinos2_all_include_files_without_dir "")
+  #list(REMOVE_DUPLICATES PyROL_all_include_files_without_dir)
+  #list(REMOVE_ITEM PyROL_all_include_files_without_dir "")
 
-  #list(REMOVE_DUPLICATES PyTrilinos2_all_include_files_with_dir)
-  #list(REMOVE_ITEM PyTrilinos2_all_include_files_with_dir "")
+  #list(REMOVE_DUPLICATES PyROL_all_include_files_with_dir)
+  #list(REMOVE_ITEM PyROL_all_include_files_with_dir "")
 
-  #MESSAGE("PyTrilinos2_all_include_files_with_dir = ${PyTrilinos2_all_include_files_with_dir}")
+  #MESSAGE("PyROL_all_include_files_with_dir = ${PyROL_all_include_files_with_dir}")
 
   SET(CONTENTS "")
   FOREACH(line IN LISTS all_include_dirs)
@@ -165,98 +162,132 @@ IF (PYTRILINOS2_GENERATE_SRC)
   ENDFOREACH(line)
   file(WRITE ${all_include_list} ${CONTENTS})
 
-  set(eti_files_with_dir "")
-  set(eti_files_without_dir "")
-
-  # Get ETI files for Tpetra:
-  file(GLOB tpetra_ETI_files
-      "${CMAKE_CURRENT_BINARY_DIR}/../tpetra/core/src/*.cpp"
-  )
-  foreach(tpetra_ETI_file IN LISTS tpetra_ETI_files)
-    list(APPEND eti_files_with_dir "${tpetra_ETI_file}")
-    get_filename_component(tpetra_ETI_file_without_dir "${tpetra_ETI_file}" NAME)
-    list(APPEND eti_files_without_dir "${tpetra_ETI_file_without_dir}")
-  endforeach()
-
   SET(CONTENTS "")
-  FOREACH(line IN LISTS PyTrilinos2_all_include_files_with_dir)
-    SET(CONTENTS "${CONTENTS}${line}\n")
-  ENDFOREACH(line)
-  FOREACH(line IN LISTS eti_files_with_dir)
+  FOREACH(line IN LISTS PyROL_all_include_files_with_dir)
     SET(CONTENTS "${CONTENTS}${line}\n")
   ENDFOREACH(line)
   file(WRITE ${all_header_with_dir_list} ${CONTENTS})
 
   SET(CONTENTS "")
-  FOREACH(line IN LISTS PyTrilinos2_all_include_files_without_dir)
-    SET(CONTENTS "${CONTENTS}${line}\n")
-  ENDFOREACH(line)
-  FOREACH(line IN LISTS eti_files_without_dir)
+  FOREACH(line IN LISTS PyROL_all_include_files_without_dir)
     SET(CONTENTS "${CONTENTS}${line}\n")
   ENDFOREACH(line)
   file(WRITE ${all_header_without_dir_list} ${CONTENTS})
 
-  SET(CONTENTS "")
-  FOREACH(line IN LISTS eti_files_without_dir)
-    SET(CONTENTS "${CONTENTS}${line}\n")
-  ENDFOREACH(line)
-  file(WRITE ${all_ETI_files_list} ${CONTENTS})
-
-  SET(ETI_classes "Tpetra_CrsMatrix;Tpetra_Vector;Tpetra_MultiVector")
-  SET(CONTENTS "")
-  FOREACH(line IN LISTS ETI_classes)
-    SET(CONTENTS "${CONTENTS}${line}\n")
-  ENDFOREACH(line)
-  file(WRITE ${all_ETI_classes_list} ${CONTENTS})
-
   file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/python)
   file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/src)
-
-  EXECUTE_PROCESS(COMMAND
-  ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/scripts/gather_ETI.py ${CMAKE_CURRENT_BINARY_DIR} ${all_ETI_files_list} ${all_ETI_classes_list} "src/PyTrilinos2_Tpetra_ETI.hpp"
-  )
-
-    
       
-  file (GLOB PyTrilinos2PyFiles2 "${CMAKE_CURRENT_BINARY_DIR}/python/*.py")
-  list (APPEND PyTrilinos2PyFiles ${PyTrilinos2PyFiles2})
+  file (GLOB PyROLPyFiles2 "${CMAKE_CURRENT_BINARY_DIR}/python/*.py")
+  list (APPEND PyROLPyFiles ${PyROLPyFiles2})
 
   EXECUTE_PROCESS(COMMAND
   ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/scripts/gather_includes.py ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} ${all_header_with_dir_list} ${all_header_without_dir_list} ${binder_include_name}
   )
 
+  GET_PROPERTY( PTR_DIR              GLOBAL PROPERTY PTR_DIR  )
+  GET_PROPERTY( STACKTRACE_DIR       GLOBAL PROPERTY STACKTRACE_DIR  )
+  GET_PROPERTY( PARAMETERLIST_DIR    GLOBAL PROPERTY PARAMETERLIST_DIR  )
+  GET_PROPERTY( LA_DIR    GLOBAL PROPERTY LA_DIR  )
+  GET_PROPERTY( LAPACK_DIR    GLOBAL PROPERTY LAPACK_DIR  )
+  GET_PROPERTY( BLAS_DIR    GLOBAL PROPERTY BLAS_DIR  )
+
   set(BINDER_OPTIONS "")
   list(APPEND BINDER_OPTIONS ${binder_include_name})
-  list(APPEND BINDER_OPTIONS --root-module PyTrilinos2)
+  list(APPEND BINDER_OPTIONS --root-module PyROL)
   list(APPEND BINDER_OPTIONS --prefix ${CMAKE_CURRENT_BINARY_DIR}/binder)
   list(APPEND BINDER_OPTIONS -max-file-size=1000000)
   list(APPEND BINDER_OPTIONS --bind Teuchos)
-  list(APPEND BINDER_OPTIONS --bind Tpetra)
-  list(APPEND BINDER_OPTIONS --bind MueLu)
   list(APPEND BINDER_OPTIONS --bind ROL)
-  list(APPEND BINDER_OPTIONS --config ${CMAKE_CURRENT_SOURCE_DIR}/scripts/PyTrilinos2_config.cfg)
+  list(APPEND BINDER_OPTIONS --config ${CMAKE_CURRENT_SOURCE_DIR}/scripts/PyROL.cfg)
   list(APPEND BINDER_OPTIONS --)
   IF(TPL_ENABLE_CUDA)
     list(APPEND BINDER_OPTIONS -x cuda --cuda-host-only)
   ENDIF()
-  list(APPEND BINDER_OPTIONS ${PyTrilinos2_BINDER_FLAGS})
+  list(APPEND BINDER_OPTIONS ${PyROL_BINDER_FLAGS})
   list(APPEND BINDER_OPTIONS -std=c++14)
   list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_BINARY_DIR}/include_tmp)
   list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_BINARY_DIR}/src)
   list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/src)
-  list(APPEND BINDER_OPTIONS --gcc-toolchain=${PyTrilinos2_BINDER_GCC_TOOLCHAIN})
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_BINARY_DIR}/../src)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/algorithm)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/algorithm/TypeB)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/algorithm/TypeE)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/algorithm/TypeG)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/algorithm/TypeU)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/algorithm/TypeB/pqn)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/algorithm/TypeG/augmentedlagrangian/)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/algorithm/TypeG/fletcher)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/algorithm/TypeG/interiorpoint)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/algorithm/TypeG/moreauyosida)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/algorithm/TypeG/stabilizedlcl)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/algorithm/TypeU/bundle)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/algorithm/TypeU/linesearch)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/algorithm/TypeU/linesearch/descent)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/algorithm/TypeU/trustregion)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/elementwise)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/function)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/function/dynamic)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/function/boundconstraint)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/function/constraint)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/function/nlls)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/function/polyproj)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/function/objective)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/function/operator)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/function/simopt)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/function/sketching)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/function/std)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/sol/function)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/sol/function/distribution)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/sol/function/expectationquad)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/sol/function/randvarfunctional)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/sol/function/randvarfunctional/risk)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/sol/function/randvarfunctional/risk/fdivergence)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/sol/function/randvarfunctional/risk/spectral)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/sol/function/randvarfunctional/error)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/sol/function/randvarfunctional/regret)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/sol/function/randvarfunctional/deviation)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/sol/function/randvarfunctional/probability)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/sol/function/progressivehedging)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/sol/algorithm)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/sol/algorithm/PrimalDual)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/sol/vector)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/sol/sampler)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/sol/sampler/SROM)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/sol/status)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/status)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/step)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/step/augmentedlagrangian)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/step/bundle)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/step/fletcher)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/step/interiorpoint)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/step/krylov)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/step/linesearch)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/step/moreauyosidapenalty)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/step/nonlinearcg)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/step/secant)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/step/trustregion)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/utils)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/utils/function_bindings)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/vector)
+  list(APPEND BINDER_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/../src/zoo)
+  list(APPEND BINDER_OPTIONS -I${PTR_DIR})
+  list(APPEND BINDER_OPTIONS -I${STACKTRACE_DIR})
+  list(APPEND BINDER_OPTIONS -I${PARAMETERLIST_DIR})
+  list(APPEND BINDER_OPTIONS -I${LA_DIR})
+  list(APPEND BINDER_OPTIONS -I${LAPACK_DIR})
+  list(APPEND BINDER_OPTIONS -I${BLAS_DIR})
+  list(APPEND BINDER_OPTIONS --gcc-toolchain=${PyROL_BINDER_GCC_TOOLCHAIN})
   list(APPEND BINDER_OPTIONS -DNDEBUG)
 
   message("BINDER_OPTIONS='${BINDER_OPTIONS}'")
 
   EXECUTE_PROCESS(COMMAND
 
-  ${PyTrilinos2_BINDER_EXECUTABLE} ${BINDER_OPTIONS}
-
-  #${PyTrilinos2_BINDER_EXECUTABLE} --root-module PyTrilinos2 --prefix ${CMAKE_CURRENT_BINARY_DIR}/binder  -annotate-includes -max-file-size=1000000 --bind Teuchos --bind Tpetra --bind MueLu --config ${CMAKE_CURRENT_SOURCE_DIR}/scripts/PyTrilinos2_config.cfg ${binder_include_name} -- -std=c++17 -I${CMAKE_CURRENT_BINARY_DIR}/include_tmp -I${CMAKE_CURRENT_SOURCE_DIR}/src --gcc-toolchain=${PyTrilinos2_BINDER_GCC_TOOLCHAIN} -DNDEBUG
+  ${PyROL_BINDER_EXECUTABLE} ${BINDER_OPTIONS}
 
   )
-  IF(PYTRILINOS2_UPDATE_GENERATED_SRC)
+  IF(PYROL_UPDATE_GENERATED_SRC)
     FILE(REMOVE_RECURSE ${CMAKE_CURRENT_SOURCE_DIR}/binder)
     FILE(COPY ${CMAKE_CURRENT_BINARY_DIR}/binder DESTINATION ${CMAKE_CURRENT_SOURCE_DIR})
   ENDIF()
@@ -266,14 +297,14 @@ ELSE()
 ENDIF()
 
 IF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  SET(PyTrilinos2_DEFAULT_INSTALL_PREFIX ${PYTHON_PREFIX})
+  SET(PyROL_DEFAULT_INSTALL_PREFIX ${PYTHON_PREFIX})
 ELSE()
-  SET(PyTrilinos2_DEFAULT_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
+  SET(PyROL_DEFAULT_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
 ENDIF()
 
-# Set the PyTrilinos2 install prefix
-SET(PyTrilinos2_INSTALL_PREFIX ${PyTrilinos2_DEFAULT_INSTALL_PREFIX}
-  CACHE PATH "The path prefix for where PyTrilinos2 will be installed, e.g. /usr/local")
+# Set the PyROL install prefix
+SET(PyROL_INSTALL_PREFIX ${PyROL_DEFAULT_INSTALL_PREFIX}
+  CACHE PATH "The path prefix for where PyROL will be installed, e.g. /usr/local")
 
 # Get the python version
 EXECUTE_PROCESS(COMMAND ${PYTHON_EXECUTABLE} -c
@@ -284,15 +315,15 @@ EXECUTE_PROCESS(COMMAND ${PYTHON_EXECUTABLE} -c
 SET(PYBIND11_PYTHON_VERSION ${PYTHON_VERSION})
 
 # Determine the install directory
-SET(PyTrilinos2_INSTALL_DIR
-  ${PyTrilinos2_INSTALL_PREFIX}/lib/python${PYTHON_VERSION}/site-packages/PyTrilinos2
-  CACHE PATH "The path where PyTrilinos2 will be installed"
+SET(PyROL_INSTALL_DIR
+  ${PyROL_INSTALL_PREFIX}/lib/python${PYTHON_VERSION}/site-packages/PyROL
+  CACHE PATH "The path where PyROL will be installed"
   )
-MESSAGE(STATUS "PyTrilinos2 installation path: ${PyTrilinos2_INSTALL_DIR}")
+MESSAGE(STATUS "PyROL installation path: ${PyROL_INSTALL_DIR}")
 
 INSTALL(FILES
-  ${PyTrilinos2PyFiles}
-  DESTINATION ${PyTrilinos2_INSTALL_DIR})
+  ${PyROLPyFiles}
+  DESTINATION ${PyROL_INSTALL_DIR})
 
 # Find the pybind11 CMake module
 EXECUTE_PROCESS(COMMAND
@@ -314,13 +345,13 @@ EXECUTE_PROCESS(COMMAND
 
 ADD_SUBDIRECTORY( src )
 
-#file (GLOB PyTrilinos2PyFilesSo "${CMAKE_CURRENT_BINARY_DIR}/src/*.so")
-file(COPY ${PyTrilinos2PyFiles} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos2/.)
-#file(COPY ${PyTrilinos2PyFilesSo} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos2/.)
+#file (GLOB PyROLPyFilesSo "${CMAKE_CURRENT_BINARY_DIR}/src/*.so")
+file(COPY ${PyROLPyFiles} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/PyROL/.)
+#file(COPY ${PyROLPyFilesSo} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/PyROL/.)
 
-SET(PyTrilinos2_PYTHONPATH "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR}")
+SET(PyROL_PYTHONPATH "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR}")
 
-TRIBITS_ADD_TEST_DIRECTORIES(test)
+#TRIBITS_ADD_TEST_DIRECTORIES(test)
 
 # Execute the package postprocessing
-TRIBITS_PACKAGE_POSTPROCESS()
+#TRIBITS_PACKAGE_POSTPROCESS()
