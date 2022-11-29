@@ -11,10 +11,10 @@ list(APPEND PYROL_SRC ${BINDER_SRCS})
 MESSAGE("PYROL_SRC with binder = ${PYROL_SRC}")
 
 pybind11_add_module(PyROL ${PYROL_SRC})
-target_include_directories(PyROL PUBLIC ${Mpi4Py_INCLUDE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(PyROL PUBLIC ${Mpi4Py_INCLUDE_DIR} ${CMAKE_CURRENT_SOURCE_DIR} "$<BUILD_INTERFACE:${ROL_all_include_dirs}>")
 target_compile_features(PyROL PUBLIC cxx_std_14)
 
-foreach(depPkg IN LISTS PyROL_LIB_ENABLED_DEPENDENCIES) 
+foreach(depPkg IN LISTS ROL_LIB_ENABLED_DEPENDENCIES) 
     target_link_libraries(PyROL PUBLIC ${depPkg}::all_libs)
 endforeach()
 target_link_libraries(PyROL PUBLIC ${Trilinos_EXTRA_LINK_FLAGS})

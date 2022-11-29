@@ -1,4 +1,3 @@
-#include <PyTrilinos2_Teuchos_Custom.hpp>
 #include <Teuchos_ArrayRCPDecl.hpp>
 #include <Teuchos_ArrayView.hpp>
 #include <Teuchos_ArrayViewDecl.hpp>
@@ -26,7 +25,6 @@
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
 #include <Teuchos_RCP.hpp>
-#include <PyTrilinos2_Tpetra_Types.hpp>
 
 
 #ifndef BINDER_PYBIND11_TYPE_CASTER
