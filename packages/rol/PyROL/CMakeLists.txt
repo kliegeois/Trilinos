@@ -331,6 +331,25 @@ INSTALL(FILES
   ${PyROLPyFiles}
   DESTINATION ${PyROL_INSTALL_DIR})
 
+MACRO(SUBDIRLIST result curdir)
+  FILE(GLOB children RELATIVE ${curdir} ${curdir}/*)
+  SET(dirlist "")
+  FOREACH(child ${children})
+    IF(IS_DIRECTORY ${curdir}/${child})
+      LIST(APPEND dirlist ${curdir}/${child})
+    ENDIF()
+  ENDFOREACH()
+  SET(${result} ${dirlist})
+ENDMACRO()
+
+SUBDIRLIST(PyROL_SUBDIRS ${CMAKE_CURRENT_SOURCE_DIR}/python)
+
+FOREACH(PyROL_subdir ${PyROL_SUBDIRS})
+  INSTALL(DIRECTORY
+    ${PyROL_subdir}
+    DESTINATION ${PyROL_INSTALL_DIR})
+ENDFOREACH()
+
 # Find the pybind11 CMake module
 EXECUTE_PROCESS(COMMAND
   ${PYTHON_EXECUTABLE} -c "import pybind11; print(pybind11.get_cmake_dir())"
@@ -351,13 +370,10 @@ EXECUTE_PROCESS(COMMAND
 
 ADD_SUBDIRECTORY( src )
 
-#file (GLOB PyROLPyFilesSo "${CMAKE_CURRENT_BINARY_DIR}/src/*.so")
 file(COPY ${PyROLPyFiles} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/PyROL/.)
-#file(COPY ${PyROLPyFilesSo} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/PyROL/.)
+
+FOREACH(PyROL_subdir ${PyROL_SUBDIRS})
+  FILE(COPY ${PyROL_subdir} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/PyROL)
+ENDFOREACH()
 
 SET(PyROL_PYTHONPATH "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR}")
-
-#TRIBITS_ADD_TEST_DIRECTORIES(test)
-
-# Execute the package postprocessing
-#TRIBITS_PACKAGE_POSTPROCESS()

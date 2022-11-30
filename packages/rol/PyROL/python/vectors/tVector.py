@@ -1,4 +1,5 @@
 from mpi4py import MPI
+from PyROL.PyROL import ROL
 from PyTrilinos2.PyTrilinos2 import Teuchos
 from PyTrilinos2.getTpetraTypeName import *
 
