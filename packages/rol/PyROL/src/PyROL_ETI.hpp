@@ -18,7 +18,7 @@
 #define BINDER_ROL_OBJECTIVE(SCALAR) \
   template class Objective<SCALAR>; \
   template class QuadraticObjective<SCALAR>; \
-  template <> inline void PyROL::foo<QuadraticObjective<SCALAR>>(QuadraticObjective<SCALAR> a){};
+  template <> inline void PyROL::foo(QuadraticObjective<SCALAR> a){};
 
 #define BINDER_ROL_CONSTRAINT(SCALAR) \
   template class Constraint<SCALAR>;
