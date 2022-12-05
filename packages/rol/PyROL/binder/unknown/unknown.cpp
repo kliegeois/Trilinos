@@ -102,10 +102,10 @@ struct PyCallBack_ROL_Vector_double_t : public ROL::Vector<double> {
 			}
 			else return pybind11::detail::cast_safe<class Teuchos::RCP<class ROL::Vector<double> >>(std::move(o));
 			*/
-			auto self = py::cast(this);
+			auto self = pybind11::cast(this);
 			auto cloned = self.attr("clone")();
 
-			auto keep_python_state_alive = Teuchos::rcp<py::object>(cloned);
+			auto keep_python_state_alive = Teuchos::rcp<pybind11::object>(new pybind11::object(cloned));
 			auto ptr = cloned.cast<PyCallBack_ROL_Vector_double_t*>();
 
 			// aliasing shared_ptr: points to `A_trampoline* ptr` but refcounts the Python object
