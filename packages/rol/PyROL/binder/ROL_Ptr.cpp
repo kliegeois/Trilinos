@@ -337,4 +337,9 @@ void bind_ROL_Ptr(std::function< pybind11::module &(std::string const &namespace
 	// ROL::ECGFlagToString(enum ROL::ECGFlag) file:ROL_Types.hpp line:831
 	M("ROL").def("ECGFlagToString", (std::string (*)(enum ROL::ECGFlag)) &ROL::ECGFlagToString, "C++: ROL::ECGFlagToString(enum ROL::ECGFlag) --> std::string", pybind11::arg("cgf"));
 
+	{ // ROL::TypeCaster file:ROL_Types.hpp line:895
+		pybind11::class_<ROL::TypeCaster<double,float>, Teuchos::RCP<ROL::TypeCaster<double,float>>> cl(M("ROL"), "TypeCaster_double_float_t", "");
+		cl.def( pybind11::init( [](){ return new ROL::TypeCaster<double,float>(); } ) );
+		cl.def_static("ElementToReal", (double (*)(const float &)) &ROL::TypeCaster<double, float>::ElementToReal, "C++: ROL::TypeCaster<double, float>::ElementToReal(const float &) --> double", pybind11::arg("val"));
+	}
 }

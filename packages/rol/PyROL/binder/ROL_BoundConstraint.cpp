@@ -842,6 +842,18 @@ void bind_ROL_BoundConstraint(std::function< pybind11::module &(std::string cons
 		cl.def("computeProjectedStep", (void (ROL::BoundConstraint<double>::*)(class ROL::Vector<double> &, const class ROL::Vector<double> &)) &ROL::BoundConstraint<double>::computeProjectedStep, "C++: ROL::BoundConstraint<double>::computeProjectedStep(class ROL::Vector<double> &, const class ROL::Vector<double> &) --> void", pybind11::arg("v"), pybind11::arg("x"));
 		cl.def("assign", (class ROL::BoundConstraint<double> & (ROL::BoundConstraint<double>::*)(const class ROL::BoundConstraint<double> &)) &ROL::BoundConstraint<double>::operator=, "C++: ROL::BoundConstraint<double>::operator=(const class ROL::BoundConstraint<double> &) --> class ROL::BoundConstraint<double> &", pybind11::return_value_policy::automatic, pybind11::arg(""));
 	}
+	{ // ROL::ConstraintData file:ROL_ConstraintAssembler.hpp line:61
+		pybind11::class_<ROL::ConstraintData<double>, Teuchos::RCP<ROL::ConstraintData<double>>> cl(M("ROL"), "ConstraintData_double_t", "");
+		cl.def( pybind11::init( [](const class Teuchos::RCP<class ROL::Constraint<double> > & a0, const class Teuchos::RCP<class ROL::Vector<double> > & a1){ return new ROL::ConstraintData<double>(a0, a1); } ), "doc" , pybind11::arg("con"), pybind11::arg("mul"));
+		cl.def( pybind11::init( [](const class Teuchos::RCP<class ROL::Constraint<double> > & a0, const class Teuchos::RCP<class ROL::Vector<double> > & a1, const class Teuchos::RCP<class ROL::Vector<double> > & a2){ return new ROL::ConstraintData<double>(a0, a1, a2); } ), "doc" , pybind11::arg("con"), pybind11::arg("mul"), pybind11::arg("res"));
+		cl.def( pybind11::init<const class Teuchos::RCP<class ROL::Constraint<double> > &, const class Teuchos::RCP<class ROL::Vector<double> > &, const class Teuchos::RCP<class ROL::Vector<double> > &, const class Teuchos::RCP<class ROL::BoundConstraint<double> > &>(), pybind11::arg("con"), pybind11::arg("mul"), pybind11::arg("res"), pybind11::arg("bnd") );
+
+		cl.def( pybind11::init( [](ROL::ConstraintData<double> const &o){ return new ROL::ConstraintData<double>(o); } ) );
+		cl.def_readonly("constraint", &ROL::ConstraintData<double>::constraint);
+		cl.def_readonly("multiplier", &ROL::ConstraintData<double>::multiplier);
+		cl.def_readonly("residual", &ROL::ConstraintData<double>::residual);
+		cl.def_readonly("bounds", &ROL::ConstraintData<double>::bounds);
+	}
 	{ // ROL::SlacklessObjective file:ROL_SlacklessObjective.hpp line:59
 		pybind11::class_<ROL::SlacklessObjective<double>, Teuchos::RCP<ROL::SlacklessObjective<double>>, PyCallBack_ROL_SlacklessObjective_double_t, ROL::Objective<double>> cl(M("ROL"), "SlacklessObjective_double_t", "");
 		cl.def( pybind11::init<const class Teuchos::RCP<class ROL::Objective<double> > &>(), pybind11::arg("obj") );
