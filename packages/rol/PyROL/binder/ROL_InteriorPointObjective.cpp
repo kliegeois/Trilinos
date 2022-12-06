@@ -152,7 +152,7 @@ struct PyCallBack_ROL_InteriorPointObjective_double_t : public ROL::InteriorPoin
 void bind_ROL_InteriorPointObjective(std::function< pybind11::module &(std::string const &namespace_) > &M)
 {
 	{ // ROL::InteriorPointObjective file:ROL_InteriorPointObjective.hpp line:64
-		pybind11::class_<ROL::InteriorPointObjective<double>, Teuchos::RCP<ROL::InteriorPointObjective<double>>, PyCallBack_ROL_InteriorPointObjective_double_t, ROL::Objective<double>> cl(M("ROL"), "InteriorPointObjective_double_t", "");
+		pybind11::class_<ROL::InteriorPointObjective<double>, Teuchos::RCP<ROL::InteriorPointObjective<double>>, PyCallBack_ROL_InteriorPointObjective_double_t, ROL::Objective<double>> cl(M("ROL"), "InteriorPointObjective_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init<const class Teuchos::RCP<class ROL::Objective<double> > &, const class Teuchos::RCP<class ROL::BoundConstraint<double> > &, const class ROL::Vector<double> &, const class ROL::Vector<double> &, const bool, const double, const double>(), pybind11::arg("obj"), pybind11::arg("bnd"), pybind11::arg("x"), pybind11::arg("g"), pybind11::arg("useLinearDamping"), pybind11::arg("kappaD"), pybind11::arg("mu") );
 
 		cl.def( pybind11::init<const class Teuchos::RCP<class ROL::Objective<double> > &, const class Teuchos::RCP<class ROL::BoundConstraint<double> > &, const class ROL::Vector<double> &, const class ROL::Vector<double> &, class Teuchos::ParameterList &>(), pybind11::arg("obj"), pybind11::arg("bnd"), pybind11::arg("x"), pybind11::arg("g"), pybind11::arg("parlist") );

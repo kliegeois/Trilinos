@@ -231,7 +231,7 @@ void bind_std_istream_tcc(std::function< pybind11::module &(std::string const &n
 
 		{ // std::basic_istream<char, std::char_traits<char> >::sentry file:istream line:107
 			auto & enclosing_class = cl;
-			pybind11::class_<std::basic_istream<char, std::char_traits<char> >::sentry, Teuchos::RCP<std::basic_istream<char, std::char_traits<char> >::sentry>> cl(enclosing_class, "sentry", "");
+			pybind11::class_<std::basic_istream<char, std::char_traits<char> >::sentry, Teuchos::RCP<std::basic_istream<char, std::char_traits<char> >::sentry>> cl(enclosing_class, "sentry", "", pybind11::module_local());
 			cl.def( pybind11::init( [](std::istream & a0){ return new std::basic_istream<char, std::char_traits<char> >::sentry(a0); } ), "doc" , pybind11::arg("__is"));
 			cl.def( pybind11::init<std::istream &, bool>(), pybind11::arg("__is"), pybind11::arg("__noskipws") );
 

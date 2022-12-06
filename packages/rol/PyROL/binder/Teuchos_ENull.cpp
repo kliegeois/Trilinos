@@ -660,7 +660,7 @@ void bind_Teuchos_ENull(std::function< pybind11::module &(std::string const &nam
 
 		{ // Teuchos::RCPNodeTracer::RCPNodeStatistics file:Teuchos_RCPNode.hpp line:375
 			auto & enclosing_class = cl;
-			pybind11::class_<Teuchos::RCPNodeTracer::RCPNodeStatistics, Teuchos::RCP<Teuchos::RCPNodeTracer::RCPNodeStatistics>> cl(enclosing_class, "RCPNodeStatistics", "RCP statistics struct. ");
+			pybind11::class_<Teuchos::RCPNodeTracer::RCPNodeStatistics, Teuchos::RCP<Teuchos::RCPNodeTracer::RCPNodeStatistics>> cl(enclosing_class, "RCPNodeStatistics", "RCP statistics struct. ", pybind11::module_local());
 			cl.def( pybind11::init( [](){ return new Teuchos::RCPNodeTracer::RCPNodeStatistics(); } ) );
 			cl.def_readwrite("maxNumRCPNodes", &Teuchos::RCPNodeTracer::RCPNodeStatistics::maxNumRCPNodes);
 			cl.def_readwrite("totalNumRCPNodeAllocations", &Teuchos::RCPNodeTracer::RCPNodeStatistics::totalNumRCPNodeAllocations);

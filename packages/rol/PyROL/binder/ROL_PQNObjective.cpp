@@ -146,7 +146,7 @@ struct PyCallBack_ROL_PQNObjective_double_t : public ROL::PQNObjective<double> {
 void bind_ROL_PQNObjective(std::function< pybind11::module &(std::string const &namespace_) > &M)
 {
 	{ // ROL::PQNObjective file:ROL_PQNObjective.hpp line:70
-		pybind11::class_<ROL::PQNObjective<double>, Teuchos::RCP<ROL::PQNObjective<double>>, PyCallBack_ROL_PQNObjective_double_t, ROL::Objective<double>> cl(M("ROL"), "PQNObjective_double_t", "");
+		pybind11::class_<ROL::PQNObjective<double>, Teuchos::RCP<ROL::PQNObjective<double>>, PyCallBack_ROL_PQNObjective_double_t, ROL::Objective<double>> cl(M("ROL"), "PQNObjective_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init<const class Teuchos::RCP<class ROL::Secant<double> > &, const class ROL::Vector<double> &, const class ROL::Vector<double> &>(), pybind11::arg("secant"), pybind11::arg("x"), pybind11::arg("g") );
 
 		cl.def( pybind11::init( [](PyCallBack_ROL_PQNObjective_double_t const &o){ return new PyCallBack_ROL_PQNObjective_double_t(o); } ) );

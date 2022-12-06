@@ -803,7 +803,7 @@ void bind_Teuchos_FancyOStream(std::function< pybind11::module &(std::string con
 
 		{ // Teuchos::StringIndexedOrderedValueObjectContainerBase::OrdinalIndex file:Teuchos_StringIndexedOrderedValueObjectContainer.hpp line:76
 			auto & enclosing_class = cl;
-			pybind11::class_<Teuchos::StringIndexedOrderedValueObjectContainerBase::OrdinalIndex, Teuchos::RCP<Teuchos::StringIndexedOrderedValueObjectContainerBase::OrdinalIndex>> cl(enclosing_class, "OrdinalIndex", "A safe ordinal index type that default initializes to a special\n value.");
+			pybind11::class_<Teuchos::StringIndexedOrderedValueObjectContainerBase::OrdinalIndex, Teuchos::RCP<Teuchos::StringIndexedOrderedValueObjectContainerBase::OrdinalIndex>> cl(enclosing_class, "OrdinalIndex", "A safe ordinal index type that default initializes to a special\n value.", pybind11::module_local());
 			cl.def( pybind11::init( [](){ return new Teuchos::StringIndexedOrderedValueObjectContainerBase::OrdinalIndex(); } ) );
 			cl.def( pybind11::init<const long>(), pybind11::arg("idx_in") );
 
@@ -814,7 +814,7 @@ void bind_Teuchos_FancyOStream(std::function< pybind11::module &(std::string con
 
 		{ // Teuchos::StringIndexedOrderedValueObjectContainerBase::KeyObjectPair file:Teuchos_StringIndexedOrderedValueObjectContainer.hpp line:106
 			auto & enclosing_class = cl;
-			pybind11::class_<Teuchos::StringIndexedOrderedValueObjectContainerBase::KeyObjectPair<Teuchos::ParameterEntry>, Teuchos::RCP<Teuchos::StringIndexedOrderedValueObjectContainerBase::KeyObjectPair<Teuchos::ParameterEntry>>> cl(enclosing_class, "KeyObjectPair_Teuchos_ParameterEntry_t", "");
+			pybind11::class_<Teuchos::StringIndexedOrderedValueObjectContainerBase::KeyObjectPair<Teuchos::ParameterEntry>, Teuchos::RCP<Teuchos::StringIndexedOrderedValueObjectContainerBase::KeyObjectPair<Teuchos::ParameterEntry>>> cl(enclosing_class, "KeyObjectPair_Teuchos_ParameterEntry_t", "", pybind11::module_local());
 			cl.def( pybind11::init( [](){ return new Teuchos::StringIndexedOrderedValueObjectContainerBase::KeyObjectPair<Teuchos::ParameterEntry>(); } ) );
 			cl.def( pybind11::init( [](const std::string & a0, const class Teuchos::ParameterEntry & a1){ return new Teuchos::StringIndexedOrderedValueObjectContainerBase::KeyObjectPair<Teuchos::ParameterEntry>(a0, a1); } ), "doc" , pybind11::arg("key_in"), pybind11::arg("obj_in"));
 			cl.def( pybind11::init<const std::string &, const class Teuchos::ParameterEntry &, bool>(), pybind11::arg("key_in"), pybind11::arg("obj_in"), pybind11::arg("isActive_in") );
@@ -829,7 +829,7 @@ void bind_Teuchos_FancyOStream(std::function< pybind11::module &(std::string con
 
 		{ // Teuchos::StringIndexedOrderedValueObjectContainerBase::SelectActive file:Teuchos_StringIndexedOrderedValueObjectContainer.hpp line:141
 			auto & enclosing_class = cl;
-			pybind11::class_<Teuchos::StringIndexedOrderedValueObjectContainerBase::SelectActive<Teuchos::ParameterEntry>, Teuchos::RCP<Teuchos::StringIndexedOrderedValueObjectContainerBase::SelectActive<Teuchos::ParameterEntry>>> cl(enclosing_class, "SelectActive_Teuchos_ParameterEntry_t", "");
+			pybind11::class_<Teuchos::StringIndexedOrderedValueObjectContainerBase::SelectActive<Teuchos::ParameterEntry>, Teuchos::RCP<Teuchos::StringIndexedOrderedValueObjectContainerBase::SelectActive<Teuchos::ParameterEntry>>> cl(enclosing_class, "SelectActive_Teuchos_ParameterEntry_t", "", pybind11::module_local());
 			cl.def( pybind11::init( [](Teuchos::StringIndexedOrderedValueObjectContainerBase::SelectActive<Teuchos::ParameterEntry> const &o){ return new Teuchos::StringIndexedOrderedValueObjectContainerBase::SelectActive<Teuchos::ParameterEntry>(o); } ) );
 			cl.def( pybind11::init( [](){ return new Teuchos::StringIndexedOrderedValueObjectContainerBase::SelectActive<Teuchos::ParameterEntry>(); } ) );
 			cl.def("__call__", (bool (Teuchos::StringIndexedOrderedValueObjectContainerBase::SelectActive<Teuchos::ParameterEntry>::*)(const class Teuchos::StringIndexedOrderedValueObjectContainerBase::KeyObjectPair<class Teuchos::ParameterEntry> &) const) &Teuchos::StringIndexedOrderedValueObjectContainerBase::SelectActive<Teuchos::ParameterEntry>::operator(), "C++: Teuchos::StringIndexedOrderedValueObjectContainerBase::SelectActive<Teuchos::ParameterEntry>::operator()(const class Teuchos::StringIndexedOrderedValueObjectContainerBase::KeyObjectPair<class Teuchos::ParameterEntry> &) const --> bool", pybind11::arg("key_and_obj"));
@@ -838,7 +838,7 @@ void bind_Teuchos_FancyOStream(std::function< pybind11::module &(std::string con
 
 		{ // Teuchos::StringIndexedOrderedValueObjectContainerBase::InvalidOrdinalIndexError file:Teuchos_StringIndexedOrderedValueObjectContainer.hpp line:148
 			auto & enclosing_class = cl;
-			pybind11::class_<Teuchos::StringIndexedOrderedValueObjectContainerBase::InvalidOrdinalIndexError, Teuchos::RCP<Teuchos::StringIndexedOrderedValueObjectContainerBase::InvalidOrdinalIndexError>, PyCallBack_Teuchos_StringIndexedOrderedValueObjectContainerBase_InvalidOrdinalIndexError, Teuchos::ExceptionBase> cl(enclosing_class, "InvalidOrdinalIndexError", "Thrown if an invalid ordinal index is passed in. ");
+			pybind11::class_<Teuchos::StringIndexedOrderedValueObjectContainerBase::InvalidOrdinalIndexError, Teuchos::RCP<Teuchos::StringIndexedOrderedValueObjectContainerBase::InvalidOrdinalIndexError>, PyCallBack_Teuchos_StringIndexedOrderedValueObjectContainerBase_InvalidOrdinalIndexError, Teuchos::ExceptionBase> cl(enclosing_class, "InvalidOrdinalIndexError", "Thrown if an invalid ordinal index is passed in. ", pybind11::module_local());
 			cl.def( pybind11::init<const std::string &>(), pybind11::arg("what_arg") );
 
 			cl.def( pybind11::init( [](PyCallBack_Teuchos_StringIndexedOrderedValueObjectContainerBase_InvalidOrdinalIndexError const &o){ return new PyCallBack_Teuchos_StringIndexedOrderedValueObjectContainerBase_InvalidOrdinalIndexError(o); } ) );
@@ -848,7 +848,7 @@ void bind_Teuchos_FancyOStream(std::function< pybind11::module &(std::string con
 
 		{ // Teuchos::StringIndexedOrderedValueObjectContainerBase::InvalidKeyError file:Teuchos_StringIndexedOrderedValueObjectContainer.hpp line:152
 			auto & enclosing_class = cl;
-			pybind11::class_<Teuchos::StringIndexedOrderedValueObjectContainerBase::InvalidKeyError, Teuchos::RCP<Teuchos::StringIndexedOrderedValueObjectContainerBase::InvalidKeyError>, PyCallBack_Teuchos_StringIndexedOrderedValueObjectContainerBase_InvalidKeyError, Teuchos::ExceptionBase> cl(enclosing_class, "InvalidKeyError", "Thrown if an invalid string is passed in. ");
+			pybind11::class_<Teuchos::StringIndexedOrderedValueObjectContainerBase::InvalidKeyError, Teuchos::RCP<Teuchos::StringIndexedOrderedValueObjectContainerBase::InvalidKeyError>, PyCallBack_Teuchos_StringIndexedOrderedValueObjectContainerBase_InvalidKeyError, Teuchos::ExceptionBase> cl(enclosing_class, "InvalidKeyError", "Thrown if an invalid string is passed in. ", pybind11::module_local());
 			cl.def( pybind11::init<const std::string &>(), pybind11::arg("what_arg") );
 
 			cl.def( pybind11::init( [](PyCallBack_Teuchos_StringIndexedOrderedValueObjectContainerBase_InvalidKeyError const &o){ return new PyCallBack_Teuchos_StringIndexedOrderedValueObjectContainerBase_InvalidKeyError(o); } ) );
@@ -941,7 +941,7 @@ void bind_Teuchos_FancyOStream(std::function< pybind11::module &(std::string con
 
 		{ // Teuchos::ParameterList::PrintOptions file:Teuchos_ParameterList.hpp line:150
 			auto & enclosing_class = cl;
-			pybind11::class_<Teuchos::ParameterList::PrintOptions, Teuchos::RCP<Teuchos::ParameterList::PrintOptions>> cl(enclosing_class, "PrintOptions", "Utility class for setting and passing in print options. ");
+			pybind11::class_<Teuchos::ParameterList::PrintOptions, Teuchos::RCP<Teuchos::ParameterList::PrintOptions>> cl(enclosing_class, "PrintOptions", "Utility class for setting and passing in print options. ", pybind11::module_local());
 			cl.def( pybind11::init( [](){ return new Teuchos::ParameterList::PrintOptions(); } ) );
 			cl.def( pybind11::init( [](Teuchos::ParameterList::PrintOptions const &o){ return new Teuchos::ParameterList::PrintOptions(o); } ) );
 			cl.def("indent", (class Teuchos::ParameterList::PrintOptions & (Teuchos::ParameterList::PrintOptions::*)(int)) &Teuchos::ParameterList::PrintOptions::indent, "C++: Teuchos::ParameterList::PrintOptions::indent(int) --> class Teuchos::ParameterList::PrintOptions &", pybind11::return_value_policy::automatic, pybind11::arg("_indent"));

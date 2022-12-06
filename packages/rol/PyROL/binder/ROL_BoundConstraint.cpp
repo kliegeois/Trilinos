@@ -713,7 +713,7 @@ struct PyCallBack_ROL_Bounds_double_t : public ROL::Bounds<double> {
 void bind_ROL_BoundConstraint(std::function< pybind11::module &(std::string const &namespace_) > &M)
 {
 	{ // ROL::BoundConstraint file:ROL_BoundConstraint.hpp line:73
-		pybind11::class_<ROL::BoundConstraint<double>, Teuchos::RCP<ROL::BoundConstraint<double>>, PyCallBack_ROL_BoundConstraint_double_t> cl(M("ROL"), "BoundConstraint_double_t", "");
+		pybind11::class_<ROL::BoundConstraint<double>, Teuchos::RCP<ROL::BoundConstraint<double>>, PyCallBack_ROL_BoundConstraint_double_t> cl(M("ROL"), "BoundConstraint_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init( [](){ return new ROL::BoundConstraint<double>(); }, [](){ return new PyCallBack_ROL_BoundConstraint_double_t(); } ) );
 		cl.def( pybind11::init<const class ROL::Vector<double> &>(), pybind11::arg("x") );
 
@@ -770,7 +770,7 @@ void bind_ROL_BoundConstraint(std::function< pybind11::module &(std::string cons
 		cl.def("assign", (class ROL::BoundConstraint<double> & (ROL::BoundConstraint<double>::*)(const class ROL::BoundConstraint<double> &)) &ROL::BoundConstraint<double>::operator=, "C++: ROL::BoundConstraint<double>::operator=(const class ROL::BoundConstraint<double> &) --> class ROL::BoundConstraint<double> &", pybind11::return_value_policy::automatic, pybind11::arg(""));
 	}
 	{ // ROL::BoundConstraint_Partitioned file:ROL_BoundConstraint_Partitioned.hpp line:61
-		pybind11::class_<ROL::BoundConstraint_Partitioned<double>, Teuchos::RCP<ROL::BoundConstraint_Partitioned<double>>, PyCallBack_ROL_BoundConstraint_Partitioned_double_t, ROL::BoundConstraint<double>> cl(M("ROL"), "BoundConstraint_Partitioned_double_t", "");
+		pybind11::class_<ROL::BoundConstraint_Partitioned<double>, Teuchos::RCP<ROL::BoundConstraint_Partitioned<double>>, PyCallBack_ROL_BoundConstraint_Partitioned_double_t, ROL::BoundConstraint<double>> cl(M("ROL"), "BoundConstraint_Partitioned_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init( [](PyCallBack_ROL_BoundConstraint_Partitioned_double_t const &o){ return new PyCallBack_ROL_BoundConstraint_Partitioned_double_t(o); } ) );
 		cl.def( pybind11::init( [](ROL::BoundConstraint_Partitioned<double> const &o){ return new ROL::BoundConstraint_Partitioned<double>(o); } ) );
 		cl.def("update", [](ROL::BoundConstraint_Partitioned<double> &o, const class ROL::Vector<double> & a0) -> void { return o.update(a0); }, "", pybind11::arg("x"));
@@ -843,7 +843,7 @@ void bind_ROL_BoundConstraint(std::function< pybind11::module &(std::string cons
 		cl.def("assign", (class ROL::BoundConstraint<double> & (ROL::BoundConstraint<double>::*)(const class ROL::BoundConstraint<double> &)) &ROL::BoundConstraint<double>::operator=, "C++: ROL::BoundConstraint<double>::operator=(const class ROL::BoundConstraint<double> &) --> class ROL::BoundConstraint<double> &", pybind11::return_value_policy::automatic, pybind11::arg(""));
 	}
 	{ // ROL::ConstraintData file:ROL_ConstraintAssembler.hpp line:61
-		pybind11::class_<ROL::ConstraintData<double>, Teuchos::RCP<ROL::ConstraintData<double>>> cl(M("ROL"), "ConstraintData_double_t", "");
+		pybind11::class_<ROL::ConstraintData<double>, Teuchos::RCP<ROL::ConstraintData<double>>> cl(M("ROL"), "ConstraintData_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init( [](const class Teuchos::RCP<class ROL::Constraint<double> > & a0, const class Teuchos::RCP<class ROL::Vector<double> > & a1){ return new ROL::ConstraintData<double>(a0, a1); } ), "doc" , pybind11::arg("con"), pybind11::arg("mul"));
 		cl.def( pybind11::init( [](const class Teuchos::RCP<class ROL::Constraint<double> > & a0, const class Teuchos::RCP<class ROL::Vector<double> > & a1, const class Teuchos::RCP<class ROL::Vector<double> > & a2){ return new ROL::ConstraintData<double>(a0, a1, a2); } ), "doc" , pybind11::arg("con"), pybind11::arg("mul"), pybind11::arg("res"));
 		cl.def( pybind11::init<const class Teuchos::RCP<class ROL::Constraint<double> > &, const class Teuchos::RCP<class ROL::Vector<double> > &, const class Teuchos::RCP<class ROL::Vector<double> > &, const class Teuchos::RCP<class ROL::BoundConstraint<double> > &>(), pybind11::arg("con"), pybind11::arg("mul"), pybind11::arg("res"), pybind11::arg("bnd") );
@@ -855,7 +855,7 @@ void bind_ROL_BoundConstraint(std::function< pybind11::module &(std::string cons
 		cl.def_readonly("bounds", &ROL::ConstraintData<double>::bounds);
 	}
 	{ // ROL::SlacklessObjective file:ROL_SlacklessObjective.hpp line:59
-		pybind11::class_<ROL::SlacklessObjective<double>, Teuchos::RCP<ROL::SlacklessObjective<double>>, PyCallBack_ROL_SlacklessObjective_double_t, ROL::Objective<double>> cl(M("ROL"), "SlacklessObjective_double_t", "");
+		pybind11::class_<ROL::SlacklessObjective<double>, Teuchos::RCP<ROL::SlacklessObjective<double>>, PyCallBack_ROL_SlacklessObjective_double_t, ROL::Objective<double>> cl(M("ROL"), "SlacklessObjective_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init<const class Teuchos::RCP<class ROL::Objective<double> > &>(), pybind11::arg("obj") );
 
 		cl.def( pybind11::init( [](PyCallBack_ROL_SlacklessObjective_double_t const &o){ return new PyCallBack_ROL_SlacklessObjective_double_t(o); } ) );
@@ -886,7 +886,7 @@ void bind_ROL_BoundConstraint(std::function< pybind11::module &(std::string cons
 		cl.def("assign", (class ROL::Objective<double> & (ROL::Objective<double>::*)(const class ROL::Objective<double> &)) &ROL::Objective<double>::operator=, "C++: ROL::Objective<double>::operator=(const class ROL::Objective<double> &) --> class ROL::Objective<double> &", pybind11::return_value_policy::automatic, pybind11::arg(""));
 	}
 	{ // ROL::LinearConstraint file:ROL_LinearConstraint.hpp line:60
-		pybind11::class_<ROL::LinearConstraint<double>, Teuchos::RCP<ROL::LinearConstraint<double>>, PyCallBack_ROL_LinearConstraint_double_t, ROL::Constraint<double>> cl(M("ROL"), "LinearConstraint_double_t", "");
+		pybind11::class_<ROL::LinearConstraint<double>, Teuchos::RCP<ROL::LinearConstraint<double>>, PyCallBack_ROL_LinearConstraint_double_t, ROL::Constraint<double>> cl(M("ROL"), "LinearConstraint_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init<const class Teuchos::RCP<const class ROL::LinearOperator<double> > &, const class Teuchos::RCP<const class ROL::Vector<double> > &>(), pybind11::arg("A"), pybind11::arg("b") );
 
 		cl.def( pybind11::init( [](PyCallBack_ROL_LinearConstraint_double_t const &o){ return new PyCallBack_ROL_LinearConstraint_double_t(o); } ) );
@@ -919,7 +919,7 @@ void bind_ROL_BoundConstraint(std::function< pybind11::module &(std::string cons
 		cl.def("assign", (class ROL::Constraint<double> & (ROL::Constraint<double>::*)(const class ROL::Constraint<double> &)) &ROL::Constraint<double>::operator=, "C++: ROL::Constraint<double>::operator=(const class ROL::Constraint<double> &) --> class ROL::Constraint<double> &", pybind11::return_value_policy::automatic, pybind11::arg(""));
 	}
 	{ // ROL::Bounds file:ROL_Bounds.hpp line:59
-		pybind11::class_<ROL::Bounds<double>, Teuchos::RCP<ROL::Bounds<double>>, PyCallBack_ROL_Bounds_double_t, ROL::BoundConstraint<double>> cl(M("ROL"), "Bounds_double_t", "");
+		pybind11::class_<ROL::Bounds<double>, Teuchos::RCP<ROL::Bounds<double>>, PyCallBack_ROL_Bounds_double_t, ROL::BoundConstraint<double>> cl(M("ROL"), "Bounds_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init( [](const class ROL::Vector<double> & a0){ return new ROL::Bounds<double>(a0); }, [](const class ROL::Vector<double> & a0){ return new PyCallBack_ROL_Bounds_double_t(a0); } ), "doc");
 		cl.def( pybind11::init( [](const class ROL::Vector<double> & a0, bool const & a1){ return new ROL::Bounds<double>(a0, a1); }, [](const class ROL::Vector<double> & a0, bool const & a1){ return new PyCallBack_ROL_Bounds_double_t(a0, a1); } ), "doc");
 		cl.def( pybind11::init( [](const class ROL::Vector<double> & a0, bool const & a1, double const & a2){ return new ROL::Bounds<double>(a0, a1, a2); }, [](const class ROL::Vector<double> & a0, bool const & a1, double const & a2){ return new PyCallBack_ROL_Bounds_double_t(a0, a1, a2); } ), "doc");

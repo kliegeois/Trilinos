@@ -19,11 +19,11 @@
 void bind_ROL_ScalarTraits(std::function< pybind11::module &(std::string const &namespace_) > &M)
 {
 	{ // ROL::ScalarTraits_Magnitude file:ROL_ScalarTraits.hpp line:55
-		pybind11::class_<ROL::ScalarTraits_Magnitude<double>, Teuchos::RCP<ROL::ScalarTraits_Magnitude<double>>> cl(M("ROL"), "ScalarTraits_Magnitude_double_t", "");
+		pybind11::class_<ROL::ScalarTraits_Magnitude<double>, Teuchos::RCP<ROL::ScalarTraits_Magnitude<double>>> cl(M("ROL"), "ScalarTraits_Magnitude_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init( [](){ return new ROL::ScalarTraits_Magnitude<double>(); } ) );
 	}
 	{ // ROL::ScalarTraits file:ROL_ScalarTraits.hpp line:66
-		pybind11::class_<ROL::ScalarTraits<double>, Teuchos::RCP<ROL::ScalarTraits<double>>> cl(M("ROL"), "ScalarTraits_double_t", "");
+		pybind11::class_<ROL::ScalarTraits<double>, Teuchos::RCP<ROL::ScalarTraits<double>>> cl(M("ROL"), "ScalarTraits_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init( [](){ return new ROL::ScalarTraits<double>(); } ) );
 		cl.def_static("zero", (double (*)()) &ROL::ScalarTraits<double>::zero, "C++: ROL::ScalarTraits<double>::zero() --> double");
 		cl.def_static("half", (double (*)()) &ROL::ScalarTraits<double>::half, "C++: ROL::ScalarTraits<double>::half() --> double");

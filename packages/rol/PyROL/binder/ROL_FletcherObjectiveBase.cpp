@@ -288,7 +288,7 @@ struct PyCallBack_ROL_FletcherObjectiveE_double_t : public ROL::FletcherObjectiv
 void bind_ROL_FletcherObjectiveBase(std::function< pybind11::module &(std::string const &namespace_) > &M)
 {
 	{ // ROL::FletcherObjectiveBase file:ROL_FletcherObjectiveBase.hpp line:60
-		pybind11::class_<ROL::FletcherObjectiveBase<double>, Teuchos::RCP<ROL::FletcherObjectiveBase<double>>, PyCallBack_ROL_FletcherObjectiveBase_double_t, ROL::Objective<double>> cl(M("ROL"), "FletcherObjectiveBase_double_t", "");
+		pybind11::class_<ROL::FletcherObjectiveBase<double>, Teuchos::RCP<ROL::FletcherObjectiveBase<double>>, PyCallBack_ROL_FletcherObjectiveBase_double_t, ROL::Objective<double>> cl(M("ROL"), "FletcherObjectiveBase_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init<const class Teuchos::RCP<class ROL::Objective<double> > &, const class Teuchos::RCP<class ROL::Constraint<double> > &, const class ROL::Vector<double> &, const class ROL::Vector<double> &, const class ROL::Vector<double> &, const class ROL::Vector<double> &, class Teuchos::ParameterList &>(), pybind11::arg("obj"), pybind11::arg("con"), pybind11::arg("xprim"), pybind11::arg("xdual"), pybind11::arg("cprim"), pybind11::arg("cdual"), pybind11::arg("parlist") );
 
 		cl.def(pybind11::init<PyCallBack_ROL_FletcherObjectiveBase_double_t const &>());
@@ -317,7 +317,7 @@ void bind_ROL_FletcherObjectiveBase(std::function< pybind11::module &(std::strin
 		cl.def("assign", (class ROL::Objective<double> & (ROL::Objective<double>::*)(const class ROL::Objective<double> &)) &ROL::Objective<double>::operator=, "C++: ROL::Objective<double>::operator=(const class ROL::Objective<double> &) --> class ROL::Objective<double> &", pybind11::return_value_policy::automatic, pybind11::arg(""));
 	}
 	{ // ROL::FletcherObjectiveE file:ROL_FletcherObjectiveE.hpp line:53
-		pybind11::class_<ROL::FletcherObjectiveE<double>, Teuchos::RCP<ROL::FletcherObjectiveE<double>>, PyCallBack_ROL_FletcherObjectiveE_double_t, ROL::FletcherObjectiveBase<double>> cl(M("ROL"), "FletcherObjectiveE_double_t", "");
+		pybind11::class_<ROL::FletcherObjectiveE<double>, Teuchos::RCP<ROL::FletcherObjectiveE<double>>, PyCallBack_ROL_FletcherObjectiveE_double_t, ROL::FletcherObjectiveBase<double>> cl(M("ROL"), "FletcherObjectiveE_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init<const class Teuchos::RCP<class ROL::Objective<double> > &, const class Teuchos::RCP<class ROL::Constraint<double> > &, const class ROL::Vector<double> &, const class ROL::Vector<double> &, const class ROL::Vector<double> &, const class ROL::Vector<double> &, class Teuchos::ParameterList &>(), pybind11::arg("obj"), pybind11::arg("con"), pybind11::arg("xprim"), pybind11::arg("xdual"), pybind11::arg("cprim"), pybind11::arg("cdual"), pybind11::arg("parlist") );
 
 		cl.def( pybind11::init( [](PyCallBack_ROL_FletcherObjectiveE_double_t const &o){ return new PyCallBack_ROL_FletcherObjectiveE_double_t(o); } ) );

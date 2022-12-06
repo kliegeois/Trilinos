@@ -749,7 +749,7 @@ struct PyCallBack_ROL_GMRES_double_t : public ROL::GMRES<double> {
 void bind_ROL_SingletonVector(std::function< pybind11::module &(std::string const &namespace_) > &M)
 {
 	{ // ROL::SingletonVector file:ROL_SingletonVector.hpp line:59
-		pybind11::class_<ROL::SingletonVector<double>, Teuchos::RCP<ROL::SingletonVector<double>>, PyCallBack_ROL_SingletonVector_double_t, ROL::Vector<double>> cl(M("ROL"), "SingletonVector_double_t", "");
+		pybind11::class_<ROL::SingletonVector<double>, Teuchos::RCP<ROL::SingletonVector<double>>, PyCallBack_ROL_SingletonVector_double_t, ROL::Vector<double>> cl(M("ROL"), "SingletonVector_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init( [](){ return new ROL::SingletonVector<double>(); }, [](){ return new PyCallBack_ROL_SingletonVector_double_t(); } ), "doc");
 		cl.def( pybind11::init<double>(), pybind11::arg("value") );
 
@@ -796,7 +796,7 @@ void bind_ROL_SingletonVector(std::function< pybind11::module &(std::string cons
 		cl.def("assign", (class ROL::Vector<double> & (ROL::Vector<double>::*)(const class ROL::Vector<double> &)) &ROL::Vector<double>::operator=, "C++: ROL::Vector<double>::operator=(const class ROL::Vector<double> &) --> class ROL::Vector<double> &", pybind11::return_value_policy::automatic, pybind11::arg(""));
 	}
 	{ // ROL::VectorController file:ROL_VectorController.hpp line:54
-		pybind11::class_<ROL::VectorController<double,int>, Teuchos::RCP<ROL::VectorController<double,int>>> cl(M("ROL"), "VectorController_double_int_t", "");
+		pybind11::class_<ROL::VectorController<double,int>, Teuchos::RCP<ROL::VectorController<double,int>>> cl(M("ROL"), "VectorController_double_int_t", "", pybind11::module_local());
 		cl.def( pybind11::init( [](){ return new ROL::VectorController<double,int>(); } ) );
 		cl.def( pybind11::init( [](ROL::VectorController<double,int> const &o){ return new ROL::VectorController<double,int>(o); } ) );
 		cl.def("reset", [](ROL::VectorController<double,int> &o) -> void { return o.reset(); }, "");
@@ -817,7 +817,7 @@ void bind_ROL_SingletonVector(std::function< pybind11::module &(std::string cons
 		cl.def("push", (void (ROL::VectorController<double,int>::*)(class ROL::VectorController<double, int> &) const) &ROL::VectorController<double, int>::push, "C++: ROL::VectorController<double, int>::push(class ROL::VectorController<double, int> &) const --> void", pybind11::arg("to"));
 	}
 	{ // ROL::AffineTransformObjective file:ROL_AffineTransformObjective.hpp line:62
-		pybind11::class_<ROL::AffineTransformObjective<double>, Teuchos::RCP<ROL::AffineTransformObjective<double>>, PyCallBack_ROL_AffineTransformObjective_double_t, ROL::Objective<double>> cl(M("ROL"), "AffineTransformObjective_double_t", "");
+		pybind11::class_<ROL::AffineTransformObjective<double>, Teuchos::RCP<ROL::AffineTransformObjective<double>>, PyCallBack_ROL_AffineTransformObjective_double_t, ROL::Objective<double>> cl(M("ROL"), "AffineTransformObjective_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init( [](PyCallBack_ROL_AffineTransformObjective_double_t const &o){ return new PyCallBack_ROL_AffineTransformObjective_double_t(o); } ) );
 		cl.def( pybind11::init( [](ROL::AffineTransformObjective<double> const &o){ return new ROL::AffineTransformObjective<double>(o); } ) );
 		cl.def("update", [](ROL::AffineTransformObjective<double> &o, const class ROL::Vector<double> & a0, enum ROL::UpdateType const & a1) -> void { return o.update(a0, a1); }, "", pybind11::arg("x"), pybind11::arg("type"));
@@ -842,7 +842,7 @@ void bind_ROL_SingletonVector(std::function< pybind11::module &(std::string cons
 		cl.def("assign", (class ROL::Objective<double> & (ROL::Objective<double>::*)(const class ROL::Objective<double> &)) &ROL::Objective<double>::operator=, "C++: ROL::Objective<double>::operator=(const class ROL::Objective<double> &) --> class ROL::Objective<double> &", pybind11::return_value_policy::automatic, pybind11::arg(""));
 	}
 	{ // ROL::AffineTransformConstraint file:ROL_AffineTransformConstraint.hpp line:62
-		pybind11::class_<ROL::AffineTransformConstraint<double>, Teuchos::RCP<ROL::AffineTransformConstraint<double>>, PyCallBack_ROL_AffineTransformConstraint_double_t, ROL::Constraint<double>> cl(M("ROL"), "AffineTransformConstraint_double_t", "");
+		pybind11::class_<ROL::AffineTransformConstraint<double>, Teuchos::RCP<ROL::AffineTransformConstraint<double>>, PyCallBack_ROL_AffineTransformConstraint_double_t, ROL::Constraint<double>> cl(M("ROL"), "AffineTransformConstraint_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init( [](PyCallBack_ROL_AffineTransformConstraint_double_t const &o){ return new PyCallBack_ROL_AffineTransformConstraint_double_t(o); } ) );
 		cl.def( pybind11::init( [](ROL::AffineTransformConstraint<double> const &o){ return new ROL::AffineTransformConstraint<double>(o); } ) );
 		cl.def("update", [](ROL::AffineTransformConstraint<double> &o, const class ROL::Vector<double> & a0, enum ROL::UpdateType const & a1) -> void { return o.update(a0, a1); }, "", pybind11::arg("x"), pybind11::arg("type"));
@@ -871,7 +871,7 @@ void bind_ROL_SingletonVector(std::function< pybind11::module &(std::string cons
 		cl.def("assign", (class ROL::Constraint<double> & (ROL::Constraint<double>::*)(const class ROL::Constraint<double> &)) &ROL::Constraint<double>::operator=, "C++: ROL::Constraint<double>::operator=(const class ROL::Constraint<double> &) --> class ROL::Constraint<double> &", pybind11::return_value_policy::automatic, pybind11::arg(""));
 	}
 	{ // ROL::NullSpaceOperator file:ROL_NullSpaceOperator.hpp line:60
-		pybind11::class_<ROL::NullSpaceOperator<double>, Teuchos::RCP<ROL::NullSpaceOperator<double>>, PyCallBack_ROL_NullSpaceOperator_double_t, ROL::LinearOperator<double>> cl(M("ROL"), "NullSpaceOperator_double_t", "");
+		pybind11::class_<ROL::NullSpaceOperator<double>, Teuchos::RCP<ROL::NullSpaceOperator<double>>, PyCallBack_ROL_NullSpaceOperator_double_t, ROL::LinearOperator<double>> cl(M("ROL"), "NullSpaceOperator_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init( [](const class Teuchos::RCP<class ROL::Constraint<double> > & a0, const class ROL::Vector<double> & a1, const class ROL::Vector<double> & a2){ return new ROL::NullSpaceOperator<double>(a0, a1, a2); }, [](const class Teuchos::RCP<class ROL::Constraint<double> > & a0, const class ROL::Vector<double> & a1, const class ROL::Vector<double> & a2){ return new PyCallBack_ROL_NullSpaceOperator_double_t(a0, a1, a2); } ), "doc");
 		cl.def( pybind11::init<const class Teuchos::RCP<class ROL::Constraint<double> > &, const class ROL::Vector<double> &, const class ROL::Vector<double> &, const bool>(), pybind11::arg("con"), pybind11::arg("dom"), pybind11::arg("ran"), pybind11::arg("useAugSys") );
 
@@ -896,7 +896,7 @@ void bind_ROL_SingletonVector(std::function< pybind11::module &(std::string cons
 		cl.def("assign", (class ROL::LinearOperator<double> & (ROL::LinearOperator<double>::*)(const class ROL::LinearOperator<double> &)) &ROL::LinearOperator<double>::operator=, "C++: ROL::LinearOperator<double>::operator=(const class ROL::LinearOperator<double> &) --> class ROL::LinearOperator<double> &", pybind11::return_value_policy::automatic, pybind11::arg(""));
 	}
 	{ // ROL::RangeSpaceOperator file:ROL_RangeSpaceOperator.hpp line:59
-		pybind11::class_<ROL::RangeSpaceOperator<double>, Teuchos::RCP<ROL::RangeSpaceOperator<double>>, PyCallBack_ROL_RangeSpaceOperator_double_t, ROL::LinearOperator<double>> cl(M("ROL"), "RangeSpaceOperator_double_t", "");
+		pybind11::class_<ROL::RangeSpaceOperator<double>, Teuchos::RCP<ROL::RangeSpaceOperator<double>>, PyCallBack_ROL_RangeSpaceOperator_double_t, ROL::LinearOperator<double>> cl(M("ROL"), "RangeSpaceOperator_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init<const class Teuchos::RCP<class ROL::Constraint<double> > &, const class Teuchos::RCP<const class ROL::Vector<double> > &, const class Teuchos::RCP<const class ROL::Vector<double> > &>(), pybind11::arg("con"), pybind11::arg("dom"), pybind11::arg("ran") );
 
 		cl.def( pybind11::init( [](PyCallBack_ROL_RangeSpaceOperator_double_t const &o){ return new PyCallBack_ROL_RangeSpaceOperator_double_t(o); } ) );
@@ -918,7 +918,7 @@ void bind_ROL_SingletonVector(std::function< pybind11::module &(std::string cons
 		cl.def("assign", (class ROL::LinearOperator<double> & (ROL::LinearOperator<double>::*)(const class ROL::LinearOperator<double> &)) &ROL::LinearOperator<double>::operator=, "C++: ROL::LinearOperator<double>::operator=(const class ROL::LinearOperator<double> &) --> class ROL::LinearOperator<double> &", pybind11::return_value_policy::automatic, pybind11::arg(""));
 	}
 	{ // ROL::ReduceLinearConstraint file:ROL_ReduceLinearConstraint.hpp line:63
-		pybind11::class_<ROL::ReduceLinearConstraint<double>, Teuchos::RCP<ROL::ReduceLinearConstraint<double>>> cl(M("ROL"), "ReduceLinearConstraint_double_t", "");
+		pybind11::class_<ROL::ReduceLinearConstraint<double>, Teuchos::RCP<ROL::ReduceLinearConstraint<double>>> cl(M("ROL"), "ReduceLinearConstraint_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init<const class Teuchos::RCP<class ROL::Constraint<double> > &, const class Teuchos::RCP<class ROL::Vector<double> > &, const class Teuchos::RCP<const class ROL::Vector<double> > &>(), pybind11::arg("lcon"), pybind11::arg("x"), pybind11::arg("c") );
 
 		cl.def( pybind11::init( [](ROL::ReduceLinearConstraint<double> const &o){ return new ROL::ReduceLinearConstraint<double>(o); } ) );
@@ -930,7 +930,7 @@ void bind_ROL_SingletonVector(std::function< pybind11::module &(std::string cons
 		cl.def("project", (void (ROL::ReduceLinearConstraint<double>::*)(const class Teuchos::RCP<class ROL::Vector<double> > &, const class Teuchos::RCP<const class ROL::Vector<double> > &) const) &ROL::ReduceLinearConstraint<double>::project, "C++: ROL::ReduceLinearConstraint<double>::project(const class Teuchos::RCP<class ROL::Vector<double> > &, const class Teuchos::RCP<const class ROL::Vector<double> > &) const --> void", pybind11::arg("x"), pybind11::arg("y"));
 	}
 	{ // ROL::PolyhedralProjection file:ROL_PolyhedralProjection.hpp line:55
-		pybind11::class_<ROL::PolyhedralProjection<double>, Teuchos::RCP<ROL::PolyhedralProjection<double>>, PyCallBack_ROL_PolyhedralProjection_double_t> cl(M("ROL"), "PolyhedralProjection_double_t", "");
+		pybind11::class_<ROL::PolyhedralProjection<double>, Teuchos::RCP<ROL::PolyhedralProjection<double>>, PyCallBack_ROL_PolyhedralProjection_double_t> cl(M("ROL"), "PolyhedralProjection_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init<const class Teuchos::RCP<class ROL::BoundConstraint<double> > &>(), pybind11::arg("bnd") );
 
 		cl.def( pybind11::init<const class ROL::Vector<double> &, const class ROL::Vector<double> &, const class Teuchos::RCP<class ROL::BoundConstraint<double> > &, const class Teuchos::RCP<class ROL::Constraint<double> > &, const class ROL::Vector<double> &, const class ROL::Vector<double> &>(), pybind11::arg("xprim"), pybind11::arg("xdual"), pybind11::arg("bnd"), pybind11::arg("con"), pybind11::arg("mul"), pybind11::arg("res") );
@@ -943,7 +943,7 @@ void bind_ROL_SingletonVector(std::function< pybind11::module &(std::string cons
 		cl.def("getResidual", (const class Teuchos::RCP<class ROL::Vector<double> > (ROL::PolyhedralProjection<double>::*)() const) &ROL::PolyhedralProjection<double>::getResidual, "C++: ROL::PolyhedralProjection<double>::getResidual() const --> const class Teuchos::RCP<class ROL::Vector<double> >");
 	}
 	{ // ROL::DaiFletcherProjection file:ROL_DaiFletcherProjection.hpp line:54
-		pybind11::class_<ROL::DaiFletcherProjection<double>, Teuchos::RCP<ROL::DaiFletcherProjection<double>>, PyCallBack_ROL_DaiFletcherProjection_double_t, ROL::PolyhedralProjection<double>> cl(M("ROL"), "DaiFletcherProjection_double_t", "");
+		pybind11::class_<ROL::DaiFletcherProjection<double>, Teuchos::RCP<ROL::DaiFletcherProjection<double>>, PyCallBack_ROL_DaiFletcherProjection_double_t, ROL::PolyhedralProjection<double>> cl(M("ROL"), "DaiFletcherProjection_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init<const class ROL::Vector<double> &, const class ROL::Vector<double> &, const class Teuchos::RCP<class ROL::BoundConstraint<double> > &, const class Teuchos::RCP<class ROL::Constraint<double> > &, const class ROL::Vector<double> &, const class ROL::Vector<double> &>(), pybind11::arg("xprim"), pybind11::arg("xdual"), pybind11::arg("bnd"), pybind11::arg("con"), pybind11::arg("mul"), pybind11::arg("res") );
 
 		cl.def( pybind11::init<const class ROL::Vector<double> &, const class ROL::Vector<double> &, const class Teuchos::RCP<class ROL::BoundConstraint<double> > &, const class Teuchos::RCP<class ROL::Constraint<double> > &, const class ROL::Vector<double> &, const class ROL::Vector<double> &, class Teuchos::ParameterList &>(), pybind11::arg("xprim"), pybind11::arg("xdual"), pybind11::arg("bnd"), pybind11::arg("con"), pybind11::arg("mul"), pybind11::arg("res"), pybind11::arg("list") );
@@ -956,7 +956,7 @@ void bind_ROL_SingletonVector(std::function< pybind11::module &(std::string cons
 		cl.def("getResidual", (const class Teuchos::RCP<class ROL::Vector<double> > (ROL::PolyhedralProjection<double>::*)() const) &ROL::PolyhedralProjection<double>::getResidual, "C++: ROL::PolyhedralProjection<double>::getResidual() const --> const class Teuchos::RCP<class ROL::Vector<double> >");
 	}
 	{ // ROL::DykstraProjection file:ROL_DykstraProjection.hpp line:54
-		pybind11::class_<ROL::DykstraProjection<double>, Teuchos::RCP<ROL::DykstraProjection<double>>, PyCallBack_ROL_DykstraProjection_double_t, ROL::PolyhedralProjection<double>> cl(M("ROL"), "DykstraProjection_double_t", "");
+		pybind11::class_<ROL::DykstraProjection<double>, Teuchos::RCP<ROL::DykstraProjection<double>>, PyCallBack_ROL_DykstraProjection_double_t, ROL::PolyhedralProjection<double>> cl(M("ROL"), "DykstraProjection_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init<const class ROL::Vector<double> &, const class ROL::Vector<double> &, const class Teuchos::RCP<class ROL::BoundConstraint<double> > &, const class Teuchos::RCP<class ROL::Constraint<double> > &, const class ROL::Vector<double> &, const class ROL::Vector<double> &>(), pybind11::arg("xprim"), pybind11::arg("xdual"), pybind11::arg("bnd"), pybind11::arg("con"), pybind11::arg("mul"), pybind11::arg("res") );
 
 		cl.def( pybind11::init<const class ROL::Vector<double> &, const class ROL::Vector<double> &, const class Teuchos::RCP<class ROL::BoundConstraint<double> > &, const class Teuchos::RCP<class ROL::Constraint<double> > &, const class ROL::Vector<double> &, const class ROL::Vector<double> &, class Teuchos::ParameterList &>(), pybind11::arg("xprim"), pybind11::arg("xdual"), pybind11::arg("bnd"), pybind11::arg("con"), pybind11::arg("mul"), pybind11::arg("res"), pybind11::arg("list") );
@@ -969,7 +969,7 @@ void bind_ROL_SingletonVector(std::function< pybind11::module &(std::string cons
 		cl.def("getResidual", (const class Teuchos::RCP<class ROL::Vector<double> > (ROL::PolyhedralProjection<double>::*)() const) &ROL::PolyhedralProjection<double>::getResidual, "C++: ROL::PolyhedralProjection<double>::getResidual() const --> const class Teuchos::RCP<class ROL::Vector<double> >");
 	}
 	{ // ROL::DouglasRachfordProjection file:ROL_DouglasRachfordProjection.hpp line:54
-		pybind11::class_<ROL::DouglasRachfordProjection<double>, Teuchos::RCP<ROL::DouglasRachfordProjection<double>>, PyCallBack_ROL_DouglasRachfordProjection_double_t, ROL::PolyhedralProjection<double>> cl(M("ROL"), "DouglasRachfordProjection_double_t", "");
+		pybind11::class_<ROL::DouglasRachfordProjection<double>, Teuchos::RCP<ROL::DouglasRachfordProjection<double>>, PyCallBack_ROL_DouglasRachfordProjection_double_t, ROL::PolyhedralProjection<double>> cl(M("ROL"), "DouglasRachfordProjection_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init<const class ROL::Vector<double> &, const class ROL::Vector<double> &, const class Teuchos::RCP<class ROL::BoundConstraint<double> > &, const class Teuchos::RCP<class ROL::Constraint<double> > &, const class ROL::Vector<double> &, const class ROL::Vector<double> &>(), pybind11::arg("xprim"), pybind11::arg("xdual"), pybind11::arg("bnd"), pybind11::arg("con"), pybind11::arg("mul"), pybind11::arg("res") );
 
 		cl.def( pybind11::init<const class ROL::Vector<double> &, const class ROL::Vector<double> &, const class Teuchos::RCP<class ROL::BoundConstraint<double> > &, const class Teuchos::RCP<class ROL::Constraint<double> > &, const class ROL::Vector<double> &, const class ROL::Vector<double> &, class Teuchos::ParameterList &>(), pybind11::arg("xprim"), pybind11::arg("xdual"), pybind11::arg("bnd"), pybind11::arg("con"), pybind11::arg("mul"), pybind11::arg("res"), pybind11::arg("list") );
@@ -982,7 +982,7 @@ void bind_ROL_SingletonVector(std::function< pybind11::module &(std::string cons
 		cl.def("getResidual", (const class Teuchos::RCP<class ROL::Vector<double> > (ROL::PolyhedralProjection<double>::*)() const) &ROL::PolyhedralProjection<double>::getResidual, "C++: ROL::PolyhedralProjection<double>::getResidual() const --> const class Teuchos::RCP<class ROL::Vector<double> >");
 	}
 	{ // ROL::Krylov file:ROL_Krylov.hpp line:58
-		pybind11::class_<ROL::Krylov<double>, Teuchos::RCP<ROL::Krylov<double>>, PyCallBack_ROL_Krylov_double_t> cl(M("ROL"), "Krylov_double_t", "");
+		pybind11::class_<ROL::Krylov<double>, Teuchos::RCP<ROL::Krylov<double>>, PyCallBack_ROL_Krylov_double_t> cl(M("ROL"), "Krylov_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init( [](){ return new PyCallBack_ROL_Krylov_double_t(); } ), "doc");
 		cl.def( pybind11::init( [](double const & a0){ return new PyCallBack_ROL_Krylov_double_t(a0); } ), "doc");
 		cl.def( pybind11::init( [](double const & a0, double const & a1){ return new PyCallBack_ROL_Krylov_double_t(a0, a1); } ), "doc");
@@ -1001,7 +1001,7 @@ void bind_ROL_SingletonVector(std::function< pybind11::module &(std::string cons
 		cl.def("assign", (class ROL::Krylov<double> & (ROL::Krylov<double>::*)(const class ROL::Krylov<double> &)) &ROL::Krylov<double>::operator=, "C++: ROL::Krylov<double>::operator=(const class ROL::Krylov<double> &) --> class ROL::Krylov<double> &", pybind11::return_value_policy::automatic, pybind11::arg(""));
 	}
 	{ // ROL::ConjugateGradients file:ROL_ConjugateGradients.hpp line:57
-		pybind11::class_<ROL::ConjugateGradients<double>, Teuchos::RCP<ROL::ConjugateGradients<double>>, PyCallBack_ROL_ConjugateGradients_double_t, ROL::Krylov<double>> cl(M("ROL"), "ConjugateGradients_double_t", "");
+		pybind11::class_<ROL::ConjugateGradients<double>, Teuchos::RCP<ROL::ConjugateGradients<double>>, PyCallBack_ROL_ConjugateGradients_double_t, ROL::Krylov<double>> cl(M("ROL"), "ConjugateGradients_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init( [](){ return new ROL::ConjugateGradients<double>(); }, [](){ return new PyCallBack_ROL_ConjugateGradients_double_t(); } ), "doc");
 		cl.def( pybind11::init( [](double const & a0){ return new ROL::ConjugateGradients<double>(a0); }, [](double const & a0){ return new PyCallBack_ROL_ConjugateGradients_double_t(a0); } ), "doc");
 		cl.def( pybind11::init( [](double const & a0, double const & a1){ return new ROL::ConjugateGradients<double>(a0, a1); }, [](double const & a0, double const & a1){ return new PyCallBack_ROL_ConjugateGradients_double_t(a0, a1); } ), "doc");
@@ -1022,7 +1022,7 @@ void bind_ROL_SingletonVector(std::function< pybind11::module &(std::string cons
 		cl.def("assign", (class ROL::Krylov<double> & (ROL::Krylov<double>::*)(const class ROL::Krylov<double> &)) &ROL::Krylov<double>::operator=, "C++: ROL::Krylov<double>::operator=(const class ROL::Krylov<double> &) --> class ROL::Krylov<double> &", pybind11::return_value_policy::automatic, pybind11::arg(""));
 	}
 	{ // ROL::ConjugateResiduals file:ROL_ConjugateResiduals.hpp line:57
-		pybind11::class_<ROL::ConjugateResiduals<double>, Teuchos::RCP<ROL::ConjugateResiduals<double>>, PyCallBack_ROL_ConjugateResiduals_double_t, ROL::Krylov<double>> cl(M("ROL"), "ConjugateResiduals_double_t", "");
+		pybind11::class_<ROL::ConjugateResiduals<double>, Teuchos::RCP<ROL::ConjugateResiduals<double>>, PyCallBack_ROL_ConjugateResiduals_double_t, ROL::Krylov<double>> cl(M("ROL"), "ConjugateResiduals_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init( [](){ return new ROL::ConjugateResiduals<double>(); }, [](){ return new PyCallBack_ROL_ConjugateResiduals_double_t(); } ), "doc");
 		cl.def( pybind11::init( [](double const & a0){ return new ROL::ConjugateResiduals<double>(a0); }, [](double const & a0){ return new PyCallBack_ROL_ConjugateResiduals_double_t(a0); } ), "doc");
 		cl.def( pybind11::init( [](double const & a0, double const & a1){ return new ROL::ConjugateResiduals<double>(a0, a1); }, [](double const & a0, double const & a1){ return new PyCallBack_ROL_ConjugateResiduals_double_t(a0, a1); } ), "doc");
@@ -1043,7 +1043,7 @@ void bind_ROL_SingletonVector(std::function< pybind11::module &(std::string cons
 		cl.def("assign", (class ROL::Krylov<double> & (ROL::Krylov<double>::*)(const class ROL::Krylov<double> &)) &ROL::Krylov<double>::operator=, "C++: ROL::Krylov<double>::operator=(const class ROL::Krylov<double> &) --> class ROL::Krylov<double> &", pybind11::return_value_policy::automatic, pybind11::arg(""));
 	}
 	{ // ROL::GMRES file:ROL_GMRES.hpp line:60
-		pybind11::class_<ROL::GMRES<double>, Teuchos::RCP<ROL::GMRES<double>>, PyCallBack_ROL_GMRES_double_t, ROL::Krylov<double>> cl(M("ROL"), "GMRES_double_t", "");
+		pybind11::class_<ROL::GMRES<double>, Teuchos::RCP<ROL::GMRES<double>>, PyCallBack_ROL_GMRES_double_t, ROL::Krylov<double>> cl(M("ROL"), "GMRES_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init<class Teuchos::ParameterList &>(), pybind11::arg("parlist") );
 
 		cl.def( pybind11::init( [](PyCallBack_ROL_GMRES_double_t const &o){ return new PyCallBack_ROL_GMRES_double_t(o); } ) );
