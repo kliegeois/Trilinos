@@ -659,7 +659,7 @@ namespace Ifpack2 {
           const auto pid_send_value = pids.send[i];
           for (local_ordinal_type j=0,jend=epids.size();j<jend;++j)
             if (epids[j] == pid_send_value) lids_send_host[cnt++] = elids[j];
-#if !defined(__CUDA_ARCH__)
+#if !defined(__HIP_DEVICE_COMPILE__) && !defined(__CUDA_ARCH__)
           TEUCHOS_ASSERT(static_cast<size_t>(cnt) == offset_host.send[i+1]);
 #endif
         }
@@ -925,8 +925,8 @@ namespace Ifpack2 {
             });
 #endif
         } else {
-#if defined(__CUDA_ARCH__)
-          TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Error: CUDA should not see this code");
+#if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
+          TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Error: device compiler should not see this code");
 #else
           {
             const Kokkos::RangePolicy<execution_space> policy(0, idiff*num_vectors);
@@ -1487,7 +1487,7 @@ namespace Ifpack2 {
         else                      total_team_size = 160;
         const local_ordinal_type team_size = total_team_size/vector_loop_size;
         const team_policy_type policy(packptr.extent(0)-1, team_size, vector_loop_size);
-#elif defined(KOKKOS_ENABLE_HIP)
+#elif defined(KOKKOS_ENABLE_HIP) && defined(__HIP_DEVICE_COMPILE__)
 	// FIXME: HIP
 	// These settings might be completely wrong
 	// will have to do some experiments to decide
@@ -1500,6 +1500,7 @@ namespace Ifpack2 {
         else if (blocksize <= 20) total_team_size = 160;
         else                      total_team_size = 160;
         const local_ordinal_type team_size = total_team_size/vector_loop_size;
+        //std::cout << " team_size = " << team_size << ", total_team_size = " << total_team_size << ", vector_loop_size = " << vector_loop_size << std::endl;
         const team_policy_type policy(packptr.extent(0)-1, team_size, vector_loop_size);
 #else // Host architecture: team size is always one
         const team_policy_type policy(packptr.extent(0)-1, 1, 1);
@@ -1601,7 +1602,7 @@ namespace Ifpack2 {
         const auto dommap = g.getDomainMap();
         TEUCHOS_ASSERT( !(rowmap.is_null() || colmap.is_null() || dommap.is_null()));
 
-#if !defined(__CUDA_ARCH__)
+#if !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)
         const Kokkos::RangePolicy<host_execution_space> policy(0,nrows);
         Kokkos::parallel_for
           ("performSymbolicPhase::RangePolicy::col2row",
@@ -2569,7 +2570,7 @@ namespace Ifpack2 {
 
       // copy to multivectors : damping factor and Y_scalar_multivector
       Unmanaged<impl_scalar_type_2d_view_tpetra> Y_scalar_multivector;
-#if defined(__CUDA_ARCH__)
+#if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
       AtomicUnmanaged<impl_scalar_type_1d_view> Z_scalar_vector;
 #else
       /* */ Unmanaged<impl_scalar_type_1d_view> Z_scalar_vector;
