@@ -1585,17 +1585,29 @@ namespace Ifpack2 {
       const auto blocksize = A->getBlockSize();
 
       // mirroring to host
-      const auto partptr = Kokkos::create_mirror_view_and_copy     (Kokkos::HostSpace(), interf.partptr);
-      const auto lclrow = Kokkos::create_mirror_view_and_copy      (Kokkos::HostSpace(), interf.lclrow);
-      const auto rowidx2part = Kokkos::create_mirror_view_and_copy (Kokkos::HostSpace(), interf.rowidx2part);
-      const auto part2rowidx0 = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), interf.part2rowidx0);
-      const auto packptr = Kokkos::create_mirror_view_and_copy     (Kokkos::HostSpace(), interf.packptr);
+      const auto partptr = Kokkos::create_mirror_view     (interf.partptr);
+      const auto lclrow = Kokkos::create_mirror_view      (interf.lclrow);
+      const auto rowidx2part = Kokkos::create_mirror_view (interf.rowidx2part);
+      const auto part2rowidx0 = Kokkos::create_mirror_view(interf.part2rowidx0);
+      const auto packptr = Kokkos::create_mirror_view     (interf.packptr);
+
+      {
+        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::SymbolicPhase::DeepCopyMirrorView");
+        Kokkos::deep_copy(partptr,      interf.partptr);
+        Kokkos::deep_copy(lclrow,       interf.lclrow);
+        Kokkos::deep_copy(rowidx2part,  interf.rowidx2part);
+        Kokkos::deep_copy(part2rowidx0, interf.part2rowidx0);
+        Kokkos::deep_copy(packptr,      interf.packptr);
+      }
 
       const local_ordinal_type nrows = partptr(partptr.extent(0) - 1);
 
       // find column to row map on host
       Kokkos::View<local_ordinal_type*,host_execution_space> col2row("col2row", A->getLocalNumCols());
-      Kokkos::deep_copy(col2row, Teuchos::OrdinalTraits<local_ordinal_type>::invalid());
+      {
+        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::SymbolicPhase::DeepCopycol2row");
+        Kokkos::deep_copy(col2row, Teuchos::OrdinalTraits<local_ordinal_type>::invalid());
+      }
       {
         const auto rowmap = g.getRowMap();
         const auto colmap = g.getColMap();
@@ -1700,7 +1712,10 @@ namespace Ifpack2 {
           const auto D_A_colindsub = Kokkos::create_mirror_view(btdm.A_colindsub);
 
 #if defined(BLOCKTRIDICONTAINER_DEBUG)
-          Kokkos::deep_copy(D_A_colindsub, Teuchos::OrdinalTraits<local_ordinal_type>::invalid());
+          {
+            IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::SymbolicPhase::DeepCopyD_A_colindsub");
+            Kokkos::deep_copy(D_A_colindsub, Teuchos::OrdinalTraits<local_ordinal_type>::invalid());
+          }
 #endif
 
           const local_ordinal_type nparts = partptr.extent(0) - 1;
@@ -1734,7 +1749,10 @@ namespace Ifpack2 {
           for (size_t i=0;i<D_A_colindsub.extent(0);++i)
             TEUCHOS_ASSERT(D_A_colindsub(i) != Teuchos::OrdinalTraits<local_ordinal_type>::invalid());
 #endif
-          Kokkos::deep_copy(btdm.A_colindsub, D_A_colindsub);
+          {
+            IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::SymbolicPhase::DeepCopyA_colindsub");
+            Kokkos::deep_copy(btdm.A_colindsub, D_A_colindsub);
+          }
 
           // Allocate values.
           {
@@ -1834,15 +1852,18 @@ namespace Ifpack2 {
                 update += val;
               });
           }
-          TEUCHOS_ASSERT(R_rowptr(nrows) == R_nnz_owned);
-          Kokkos::deep_copy(amd.rowptr, R_rowptr);
-          Kokkos::deep_copy(amd.A_colindsub, R_A_colindsub);
-          if (overlap_communication_and_computation) {
-            TEUCHOS_ASSERT(R_rowptr_remote(nrows) == R_nnz_remote);
-            Kokkos::deep_copy(amd.rowptr_remote, R_rowptr_remote);
-            Kokkos::deep_copy(amd.A_colindsub_remote, R_A_colindsub_remote);
-          }
+          {
+            IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::SymbolicPhase::DeepCopyAmD");
 
+            TEUCHOS_ASSERT(R_rowptr(nrows) == R_nnz_owned);
+            Kokkos::deep_copy(amd.rowptr, R_rowptr);
+            Kokkos::deep_copy(amd.A_colindsub, R_A_colindsub);
+            if (overlap_communication_and_computation) {
+              TEUCHOS_ASSERT(R_rowptr_remote(nrows) == R_nnz_remote);
+              Kokkos::deep_copy(amd.rowptr_remote, R_rowptr_remote);
+              Kokkos::deep_copy(amd.A_colindsub_remote, R_A_colindsub_remote);
+            }
+          }
           // Allocate or view values.
           amd.tpetra_values = (const_cast<block_crs_matrix_type*>(A.get())->getValuesDeviceNonConst());
                                
