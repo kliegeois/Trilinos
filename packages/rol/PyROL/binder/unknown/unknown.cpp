@@ -1,3 +1,4 @@
+#include <PyROL_clone.hpp>
 #include <ROL_Elementwise_Function.hpp>
 #include <ROL_Elementwise_Reduce.hpp>
 #include <ROL_LinearOperator.hpp>
@@ -91,27 +92,7 @@ struct PyCallBack_ROL_Vector_double_t : public ROL::Vector<double> {
 		pybind11::pybind11_fail("Tried to call pure virtual function \"Vector::norm\"");
 	}
 	class Teuchos::RCP<class ROL::Vector<double> > clone() const override {
-		pybind11::gil_scoped_acquire gil;
-		pybind11::function overload = pybind11::get_overload(static_cast<const ROL::Vector<double> *>(this), "clone");
-		if (overload) {
-			auto o = overload.operator()<pybind11::return_value_policy::reference>();
-			/*
-			if (pybind11::detail::cast_is_temporary_value_reference<class Teuchos::RCP<class ROL::Vector<double> >>::value) {
-				static pybind11::detail::override_caster_t<class Teuchos::RCP<class ROL::Vector<double> >> caster;
-				return pybind11::detail::cast_ref<class Teuchos::RCP<class ROL::Vector<double> >>(std::move(o), caster);
-			}
-			else return pybind11::detail::cast_safe<class Teuchos::RCP<class ROL::Vector<double> >>(std::move(o));
-			*/
-			auto self = pybind11::cast(this);
-			auto cloned = self.attr("clone")();
-
-			auto keep_python_state_alive = Teuchos::rcp<pybind11::object>(new pybind11::object(cloned));
-			auto ptr = cloned.cast<PyCallBack_ROL_Vector_double_t*>();
-
-			// aliasing shared_ptr: points to `A_trampoline* ptr` but refcounts the Python object
-			return Teuchos::RCP<class ROL::Vector<double> >(keep_python_state_alive, ptr);		
-		}
-		pybind11::pybind11_fail("Tried to call pure virtual function \"Vector::clone\"");
+		return customClone<Vector,PyCallBack_ROL_Vector_double_t>(this, "clone");
 	}
 	void axpy(const double a0, const class ROL::Vector<double> & a1) override {
 		pybind11::gil_scoped_acquire gil;
@@ -494,7 +475,7 @@ struct PyCallBack_ROL_QuadraticObjective_double_t : public ROL::QuadraticObjecti
 void bind_unknown_unknown(std::function< pybind11::module &(std::string const &namespace_) > &M)
 {
 	{ // ROL::Vector file: line:23
-		pybind11::class_<ROL::Vector<double>, Teuchos::RCP<ROL::Vector<double>>, PyCallBack_ROL_Vector_double_t> cl(M("ROL"), "Vector_double_t", "");
+		pybind11::class_<ROL::Vector<double>, Teuchos::RCP<ROL::Vector<double>>, PyCallBack_ROL_Vector_double_t> cl(M("ROL"), "Vector_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init( [](){ return new PyCallBack_ROL_Vector_double_t(); } ) );
 		cl.def(pybind11::init<PyCallBack_ROL_Vector_double_t const &>());
 		cl.def("plus", (void (ROL::Vector<double>::*)(const class ROL::Vector<double> &)) &ROL::Vector<double>::plus, "C++: ROL::Vector<double>::plus(const class ROL::Vector<double> &) --> void", pybind11::arg("x"));
@@ -519,7 +500,7 @@ void bind_unknown_unknown(std::function< pybind11::module &(std::string const &n
 		cl.def("assign", (class ROL::Vector<double> & (ROL::Vector<double>::*)(const class ROL::Vector<double> &)) &ROL::Vector<double>::operator=, "C++: ROL::Vector<double>::operator=(const class ROL::Vector<double> &) --> class ROL::Vector<double> &", pybind11::return_value_policy::automatic, pybind11::arg(""));
 	}
 	{ // ROL::Objective file: line:26
-		pybind11::class_<ROL::Objective<double>, Teuchos::RCP<ROL::Objective<double>>, PyCallBack_ROL_Objective_double_t> cl(M("ROL"), "Objective_double_t", "");
+		pybind11::class_<ROL::Objective<double>, Teuchos::RCP<ROL::Objective<double>>, PyCallBack_ROL_Objective_double_t> cl(M("ROL"), "Objective_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init( [](){ return new PyCallBack_ROL_Objective_double_t(); } ) );
 		cl.def(pybind11::init<PyCallBack_ROL_Objective_double_t const &>());
 		cl.def("update", [](ROL::Objective<double> &o, const class ROL::Vector<double> & a0, enum ROL::UpdateType const & a1) -> void { return o.update(a0, a1); }, "", pybind11::arg("x"), pybind11::arg("type"));
@@ -536,7 +517,7 @@ void bind_unknown_unknown(std::function< pybind11::module &(std::string const &n
 		cl.def("assign", (class ROL::Objective<double> & (ROL::Objective<double>::*)(const class ROL::Objective<double> &)) &ROL::Objective<double>::operator=, "C++: ROL::Objective<double>::operator=(const class ROL::Objective<double> &) --> class ROL::Objective<double> &", pybind11::return_value_policy::automatic, pybind11::arg(""));
 	}
 	{ // ROL::QuadraticObjective file: line:27
-		pybind11::class_<ROL::QuadraticObjective<double>, Teuchos::RCP<ROL::QuadraticObjective<double>>, PyCallBack_ROL_QuadraticObjective_double_t, ROL::Objective<double>> cl(M("ROL"), "QuadraticObjective_double_t", "");
+		pybind11::class_<ROL::QuadraticObjective<double>, Teuchos::RCP<ROL::QuadraticObjective<double>>, PyCallBack_ROL_QuadraticObjective_double_t, ROL::Objective<double>> cl(M("ROL"), "QuadraticObjective_double_t", "", pybind11::module_local());
 		cl.def( pybind11::init( [](const class Teuchos::RCP<const class ROL::LinearOperator<double> > & a0, const class Teuchos::RCP<const class ROL::Vector<double> > & a1){ return new ROL::QuadraticObjective<double>(a0, a1); }, [](const class Teuchos::RCP<const class ROL::LinearOperator<double> > & a0, const class Teuchos::RCP<const class ROL::Vector<double> > & a1){ return new PyCallBack_ROL_QuadraticObjective_double_t(a0, a1); } ), "doc");
 		cl.def( pybind11::init<const class Teuchos::RCP<const class ROL::LinearOperator<double> > &, const class Teuchos::RCP<const class ROL::Vector<double> > &, double>(), pybind11::arg("H"), pybind11::arg("g"), pybind11::arg("c") );
 
