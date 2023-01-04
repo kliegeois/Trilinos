@@ -83,8 +83,8 @@
 #ifdef HAVE_PIRO_TEMPUS
 #include "Piro_TempusSolver.hpp"
 #ifdef HAVE_PIRO_ROL
-#include "Piro_ThyraProductME_Objective_TimeSimOpt.hpp"
-#include "Piro_ThyraProductME_Constraint_TimeSimOpt.hpp"
+#include "Piro_TempusReducedObjective.hpp"
+#include "Piro_TempusDynamicConstraint.hpp"
 #endif
 #endif
 
@@ -775,18 +775,18 @@ Piro::PerformTROLAnalysis(
     case 4: analysisVerbosityLevel= Teuchos::VERB_EXTREME; break;
     default: analysisVerbosityLevel= Teuchos::VERB_NONE;
   }  
-  Piro::ThyraProductME_Objective_TimeSimOpt<double> obj(model, g_index, p_indices, piroParams, analysisVerbosityLevel, observer);
-  Piro::ThyraProductME_Constraint_TimeSimOpt<double> constr(model, adjointModel, p_indices, piroParams, analysisVerbosityLevel, observer);
+  Piro::ThyraProductME_TempusFinalObjective<double> obj(model, g_index, p_indices, piroParams, analysisVerbosityLevel, observer);
+  //Piro::ThyraProductME_TempusDynamicConstraint<double> constr(model, adjointModel, p_indices, piroParams, analysisVerbosityLevel, observer);
 
-  constr.setSolveParameters(rolParams.sublist("ROL Options"));
+  //constr.setSolveParameters(rolParams.sublist("ROL Options"));
 
-  if(rolParams.isParameter("Use Tempus Solver") && rolParams.get<bool>("Use Tempus Solver"))
-    constr.setExternalSolver(Teuchos::rcpFromRef(piroModel));
-  constr.setNumResponses(piroTSolver->num_g());
+  //if(rolParams.isParameter("Use Tempus Solver") && rolParams.get<bool>("Use Tempus Solver"))
+  //  constr.setExternalSolver(Teuchos::rcpFromRef(piroModel));
+  //constr.setNumResponses(piroTSolver->num_g());
 
 
-  //ROL::Ptr<ROL::Objective_TimeSimOpt<double> > obj_ptr = ROL::makePtrFromRef(obj);
-  //ROL::Ptr<ROL::Constraint_TimeSimOpt<double> > constr_ptr = ROL::makePtrFromRef(constr);
+  //ROL::Ptr<ROL::Objective<double> > obj_ptr = ROL::makePtrFromRef(obj);
+  //ROL::Ptr<ROL::Constraint<double> > constr_ptr = ROL::makePtrFromRef(constr);
 
   return 1;
 #else
