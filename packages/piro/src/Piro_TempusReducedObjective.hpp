@@ -62,6 +62,7 @@
 #include "ROL_Vector.hpp"
 #include "ROL_ThyraVector.hpp"
 #include "Piro_ROL_ObserverBase.hpp"
+#include "Piro_TempusIntegrator.hpp" 
 
 namespace Piro {
 
@@ -146,8 +147,8 @@ private:
   Teuchos::RCP<ROL_ObserverBase<Real>> observer_;
 
   Teuchos::RCP<Teuchos::ParameterList> tempus_params_;
-  int param_index_;
   bool use_fd_gradient_;
+  Real time_final_;
 
 }; // class ThyraProductME_TempusFinalObjective
 
@@ -167,9 +168,11 @@ ThyraProductME_TempusFinalObjective(
   out_(Teuchos::VerboseObjectBase::getDefaultOStream()),
   verbosityLevel_(verbLevel),
   observer_(observer),
-  use_fd_gradient_(true)
+  tempus_params_(Teuchos::rcp<Teuchos::ParameterList>(new Teuchos::ParameterList(piroParams.sublist("Tempus")))),
+  use_fd_gradient_(true),
+  time_final_(piroParams.get<Real>("Time final", 0.))
 {
-  tempus_params_ = Teuchos::rcp<Teuchos::ParameterList>(new Teuchos::ParameterList(piroParams.sublist("Tempus")));
+  
 }
 
 template <typename Real>
@@ -298,10 +301,10 @@ run_tempus(const Thyra::ModelEvaluatorBase::InArgs<Real>&  inArgs,
   // Create and run integrator
   // dgdp == Teuchos::null
   {
-    //Piro::TempusIntegrator<Real>
-    RCP<Tempus::IntegratorBasic<Real> > integrator =
-      Tempus::createIntegratorBasic<Real>(tempus_params_, wrapped_model);
-    const bool integratorStatus = integrator->advanceTime();
+    SENS_METHOD sens_method = Piro::NONE; 
+    Teuchos::RCP<Piro::TempusIntegrator<Real> > integrator 
+      = Teuchos::rcp(new Piro::TempusIntegrator<Real>(tempus_params_, wrapped_model, sens_method));
+    const bool integratorStatus = integrator->advanceTime(time_final_);
     TEUCHOS_TEST_FOR_EXCEPTION(
       !integratorStatus, std::logic_error, "Integrator failed!");
 
