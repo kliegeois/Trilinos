@@ -82,6 +82,10 @@
 
 #ifdef HAVE_PIRO_TEMPUS
 #include "Piro_TempusSolver.hpp"
+#ifdef HAVE_PIRO_ROL
+#include "Piro_ThyraProductME_Objective_TimeSimOpt.hpp"
+#include "Piro_ThyraProductME_Constraint_TimeSimOpt.hpp"
+#endif
 #endif
 
 #ifdef HAVE_PIRO_TEKO
@@ -771,8 +775,8 @@ Piro::PerformTROLAnalysis(
     case 4: analysisVerbosityLevel= Teuchos::VERB_EXTREME; break;
     default: analysisVerbosityLevel= Teuchos::VERB_NONE;
   }  
-  Piro::ThyraProductME_Objective_SimOpt<double> obj(model, g_index, p_indices, piroParams, analysisVerbosityLevel, observer);
-  Piro::ThyraProductME_Constraint_SimOpt<double> constr(model, adjointModel, p_indices, piroParams, analysisVerbosityLevel, observer);
+  Piro::ThyraProductME_Objective_TimeSimOpt<double> obj(model, g_index, p_indices, piroParams, analysisVerbosityLevel, observer);
+  Piro::ThyraProductME_Constraint_TimeSimOpt<double> constr(model, adjointModel, p_indices, piroParams, analysisVerbosityLevel, observer);
 
   constr.setSolveParameters(rolParams.sublist("ROL Options"));
 
