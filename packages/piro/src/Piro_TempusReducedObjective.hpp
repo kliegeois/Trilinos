@@ -299,20 +299,18 @@ run_tempus(const Thyra::ModelEvaluatorBase::InArgs<Real>&  inArgs,
   RCP<Thyra::VectorBase<Real> > g = outArgs.get_g(g_index_);
 
   // Create and run integrator
-  // dgdp == Teuchos::null
-  {
-    SENS_METHOD sens_method = Piro::NONE; 
-    Teuchos::RCP<Piro::TempusIntegrator<Real> > integrator 
-      = Teuchos::rcp(new Piro::TempusIntegrator<Real>(tempus_params_, wrapped_model, sens_method));
-    const bool integratorStatus = integrator->advanceTime(time_final_);
-    TEUCHOS_TEST_FOR_EXCEPTION(
-      !integratorStatus, std::logic_error, "Integrator failed!");
+  SENS_METHOD sens_method = Piro::NONE; 
+  Teuchos::RCP<Piro::TempusIntegrator<Real> > integrator 
+    = Teuchos::rcp(new Piro::TempusIntegrator<Real>(tempus_params_, wrapped_model, sens_method));
+  const bool integratorStatus = integrator->advanceTime(time_final_);
+  TEUCHOS_TEST_FOR_EXCEPTION(
+    !integratorStatus, std::logic_error, "Integrator failed!");
 
-    // Get final state
-    t = integrator->getTime();
-    x = integrator->getX();
-    x_dot = integrator->getXDot();
-  }
+  // Get final state
+  t = integrator->getTime();
+  x = integrator->getX();
+  x_dot = integrator->getXDot();
+
 
   // Evaluate response at final state
   const int num_g = thyra_model_->get_g_space(g_index_)->dim();
