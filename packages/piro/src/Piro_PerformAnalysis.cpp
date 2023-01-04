@@ -774,9 +774,15 @@ Piro::PerformTROLAnalysis(
     case 3: analysisVerbosityLevel= Teuchos::VERB_HIGH; break;
     case 4: analysisVerbosityLevel= Teuchos::VERB_EXTREME; break;
     default: analysisVerbosityLevel= Teuchos::VERB_NONE;
-  }  
-  Piro::ThyraProductME_TempusFinalObjective<double> obj(model, g_index, p_indices, piroParams, analysisVerbosityLevel, observer);
-  //Piro::ThyraProductME_TempusDynamicConstraint<double> constr(model, adjointModel, p_indices, piroParams, analysisVerbosityLevel, observer);
+  }
+
+  SENS_METHOD sens_method = Piro::NONE; 
+  auto tempus_params = Teuchos::rcp<Teuchos::ParameterList>(new Teuchos::ParameterList(piroParams.sublist("Tempus")));
+  Teuchos::RCP<Piro::TempusIntegrator<double> > integrator 
+    = Teuchos::rcp(new Piro::TempusIntegrator<double>(tempus_params, model, sens_method));
+
+  Piro::ThyraProductME_TempusFinalObjective<double> obj(integrator, g_index, p_indices, piroParams, analysisVerbosityLevel, observer);
+  //Piro::ThyraProductME_TempusDynamicConstraint<double> constr(integrator, p_indices, piroParams, analysisVerbosityLevel, observer);
 
   //constr.setSolveParameters(rolParams.sublist("ROL Options"));
 

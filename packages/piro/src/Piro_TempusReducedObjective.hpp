@@ -71,7 +71,7 @@ class ThyraProductME_TempusFinalObjective : public virtual ROL::Objective<Real> 
 public:
 
   ThyraProductME_TempusFinalObjective(
-    const Teuchos::RCP<Thyra::ModelEvaluator<Real> >& thyra_model,
+    const Teuchos::RCP<Piro::TempusIntegrator<Real> >& integrator,
     int g_index,
     const std::vector<int>& p_indices,
     Teuchos::ParameterList& piroParams,
@@ -131,7 +131,7 @@ private:
   };
 
 
-
+  const Teuchos::RCP<Piro::TempusIntegrator<Real> > integrator_;
   const Teuchos::RCP<Thyra::ModelEvaluator<Real>> thyra_model_;
   const int g_index_;
   const std::vector<int> p_indices_;
@@ -155,13 +155,14 @@ private:
 template <typename Real>
 ThyraProductME_TempusFinalObjective<Real>::
 ThyraProductME_TempusFinalObjective(
-  const Teuchos::RCP<Thyra::ModelEvaluator<Real> >& thyra_model,
+  const Teuchos::RCP<Piro::TempusIntegrator<Real> >& integrator,
   int g_index,
   const std::vector<int>& p_indices,
   Teuchos::ParameterList& piroParams,
   Teuchos::EVerbosityLevel verbLevel,
   Teuchos::RCP<ROL_ObserverBase<Real>> observer) :
-  thyra_model_(thyra_model),
+  integrator_(integrator),
+  thyra_model_(integrator->getModel()),
   g_index_(g_index),
   p_indices_(p_indices),
   optParams_(piroParams.sublist("Optimization Status")),
