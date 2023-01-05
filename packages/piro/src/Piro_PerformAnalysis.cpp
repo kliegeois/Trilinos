@@ -782,14 +782,10 @@ Piro::PerformTROLAnalysis(
     = Teuchos::rcp(new Piro::TempusIntegrator<double>(tempus_params, model, sens_method));
 
   Piro::ThyraProductME_TempusFinalObjective<double> obj(integrator, g_index, p_indices, piroParams, analysisVerbosityLevel, observer);
-  //Piro::ThyraProductME_TempusDynamicConstraint<double> constr(integrator, p_indices, piroParams, analysisVerbosityLevel, observer);
+  Piro::ThyraProductME_TempusDynamicConstraint<double> constr(integrator, p_indices, piroParams, analysisVerbosityLevel, observer);
 
   //constr.setSolveParameters(rolParams.sublist("ROL Options"));
-
-  //if(rolParams.isParameter("Use Tempus Solver") && rolParams.get<bool>("Use Tempus Solver"))
-  //  constr.setExternalSolver(Teuchos::rcpFromRef(piroModel));
   //constr.setNumResponses(piroTSolver->num_g());
-
 
   //ROL::Ptr<ROL::Objective<double> > obj_ptr = ROL::makePtrFromRef(obj);
   //ROL::Ptr<ROL::Constraint<double> > constr_ptr = ROL::makePtrFromRef(constr);

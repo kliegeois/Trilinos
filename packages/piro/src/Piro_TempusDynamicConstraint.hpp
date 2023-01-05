@@ -54,6 +54,7 @@
 #include "ROL_Ptr.hpp"
 #include "ROL_Vector.hpp"
 #include "ROL_ThyraVector.hpp"
+#include "Piro_TempusIntegrator.hpp" 
 
 
 namespace Piro{
@@ -62,6 +63,14 @@ namespace Piro{
 template<class Real>
 class ThyraProductME_TempusDynamicConstraint : public ROL::DynamicConstraint<Real> {
 private:
+  Teuchos::RCP<Piro::TempusIntegrator<Real>> integrator_;
+  const std::vector<int> p_indices_;
+  int num_responses_;
+  Teuchos::ParameterList& optParams_;
+  Teuchos::RCP<Teuchos::FancyOStream> out_;
+  Teuchos::EVerbosityLevel verbosityLevel_;
+  Teuchos::RCP<ROL_ObserverBase<Real>> observer_;
+
   // Forward and (optional) adjoint model evaluator.
   ROL::Ptr<const Thyra::ModelEvaluator<Real>> model_;
   ROL::Ptr<const Thyra::ModelEvaluator<Real>> modelAdjoint_;
@@ -81,13 +90,17 @@ private:
 
 public:
 
-  ThyraProductME_TempusDynamicConstraint(const ROL::Ptr<Tempus::Integrator<Real>> & integrator);
+  ThyraProductME_TempusDynamicConstraint(const Teuchos::RCP<Piro::TempusIntegrator<Real>> & integrator,
+    const std::vector<int>& p_indices,
+    Teuchos::ParameterList& piroParams,
+    Teuchos::EVerbosityLevel verbLevel= Teuchos::VERB_HIGH,
+    Teuchos::RCP<ROL_ObserverBase<Real>> observer = Teuchos::null);
 
   // The convention is that the adjoint model provides the application of
   // the adjoint Jacobian and its inverse.  All other operations are
   // provided by the forward model.
-  ThyraProductME_TempusDynamicConstraint(const ROL::Ptr<Tempus::Integrator<Real>> & forward_integrator,
-                          const ROL::Ptr<Tempus::Integrator<Real>> & adjoint_integrator);
+  //ThyraProductME_TempusDynamicConstraint(const ROL::Ptr<Tempus::Integrator<Real>> & forward_integrator,
+  //                        const ROL::Ptr<Tempus::Integrator<Real>> & adjoint_integrator);
 
   virtual ~ThyraProductME_TempusDynamicConstraint() {}
 
@@ -161,7 +174,17 @@ public:
 
 template<class Real>
 ThyraProductME_TempusDynamicConstraint<Real>::ThyraProductME_TempusDynamicConstraint(
-  const ROL::Ptr<Tempus::Integrator<Real>> & integrator) {
+  const Teuchos::RCP<Piro::TempusIntegrator<Real>>& integrator,
+  const std::vector<int>& p_indices,
+  Teuchos::ParameterList& piroParams,
+  Teuchos::EVerbosityLevel verbLevel,
+  Teuchos::RCP<ROL_ObserverBase<Real>> observer) :
+  integrator_(integrator),
+  p_indices_(p_indices),
+  optParams_(piroParams.sublist("Optimization Status")),
+  out_(Teuchos::VerboseObjectBase::getDefaultOStream()),
+  verbosityLevel_(verbLevel),
+  observer_(observer) {
   model_   = integrator->getStepper()->getModel();
   stepper_ = ROL::dynamicPtrCast<Tempus::StepperOptimizationInterface<Real>>(integrator->getStepper());
   Ju_      = model_->create_W();
@@ -176,7 +199,7 @@ ThyraProductME_TempusDynamicConstraint<Real>::ThyraProductME_TempusDynamicConstr
   usingAdjoint_ = false;
 }
 
-
+/*
 //----------------------------------------------------------------------------
 // Constructor with forward and adjoint models.
 
@@ -196,7 +219,7 @@ ThyraProductME_TempusDynamicConstraint<Real>::ThyraProductME_TempusDynamicConstr
   // Set adjoint flag to true.
   usingAdjoint_ = true;
 }
-
+*/
 
 //----------------------------------------------------------------------------
 // Value
