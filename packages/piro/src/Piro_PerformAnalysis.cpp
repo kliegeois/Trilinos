@@ -812,7 +812,7 @@ Piro::PerformTROLAnalysis(
               "Parameter Initial Guess Type \"" << init_guess_type << "\" is not Known.\nValid options are: \"Parameter Scalar Guess\", \"Uniform Vector\" and \"Random Vector\""<<std::endl);
   }
 
-  bool useFullSpace = rolParams.get("Full Space",true);
+  bool useFullSpace = rolParams.get("Full Space",false);
 
   if(analysisVerbosity >= 3) {
     *out << "\nPiro PerformAnalysis: ROL options:" << std::endl;
@@ -887,7 +887,6 @@ Piro::PerformTROLAnalysis(
     */
   }
   else {
-    /*
     int nt = 10;
     double dt = 0.1;
     std::vector<ROL::TimeStamp<double>> timeStamp(nt);
@@ -910,7 +909,6 @@ Piro::PerformTROLAnalysis(
       algo->run(rol_p_primal, reduced_obj, *rolOutput);
       return_status = algo->getState()->statusFlag;
     }
-    */
   }
 
   return return_status;
