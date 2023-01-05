@@ -154,7 +154,7 @@ Piro::PerformAnalysis(
 #ifdef HAVE_PIRO_ROL
   else if (analysis == "ROL") {
     *out << "Piro::PerformAnalysis: ROL Optimization Being Performed " << endl;
-    status = Piro::PerformSSROLAnalysis(piroModel,
+    status = Piro::PerformROLAnalysis(piroModel,
                           piroParams, result, observer);
 
   }
