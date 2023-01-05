@@ -104,6 +104,10 @@ public:
 
   virtual ~ThyraProductME_TempusDynamicConstraint() {}
 
+  void setNumResponses(int num_responses) {
+    num_responses_ = num_responses;
+  }
+
   void value(ROL::Vector<Real> &c,
              const ROL::Vector<Real> &uold,
              const ROL::Vector<Real> &unew,
@@ -197,6 +201,7 @@ ThyraProductME_TempusDynamicConstraint<Real>::ThyraProductME_TempusDynamicConstr
   adjointJu_op_   = ROL::nullPtr;
   // Set adjoint flag to false.
   usingAdjoint_ = false;
+  num_responses_ = -1;
 }
 
 /*

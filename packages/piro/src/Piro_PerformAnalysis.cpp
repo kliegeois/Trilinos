@@ -85,6 +85,7 @@
 #ifdef HAVE_PIRO_ROL
 #include "Piro_TempusReducedObjective.hpp"
 #include "Piro_TempusDynamicConstraint.hpp"
+#include "ROL_ReducedDynamicObjective.hpp"
 #endif
 #endif
 
@@ -784,13 +785,104 @@ Piro::PerformTROLAnalysis(
   Piro::ThyraProductME_TempusFinalObjective<double> obj(integrator, g_index, p_indices, piroParams, analysisVerbosityLevel, observer);
   Piro::ThyraProductME_TempusDynamicConstraint<double> constr(integrator, p_indices, piroParams, analysisVerbosityLevel, observer);
 
-  //constr.setSolveParameters(rolParams.sublist("ROL Options"));
-  //constr.setNumResponses(piroTSolver->num_g());
+  constr.setSolveParameters(rolParams.sublist("ROL Options"));
+  constr.setNumResponses(piroTSolver->num_g());
 
-  //ROL::Ptr<ROL::Objective<double> > obj_ptr = ROL::makePtrFromRef(obj);
-  //ROL::Ptr<ROL::Constraint<double> > constr_ptr = ROL::makePtrFromRef(constr);
+  ROL::Ptr<ROL::Objective<double> > obj_ptr = ROL::makePtrFromRef(obj);
+  ROL::Ptr<ROL::DynamicConstraint<double> > constr_ptr = ROL::makePtrFromRef(constr);
 
-  return 1;
+  ROL::Ptr<ROL::Vector<double> > rol_p_ptr = ROL::makePtrFromRef(rol_p);
+  ROL::Ptr<ROL::Vector<double> > rol_x_ptr = ROL::makePtrFromRef(rol_x);
+  ROL::Ptr<ROL::Vector<double> > rol_lambda_ptr = ROL::makePtrFromRef(rol_lambda);
+
+  int seed = rolParams.get<int>("Seed For Thyra Randomize", 42);
+
+  //! set initial guess (or use the one provided by the Model Evaluator)
+  std::string init_guess_type = rolParams.get<string>("Parameter Initial Guess Type", "From Model Evaluator");
+  if(init_guess_type == "Uniform Vector")
+    rol_p.putScalar(rolParams.get<double>("Uniform Parameter Guess", 1.0));
+  else if(init_guess_type == "Random Vector") {
+    Teuchos::Array<double> minmax(2); minmax[0] = -1; minmax[1] = 1;
+    minmax = rolParams.get<Teuchos::Array<double> >("Min And Max Of Random Parameter Guess", minmax);
+    ::Thyra::randomize<double>( minmax[0], minmax[1], rol_p.getVector().ptr());
+  }
+  else if(init_guess_type != "From Model Evaluator") {
+    TEUCHOS_TEST_FOR_EXCEPTION(true, Teuchos::Exceptions::InvalidParameter,
+              std::endl << "Piro::PerformSSROLAnalysis, ERROR: " <<
+              "Parameter Initial Guess Type \"" << init_guess_type << "\" is not Known.\nValid options are: \"Parameter Scalar Guess\", \"Uniform Vector\" and \"Random Vector\""<<std::endl);
+  }
+
+  bool useFullSpace = rolParams.get("Full Space",true);
+
+  if(analysisVerbosity >= 3) {
+    *out << "\nPiro PerformAnalysis: ROL options:" << std::endl;
+    rolParams.sublist("ROL Options").print(*out);
+    *out << std::endl;
+  }
+
+  Teuchos::RCP<ROL::BoundConstraint<double> > boundConstraint;
+  bool boundConstrained = rolParams.get<bool>("Bound Constrained", false);
+
+  if(boundConstrained) {
+    Teuchos::Array<Teuchos::RCP<const Thyra::VectorBase<double>>> p_lo_vecs(num_parameters);
+    Teuchos::Array<Teuchos::RCP<const Thyra::VectorBase<double>>> p_up_vecs(num_parameters);
+    //double eps_bound = rolParams.get<double>("epsilon bound", 1e-6);
+    for (auto i = 0; i < num_parameters; ++i) {
+      p_lo_vecs[i] = piroModel.getLowerBounds().get_p(p_indices[i]);
+      p_up_vecs[i] = piroModel.getUpperBounds().get_p(p_indices[i]);
+      TEUCHOS_TEST_FOR_EXCEPTION((p_lo_vecs[i] == Teuchos::null) || (p_up_vecs[i] == Teuchos::null), Teuchos::Exceptions::InvalidParameter,
+          std::endl << "Piro::PerformSSROLAnalysis, ERROR: " <<
+          "Lower and/or Upper bounds pointers are null, cannot perform bound constrained optimization"<<std::endl);
+    }
+    Teuchos::RCP<Thyra::VectorBase<double>> p_lo = Thyra::defaultProductVector<double>(p_space, p_lo_vecs());
+    Teuchos::RCP<Thyra::VectorBase<double>> p_up = Thyra::defaultProductVector<double>(p_space, p_up_vecs());
+
+    //ROL::Thyra_BoundConstraint<double> boundConstraint(p_lo->clone_v(), p_up->clone_v(), eps_bound);
+    boundConstraint = rcp( new ROL::Bounds<double>(ROL::makePtr<ROL::ThyraVector<double> >(p_lo), ROL::makePtr<ROL::ThyraVector<double> >(p_up)));
+  }
+
+  int return_status = 0;
+
+  RolOutputBuffer<char> rolOutputBuffer;
+  std::ostream rolOutputStream(&rolOutputBuffer);
+  Teuchos::RCP<Teuchos::FancyOStream> rolOutput = Teuchos::getFancyOStream(Teuchos::rcpFromRef(rolOutputStream));
+  rolOutput->setOutputToRootOnly(0);
+
+  Teuchos::RCP<Thyra::VectorBase<double> > scaling_vector_p = p->clone_v();
+  ::Thyra::put_scalar<double>( 1.0, scaling_vector_p.ptr());
+  ROL::PrimalScaledThyraVector<double> rol_p_primal(p, scaling_vector_p);
+
+  if ( useFullSpace ) {
+
+  }
+  else {
+    /*
+    int nt = 10;
+    double dt = 0.1;
+    std::vector<ROL::TimeStamp<double>> timeStamp(nt);
+    for( int k=0; k<nt; ++k ) {
+      timeStamp.at(k).t.resize(2);
+      timeStamp.at(k).t.at(0) = k*dt;
+      timeStamp.at(k).t.at(1) = (k+1)*dt;
+    }
+
+    ROL::ReducedDynamicObjective<double> reduced_obj(obj_ptr,constr_ptr,rol_x_ptr,rol_p_ptr,rol_lambda_ptr, timeStamp, piroParams);
+
+    if(boundConstrained) {
+      *out << "Piro::PerformSSROLAnalysis: Solving Reduced Space Bound Constrained Optimization Problem" << std::endl;
+      auto algo = ROL::TypeB::AlgorithmFactory<double>(rolParams.sublist("ROL Options"));
+      algo->run(rol_p_primal, reduced_obj, *boundConstraint, *rolOutput); 
+      return_status = algo->getState()->statusFlag;
+    }  else {
+      *out << "Piro::PerformSSROLAnalysis: Solving Reduced Space Unconstrained Optimization Problem" << std::endl;
+      auto algo = ROL::TypeU::AlgorithmFactory<double>(rolParams.sublist("ROL Options"));
+      algo->run(rol_p_primal, reduced_obj, *rolOutput);
+      return_status = algo->getState()->statusFlag;
+    }
+    */
+  }
+
+  return return_status;
 #else
   (void)piroModel;
   (void)p;

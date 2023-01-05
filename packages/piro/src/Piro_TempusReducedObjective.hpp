@@ -59,6 +59,7 @@
 #include "Thyra_VectorStdOps.hpp"
 
 #include "ROL_Objective.hpp"
+#include "ROL_DynamicObjective.hpp"
 #include "ROL_Vector.hpp"
 #include "ROL_ThyraVector.hpp"
 #include "Piro_ROL_ObserverBase.hpp"
@@ -67,7 +68,11 @@
 namespace Piro {
 
 template <typename Real>
+#if 0
+class ThyraProductME_TempusFinalObjective : public virtual ROL::DynamicObjective<Real> {
+#else
 class ThyraProductME_TempusFinalObjective : public virtual ROL::Objective<Real> {
+#endif
 public:
 
   ThyraProductME_TempusFinalObjective(
