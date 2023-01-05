@@ -853,7 +853,38 @@ Piro::PerformTROLAnalysis(
   ROL::PrimalScaledThyraVector<double> rol_p_primal(p, scaling_vector_p);
 
   if ( useFullSpace ) {
+    /*
+    Teuchos::RCP<Thyra::VectorBase<double> > scaling_vector_x = x->clone_v();
+    ::Thyra::put_scalar<double>( 1.0, scaling_vector_x.ptr());
+    ROL::PrimalScaledThyraVector<double> rol_x_primal(x, scaling_vector_x);
 
+    ROL::Vector_SimOpt<double> sopt_vec(ROL::makePtrFromRef(rol_x_primal),ROL::makePtrFromRef(rol_p_primal));
+    auto r_ptr = rol_x.clone();
+    double tol = 1e-5;
+    //constr.solve(*r_ptr,rol_x,rol_p,tol);
+    if(boundConstrained) {
+      *out << "Piro::PerformSSROLAnalysis: Solving Full Space Bound Constrained Optimization Problem" << std::endl;
+      ROL::BoundConstraint<double> u_bnd(rol_x);
+      ROL::Ptr<ROL::BoundConstraint<double> > bnd = ROL::makePtr<ROL::BoundConstraint_SimOpt<double> >(ROL::makePtrFromRef(u_bnd),boundConstraint);
+      ROL::Problem<double> prob(ROL::makePtrFromRef(obj), ROL::makePtrFromRef(sopt_vec));
+      prob.addBoundConstraint(bnd);
+      prob.addConstraint("Constraint", ROL::makePtrFromRef(constr),r_ptr);
+      bool lumpConstraints(false), printToStream(true);
+      prob.finalize(lumpConstraints, printToStream, *rolOutput);
+      ROL::Solver<double> optSolver(ROL::makePtrFromRef(prob), rolParams.sublist("ROL Options"));
+      optSolver.solve(*out);
+      return_status = optSolver.getAlgorithmState()->statusFlag;
+    } else {
+      *out << "Piro::PerformSSROLAnalysis: Solving Full Space Unconstrained Optimization Problem" << std::endl;
+      ROL::Problem<double> prob(ROL::makePtrFromRef(obj), ROL::makePtrFromRef(sopt_vec));//, ROL::makePtrFromRef(constr), r_ptr);
+      prob.addConstraint("Constraint", ROL::makePtrFromRef(constr),r_ptr);
+      bool lumpConstraints(false), printToStream(true);
+      prob.finalize(lumpConstraints, printToStream, *rolOutput);
+      ROL::Solver<double> optSolver(ROL::makePtrFromRef(prob), rolParams.sublist("ROL Options"));
+      optSolver.solve(*out);
+      return_status = optSolver.getAlgorithmState()->statusFlag;
+    }
+    */
   }
   else {
     /*
