@@ -100,39 +100,6 @@ public:
                   const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs) const;
 
 private:
-
-  struct ObjectiveStruct {
-    Real value_;
-    Teuchos::RCP<ROL::Vector<Real> > gradient1_ptr_;
-    Teuchos::RCP<ROL::Vector<Real> > gradient2_ptr_;
-    bool isValueValid_;
-    bool isGradient1Valid_;
-    bool isGradient2Valid_;
-    bool areGradientsAllocated_;
-
-    ObjectiveStruct() : 
-      value_(0), gradient1_ptr_(Teuchos::null), gradient2_ptr_(Teuchos::null),
-      isValueValid_(false), isGradient1Valid_(false), isGradient2Valid_(false),
-      areGradientsAllocated_(false) {}
-
-    void allocateGradients(const ROL::Vector<Real>& gradient1, const ROL::Vector<Real>& gradient2) {
-      gradient1_ptr_ = gradient1.clone();
-      gradient2_ptr_ = gradient2.clone();
-      areGradientsAllocated_ = true;
-      markAsNotValid();
-    }
-
-    bool shareGradients(const ObjectiveStruct& objectiveStruct) {
-      return (objectiveStruct.gradient1_ptr_.ptr() == gradient1_ptr_.ptr()) ||
-        (objectiveStruct.gradient2_ptr_.ptr() == gradient2_ptr_.ptr());
-    }
-
-    void markAsNotValid() {
-    isValueValid_ = isGradient1Valid_ = isGradient2Valid_ = false;
-    }
-  };
-
-
   const Teuchos::RCP<Piro::TempusIntegrator<Real> > integrator_;
   const Teuchos::RCP<Thyra::ModelEvaluator<Real>> thyra_model_;
   const int g_index_;
@@ -140,8 +107,6 @@ private:
   Real objectiveRecoveryValue_;
   bool useObjectiveRecoveryValue_;
   ROL::UpdateType updateType_;
-
-  ObjectiveStruct objectiveStr_, cached_objectiveStr_,  tmp_objectiveStr_;
 
   Teuchos::ParameterList& optParams_;
   Teuchos::RCP<Teuchos::FancyOStream> out_;
@@ -189,12 +154,6 @@ value( const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new,
 
   if(verbosityLevel_ >= Teuchos::VERB_MEDIUM)
     *out_ << "Piro::ThyraProductME_TempusFinalObjective::value" << std::endl;
-
-  if(objectiveStr_.isValueValid_) {
-    if(verbosityLevel_ >= Teuchos::VERB_HIGH)
-      *out_ << "Piro::ThyraProductME_TempusFinalObjective::value, Skipping Computation of Value" << std::endl;
-    return objectiveStr_.value_;
-  }
 
   // Run tempus and compute response for specified parameter values
   MEB::InArgs<Real> inArgs = thyra_model_->getNominalValues();
