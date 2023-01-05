@@ -788,7 +788,7 @@ Piro::PerformTROLAnalysis(
   constr.setSolveParameters(rolParams.sublist("ROL Options"));
   constr.setNumResponses(piroTSolver->num_g());
 
-  ROL::Ptr<ROL::Objective<double> > obj_ptr = ROL::makePtrFromRef(obj);
+  ROL::Ptr<ROL::DynamicObjective<double> > obj_ptr = ROL::makePtrFromRef(obj);
   ROL::Ptr<ROL::DynamicConstraint<double> > constr_ptr = ROL::makePtrFromRef(constr);
 
   ROL::Ptr<ROL::Vector<double> > rol_p_ptr = ROL::makePtrFromRef(rol_p);

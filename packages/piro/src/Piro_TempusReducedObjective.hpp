@@ -68,11 +68,7 @@
 namespace Piro {
 
 template <typename Real>
-#if 0
 class ThyraProductME_TempusFinalObjective : public virtual ROL::DynamicObjective<Real> {
-#else
-class ThyraProductME_TempusFinalObjective : public virtual ROL::Objective<Real> {
-#endif
 public:
 
   ThyraProductME_TempusFinalObjective(
@@ -86,7 +82,8 @@ public:
   virtual ~ThyraProductME_TempusFinalObjective() {}
 
   //! Compute value of objective
-  Real value( const ROL::Vector<Real> &x, Real &tol );
+  Real value( const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new, 
+              const ROL::Vector<Real> &z, const ROL::TimeStamp<Real> &timeStamp ) const;
 
   //! Compute gradient of objective
   void gradient( ROL::Vector<Real> &g, const ROL::Vector<Real> &x, Real &tol );
@@ -98,9 +95,9 @@ public:
   Teuchos::RCP<ROL::Vector<Real> > create_response_vector() const;
 
   //! Helper function to run tempus, computing responses and derivatives
-  void run_tempus(ROL::Vector<Real>& r, const ROL::Vector<Real>& p);
+  void run_tempus(ROL::Vector<Real>& r, const ROL::Vector<Real>& p) const;
   void run_tempus(const Thyra::ModelEvaluatorBase::InArgs<Real>&  inArgs,
-                  const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs);
+                  const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs) const;
 
 private:
 
@@ -184,7 +181,8 @@ ThyraProductME_TempusFinalObjective(
 template <typename Real>
 Real
 ThyraProductME_TempusFinalObjective<Real>::
-value( const ROL::Vector<Real> &p, Real &tol )
+value( const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new, 
+              const ROL::Vector<Real> &p, const ROL::TimeStamp<Real> &timeStamp ) const
 {
   using Teuchos::RCP;
   typedef Thyra::ModelEvaluatorBase MEB;
@@ -212,10 +210,7 @@ value( const ROL::Vector<Real> &p, Real &tol )
   outArgs.set_g(g_index_, g);
   run_tempus(inArgs, outArgs);
 
-  objectiveStr_.value_ = ::Thyra::get_ele(*g,0);
-  objectiveStr_.isValueValid_ = true;
-
-  return objectiveStr_.value_;
+  return ::Thyra::get_ele(*g,0);
 }
 
 template <typename Real>
@@ -266,7 +261,7 @@ create_response_vector() const {
 template <typename Real>
 void
 ThyraProductME_TempusFinalObjective<Real>::
-run_tempus(ROL::Vector<Real>& r, const ROL::Vector<Real>& p)
+run_tempus(ROL::Vector<Real>& r, const ROL::Vector<Real>& p) const
 {
   typedef Thyra::ModelEvaluatorBase MEB;
 
@@ -288,7 +283,7 @@ template <typename Real>
 void
 ThyraProductME_TempusFinalObjective<Real>::
 run_tempus(const Thyra::ModelEvaluatorBase::InArgs<Real>&  inArgs,
-           const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs)
+           const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs) const
 {
   using Teuchos::rcp;
   using Teuchos::RCP;
