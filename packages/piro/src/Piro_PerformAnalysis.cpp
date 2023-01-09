@@ -945,6 +945,7 @@ Piro::getValidPiroAnalysisParameters()
 
   validPL->set<std::string>("Analysis Package", "","Must be: Solve, ROL or Dakota.");
   validPL->set<bool>("Output Final Parameters", false, "");
+  validPL->set<bool>("Transient", false, "");
   validPL->sublist("Solve",     false, "");
   validPL->sublist("Dakota",    false, "");
   validPL->sublist("ROL",       false, "");

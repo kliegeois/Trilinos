@@ -70,7 +70,42 @@
 #include "Stratimikos_MueLuHelpers.hpp"
 #endif
 
+#ifdef HAVE_PIRO_TEMPUS
+#include "Piro_TempusSolver.hpp"
+#include "Tempus_StepperFactory.hpp"
+#endif
 
+const Teuchos::RCP<Piro::TempusSolver<double> > solverNew(
+    const Teuchos::RCP<Thyra::ModelEvaluatorDefaultBase<double> > &thyraModel,
+    double finalTime, 
+    const std::string sens_method_string)
+{
+  const Teuchos::RCP<Teuchos::ParameterList> tempusPL(new Teuchos::ParameterList("Tempus"));
+  tempusPL->set("Integrator Name", "Demo Integrator");
+  tempusPL->sublist("Demo Integrator").set("Integrator Type", "Integrator Basic");
+  tempusPL->sublist("Demo Integrator").set("Stepper Name", "Demo Stepper");
+  tempusPL->sublist("Demo Integrator").sublist("Solution History").set("Storage Type", "Unlimited");
+  tempusPL->sublist("Demo Integrator").sublist("Solution History").set("Storage Limit", 20);
+  tempusPL->sublist("Demo Integrator").sublist("Time Step Control").set("Initial Time", 0.0);
+  tempusPL->sublist("Demo Integrator").sublist("Time Step Control").set("Final Time", finalTime);
+  tempusPL->sublist("Demo Stepper").set("Stepper Type", "Backward Euler");
+  tempusPL->sublist("Demo Stepper").set("Zero Initial Guess", false);
+  tempusPL->sublist("Demo Stepper").set("Solver Name", "Demo Solver");
+  tempusPL->sublist("Demo Stepper").sublist("Demo Solver").sublist("NOX").sublist("Direction").set("Method","Newton");
+  Piro::SENS_METHOD sens_method; 
+  if (sens_method_string == "None") sens_method = Piro::NONE; 
+  else if (sens_method_string == "Forward") sens_method = Piro::FORWARD; 
+  else if (sens_method_string == "Adjoint") sens_method = Piro::ADJOINT; 
+  Teuchos::RCP<Piro::TempusIntegrator<double> > integrator 
+      = Teuchos::rcp(new Piro::TempusIntegrator<double>(tempusPL, thyraModel, sens_method));
+  const Teuchos::RCP<Thyra::NonlinearSolverBase<double> > stepSolver = Teuchos::null;
+
+  Teuchos::RCP<Teuchos::ParameterList> stepperPL = Teuchos::rcp(&(tempusPL->sublist("Demo Stepper")), false);
+
+  Teuchos::RCP<Tempus::StepperFactory<double> > sf = Teuchos::rcp(new Tempus::StepperFactory<double>());
+  const Teuchos::RCP<Tempus::Stepper<double> > stepper = sf->createStepper(stepperPL, thyraModel);
+  return Teuchos::rcp(new Piro::TempusSolver<double>(integrator, stepper, stepSolver, thyraModel, finalTime, sens_method_string));
+}
 
 
 #include "Piro_ConfigDefs.hpp"
@@ -96,17 +131,11 @@ int main(int argc, char *argv[]) {
 
   Piro::SolverFactory solverFactory;
 
-  for (int iTest=0; iTest<7; iTest++) {
+  for (int iTest=0; iTest<1; iTest++) {
 
     if (doAll) {
       switch (iTest) {
-       case 0: inputFile="input_Analysis_ROL_ReducedSpace_LineSearch.xml"; break;
-       case 1: inputFile="input_Analysis_ROL_ReducedSpace_LineSearch_AdjointSensitivities_CheckGradients.xml"; break;
-       case 2: inputFile="input_Analysis_ROL_ReducedSpace_LineSearch_HessianBasedDotProduct.xml"; break;
-       case 3: inputFile="input_Analysis_ROL_ReducedSpace_TrustRegion_HessianBasedDotProduct.xml"; break;
-       case 4: inputFile="input_Analysis_ROL_ReducedSpace_TrustRegion_BoundConstrained_NOXSolver.xml"; break;
-       case 5: inputFile="input_Analysis_ROL_ReducedSpace_TrustRegion_BoundConstrained_ExplicitAdjointME_NOXSolver.xml"; break;
-       case 6: inputFile="input_Analysis_ROL_FullSpace_AugmentedLagrangian_BoundConstrained.xml"; break;
+       case 0: inputFile="input_Analysis_ROL_ReducedSpace_Transient.xml"; break;
        default : std::cout << "iTest logic error " << std::endl; exit(-1);
       }
     }
@@ -187,7 +216,7 @@ int main(int argc, char *argv[]) {
         if(Teuchos::nonnull(adjointModel))
           adjointModelWithSolve= rcp(new Thyra::DefaultModelEvaluatorWithSolveFactory<double>(adjointModel, lowsFactory));
 
-        const RCP<Thyra::ModelEvaluatorDefaultBase<double>> piro = solverFactory.createSolver(piroParams, modelWithSolve, adjointModelWithSolve);
+        const RCP<Thyra::ModelEvaluatorDefaultBase<double>> piro = solverNew(Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(modelWithSolve), 10., "None");
 
         // Call the analysis routine
         RCP<Thyra::VectorBase<double>> p;
