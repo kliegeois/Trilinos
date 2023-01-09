@@ -888,15 +888,12 @@ Piro::PerformTROLAnalysis(
   }
   else {
     int nt = 10;
-    double dt = 0.1;
-    std::vector<ROL::TimeStamp<double>> timeStamp(nt);
-    for( int k=0; k<nt; ++k ) {
-      timeStamp.at(k).t.resize(2);
-      timeStamp.at(k).t.at(0) = k*dt;
-      timeStamp.at(k).t.at(1) = (k+1)*dt;
-    }
+    std::string integratorName = tempus_params->get<std::string>("Integrator Name");
+    double t_0 = tempus_params->sublist(integratorName).sublist("Time Step Control").get<double>("Initial Time");
+    double t_f = tempus_params->sublist(integratorName).sublist("Time Step Control").get<double>("Final Time");
+    auto timeStamps = ROL::TimeStamp<double>::make_uniform(t_0,t_f,{0.0,1.0},nt);
 
-    ROL::ReducedDynamicObjective<double> reduced_obj(obj_ptr,constr_ptr,rol_x_ptr,rol_p_ptr,rol_lambda_ptr, timeStamp, piroParams);
+    ROL::ReducedDynamicObjective<double> reduced_obj(obj_ptr,constr_ptr,rol_x_ptr,rol_p_ptr,rol_lambda_ptr, *timeStamps, piroParams);
 
     if(boundConstrained) {
       *out << "Piro::PerformTROLAnalysis: Solving Reduced Space Bound Constrained Optimization Problem" << std::endl;
