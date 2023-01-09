@@ -863,7 +863,7 @@ Piro::PerformTROLAnalysis(
     double tol = 1e-5;
     //constr.solve(*r_ptr,rol_x,rol_p,tol);
     if(boundConstrained) {
-      *out << "Piro::PerformSSROLAnalysis: Solving Full Space Bound Constrained Optimization Problem" << std::endl;
+      *out << "Piro::PerformTROLAnalysis: Solving Full Space Bound Constrained Optimization Problem" << std::endl;
       ROL::BoundConstraint<double> u_bnd(rol_x);
       ROL::Ptr<ROL::BoundConstraint<double> > bnd = ROL::makePtr<ROL::BoundConstraint_SimOpt<double> >(ROL::makePtrFromRef(u_bnd),boundConstraint);
       ROL::Problem<double> prob(ROL::makePtrFromRef(obj), ROL::makePtrFromRef(sopt_vec));
@@ -875,7 +875,7 @@ Piro::PerformTROLAnalysis(
       optSolver.solve(*out);
       return_status = optSolver.getAlgorithmState()->statusFlag;
     } else {
-      *out << "Piro::PerformSSROLAnalysis: Solving Full Space Unconstrained Optimization Problem" << std::endl;
+      *out << "Piro::PerformTROLAnalysis: Solving Full Space Unconstrained Optimization Problem" << std::endl;
       ROL::Problem<double> prob(ROL::makePtrFromRef(obj), ROL::makePtrFromRef(sopt_vec));//, ROL::makePtrFromRef(constr), r_ptr);
       prob.addConstraint("Constraint", ROL::makePtrFromRef(constr),r_ptr);
       bool lumpConstraints(false), printToStream(true);
@@ -899,12 +899,12 @@ Piro::PerformTROLAnalysis(
     ROL::ReducedDynamicObjective<double> reduced_obj(obj_ptr,constr_ptr,rol_x_ptr,rol_p_ptr,rol_lambda_ptr, timeStamp, piroParams);
 
     if(boundConstrained) {
-      *out << "Piro::PerformSSROLAnalysis: Solving Reduced Space Bound Constrained Optimization Problem" << std::endl;
+      *out << "Piro::PerformTROLAnalysis: Solving Reduced Space Bound Constrained Optimization Problem" << std::endl;
       auto algo = ROL::TypeB::AlgorithmFactory<double>(rolParams.sublist("ROL Options"));
       algo->run(rol_p_primal, reduced_obj, *boundConstraint, *rolOutput); 
       return_status = algo->getState()->statusFlag;
     }  else {
-      *out << "Piro::PerformSSROLAnalysis: Solving Reduced Space Unconstrained Optimization Problem" << std::endl;
+      *out << "Piro::PerformTROLAnalysis: Solving Reduced Space Unconstrained Optimization Problem" << std::endl;
       auto algo = ROL::TypeU::AlgorithmFactory<double>(rolParams.sublist("ROL Options"));
       algo->run(rol_p_primal, reduced_obj, *rolOutput);
       return_status = algo->getState()->statusFlag;

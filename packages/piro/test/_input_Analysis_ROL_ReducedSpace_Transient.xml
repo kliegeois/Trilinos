@@ -2,9 +2,29 @@
   <ParameterList name="Piro">
     <ParameterList name="Tempus">
       <Parameter name="Integrator Name" type="string" value="Demo Integrator" />
-      <ParameterList name="Tempus">
+      <ParameterList name="Demo Integrator">
         <Parameter name="Integrator Type" type="string" value="Integrator Basic" />
         <Parameter name="Stepper Name" type="string" value="Demo Stepper" />
+        <ParameterList name="Solution History">
+          <Parameter name="Storage Type" type="string" value="Unlimited" />
+          <Parameter name="Storage Limit" type="int" value="20" />
+        </ParameterList>
+        <ParameterList name="Time Step Control">
+          <Parameter name="Initial Time" type="double" value="0." />
+          <Parameter name="Final Time" type="double" value="1." />
+        </ParameterList>
+      </ParameterList>
+      <ParameterList name="Demo Stepper">
+        <Parameter name="Stepper Type" type="string" value="Backward Euler" />
+        <Parameter name="Zero Initial Guess" type="bool" value="false" />
+        <Parameter name="Solver Name" type="string" value="Demo Solver" />
+        <ParameterList name="Demo Solver">
+          <ParameterList name="NOX">
+            <ParameterList name="Direction">
+              <Parameter name="Method" type="string" value="Newton" />
+            </ParameterList>
+          </ParameterList>
+        </ParameterList>
       </ParameterList>
     </ParameterList>
     <Parameter name="Solver Type" type="string" value="NOX" />
