@@ -48,6 +48,7 @@
 #include <iostream>
 #include <string>
 #include "Thyra_DetachedVectorView.hpp"
+#include "Piro_ProductModelEval.hpp"
 
 #ifdef HAVE_PIRO_TRIKOTA
 #include "TriKota_Driver.hpp"

@@ -1,0 +1,286 @@
+// @HEADER
+// ************************************************************************
+//
+//        Piro: Strategy package for embedded analysis capabilitites
+//                  Copyright (2010) Sandia Corporation
+//
+// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// the U.S. Government retains certain rights in this software.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are
+// met:
+//
+// 1. Redistributions of source code must retain the above copyright
+// notice, this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the Corporation nor the names of the
+// contributors may be used to endorse or promote products derived from
+// this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Questions? Contact Andy Salinger (agsalin@sandia.gov), Sandia
+// National Laboratories.
+//
+// ************************************************************************
+// @HEADER
+
+#ifndef PIRO_PRODUCTMODELEVAL_HPP
+#define PIRO_PRODUCTMODELEVAL_HPP
+
+#include "Teuchos_RCP.hpp"
+#include "Thyra_ModelEvaluator.hpp"
+#include "Thyra_DefaultProductVectorSpace.hpp"
+#include "Thyra_DefaultProductVector.hpp"
+
+namespace Piro {
+
+/** \brief Product Model Evaluator
+ *
+ */
+
+template<class Real>
+class ProductModelEvaluator : virtual public Thyra::ModelEvaluator<Real>
+{
+public:
+
+    ProductModelEvaluator(const Teuchos::RCP<Thyra::ModelEvaluator<Real>> thyra_model,
+                            int g_index,
+                            const std::vector<int>& p_indices);
+
+    ~ProductModelEvaluator();
+
+    /** \brief . */
+    int Np() const;
+    /** \brief . */
+    int Ng() const;
+
+    Teuchos::RCP<const Thyra::VectorSpaceBase<Real>> get_x_space() const;
+    Teuchos::RCP<const Thyra::VectorSpaceBase<Real>> get_f_space() const;
+    Teuchos::RCP<const Thyra::VectorSpaceBase<Real>> get_g_space( int l) const;
+    Teuchos::RCP<const Thyra::VectorSpaceBase<Real>> get_p_space( int l) const;
+
+    Teuchos::RCP<const Teuchos::Array<std::string> > get_p_names(int l) const;
+
+    Teuchos::RCP<Thyra::LinearOpBase<Real> > create_W_op() const;
+    Teuchos::RCP<Thyra::PreconditionerBase<Real> > create_W_prec() const;
+    Teuchos::RCP<const Thyra::LinearOpWithSolveFactoryBase<Real> > get_W_factory() const;
+    Teuchos::RCP<Thyra::LinearOpBase<Real> > create_hess_g_pp( int j, int l1, int l2 ) const;
+
+    /** \brief . */
+    Teuchos::RCP<Thyra::LinearOpBase<Real> > create_DfDp_op(int l) const;
+    /** \brief . */
+    Teuchos::RCP<Thyra::LinearOpBase<Real> > create_DgDx_dot_op(int j) const;
+    /** \brief . */
+    Teuchos::RCP<Thyra::LinearOpBase<Real> > create_DgDx_op(int j) const;
+    /** \brief . */
+    Teuchos::RCP<Thyra::LinearOpBase<Real> > create_DgDp_op(int j, int l) const;
+    /** \brief . */
+    Teuchos::RCP<Thyra::LinearOpWithSolveBase<Real> > create_W() const;
+    /** \brief . */
+    typename Thyra::ModelEvaluator<Real>::OutArgs createOutArgs() const;
+    /** \brief . */
+    void evalModel(
+        const typename Thyra::ModelEvaluator<Real>::InArgs &inArgs,
+        const typename Thyra::ModelEvaluator<Real>::OutArgs &outArgs
+        ) const;
+
+    const Teuchos::RCP<Thyra::ModelEvaluator<Real>> getModel() { return thyra_model_; }
+
+    typename Thyra::ModelEvaluator<Real>::InArgs  createInArgs() const;
+
+protected:
+
+    /** \brief . */
+    typename Thyra::ModelEvaluator<Real>::OutArgs
+    createOutArgsImpl() const;
+
+    /** \brief . */
+    void
+    evalModelImpl(
+        const typename Thyra::ModelEvaluator<Real>::InArgs& inArgs,
+        const typename Thyra::ModelEvaluator<Real>::OutArgs& outArgs) const;
+    //@}
+
+
+private:
+
+    /** \brief . */
+    typename Thyra::ModelEvaluator<Real>::InArgs  createInArgsImpl() const;
+
+    const Teuchos::RCP<Thyra::ModelEvaluator<Real>> thyra_model_;
+    const int g_index_;
+    const std::vector<int> p_indices_;
+}; // class ProductModelEvaluator
+
+
+template <typename Real>
+ProductModelEvaluator<Real>::
+ProductModelEvaluator(
+    const Teuchos::RCP<Thyra::ModelEvaluator<Real>> thyra_model,
+    int g_index,
+    const std::vector<int>& p_indices) :
+    thyra_model_(thyra_model),
+    g_index_(g_index),
+    p_indices_(p_indices)
+{
+}
+
+template <typename Real>
+ProductModelEvaluator<Real>::~ProductModelEvaluator()
+{
+}
+
+template <typename Real>
+Teuchos::RCP<const Thyra::VectorSpaceBase<Real>>
+ProductModelEvaluator<Real>::get_x_space() const
+{
+    return thyra_model_->get_x_space();
+}
+
+template <typename Real>
+Teuchos::RCP<const Thyra::VectorSpaceBase<Real>>
+ProductModelEvaluator<Real>::get_f_space() const
+{
+    return thyra_model_->get_f_space();
+}
+
+template <typename Real>
+Teuchos::RCP<const Thyra::VectorSpaceBase<Real>>
+ProductModelEvaluator<Real>::get_p_space(int l) const
+{
+    TEUCHOS_TEST_FOR_EXCEPTION(l != 0, std::logic_error,
+                        std::endl <<
+                        "Error!  ProductModelEvaluator<Real>::get_p_space() only " <<
+                        " supports 1 parameter vector.  Supplied index l = " <<
+                        l << std::endl);
+
+    Teuchos::Array<Teuchos::RCP<Thyra::VectorSpaceBase<Real> const>> p_spaces(p_indices_.size());
+    for (auto i = 0; i < p_indices_.size(); ++i) {
+        p_spaces[i] = thyra_model_->get_p_space(p_indices_[i]);
+    }
+    Teuchos::RCP<Thyra::DefaultProductVectorSpace<Real> const> p_space = Thyra::productVectorSpace<Real>(p_spaces);
+
+    return p_space;
+}
+
+template <typename Real>
+Teuchos::RCP<const Thyra::VectorSpaceBase<Real>>
+ProductModelEvaluator<Real>::get_g_space(int l) const
+{
+    TEUCHOS_TEST_FOR_EXCEPTION(l > thyra_model_->Ng(), std::logic_error,
+                        std::endl <<
+                        "Error!  ProductModelEvaluator::get_g_space() Supplied index l = " <<
+                        l << " is greater or equal to the number of responses of the underlying model " << 
+                        thyra_model_->Ng() << std::endl);
+    Teuchos::RCP<const Thyra::VectorSpaceBase<Real>> g_space = thyra_model_->get_g_space(l);
+    return g_space;
+}
+
+template <typename Real>
+Teuchos::RCP<const  Teuchos::Array<std::string> >
+ProductModelEvaluator<Real>::get_p_names(int l) const
+{
+    TEUCHOS_TEST_FOR_EXCEPTION(l != 0, std::logic_error,
+                        std::endl <<
+                        "Error!  ProductModelEvaluator<Real>::get_p_names() only " <<
+                        " supports 1 parameter vector.  Supplied index l = " <<
+                        l << std::endl);
+
+    Teuchos::RCP<Teuchos::Array<std::string> > p_names =
+        Teuchos::rcp(new Teuchos::Array<std::string>(p_indices_.size()) );
+    for (auto i = 0; i < p_indices_.size(); ++i) {
+    std::stringstream ss;
+    ss << "Parameter " << i;
+    const std::string name = ss.str();
+    (*p_names)[i] = name;
+    }
+    return p_names;
+}
+
+template <typename Real>
+Teuchos::RCP<Thyra::LinearOpBase<Real>>
+ProductModelEvaluator<Real>::create_W_op() const
+{
+    return thyra_model_->create_W_op();
+}
+
+template <typename Real>
+Teuchos::RCP<Thyra::PreconditionerBase<Real>>
+ProductModelEvaluator<Real>::create_W_prec() const
+{
+    return thyra_model_->create_W_prec();
+}
+
+template <typename Real>
+Teuchos::RCP<const Thyra::LinearOpWithSolveFactoryBase<Real>>
+ProductModelEvaluator<Real>::get_W_factory() const
+{
+    return thyra_model_->get_W_factory();
+}
+
+template <typename Real>
+Teuchos::RCP<Thyra::LinearOpBase<Real>>
+ProductModelEvaluator<Real>::create_hess_g_pp( int j, int l1, int l2 ) const
+{
+    // NO ?
+    return thyra_model_->create_hess_g_pp(j, l1, l2);
+}
+
+template <typename Real>
+typename Thyra::ModelEvaluator<Real>::InArgs
+ProductModelEvaluator<Real>::createInArgs() const
+{
+    return this->createInArgs();
+}
+
+template <typename Real>
+typename Thyra::ModelEvaluator<Real>::OutArgs
+ProductModelEvaluator<Real>::createOutArgsImpl() const
+{
+    typename Thyra::ModelEvaluator<Real>::OutArgsSetup result = thyra_model_->createOutArgsImpl();
+    result.setModelEvalDescription(this->description());
+    result.set_Np_Ng(1, thyra_model_->Ng());
+
+    return result;
+}
+
+template <typename Real>
+void 
+ProductModelEvaluator<Real>::evalModelImpl(
+    const typename Thyra::ModelEvaluator<Real>::InArgs&  inArgs,
+    const typename Thyra::ModelEvaluator<Real>::OutArgs& outArgs) const
+{
+    
+    //thyra_model_->evalModelImpl(internal_inArgs, internal_outArgs);
+}
+
+template <typename Real>
+typename Thyra::ModelEvaluator<Real>::InArgs
+ProductModelEvaluator<Real>::createInArgsImpl() const
+{
+    typename Thyra::ModelEvaluator<Real>::InArgsSetup result = thyra_model_->createInArgsImpl();
+    result.setModelEvalDescription(this->description());
+    result.set_Np_Ng(1, thyra_model_->Ng());
+
+    return result;
+}
+
+} // namespace Piro
+
+#endif
