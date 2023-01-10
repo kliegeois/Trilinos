@@ -895,17 +895,26 @@ Piro::PerformTROLAnalysis(
 
     ROL::ReducedDynamicObjective<double> reduced_obj(obj_ptr,constr_ptr,rol_x_ptr,rol_p_ptr,rol_lambda_ptr, *timeStamps, piroParams);
 
+    ROL::Ptr<ROL::PartitionedVector<double>>  rol_p_primal_transient = ROL::PartitionedVector<double>::create(rol_p_primal, nt);
+
+    *out << "Piro::PerformTROLAnalysis: Before reduced_obj.value" << std::endl;
+    double tol = 1e-5;
+    auto val = reduced_obj.value(*rol_p_primal_transient, tol);
+    *out << "Piro::PerformTROLAnalysis: After reduced_obj.value" << std::endl;
+
+/*
     if(boundConstrained) {
       *out << "Piro::PerformTROLAnalysis: Solving Reduced Space Bound Constrained Optimization Problem" << std::endl;
       auto algo = ROL::TypeB::AlgorithmFactory<double>(rolParams.sublist("ROL Options"));
-      algo->run(rol_p_primal, reduced_obj, *boundConstraint, *rolOutput); 
+      algo->run(rol_p_primal_transient, reduced_obj, *boundConstraint, *rolOutput); 
       return_status = algo->getState()->statusFlag;
     }  else {
       *out << "Piro::PerformTROLAnalysis: Solving Reduced Space Unconstrained Optimization Problem" << std::endl;
       auto algo = ROL::TypeU::AlgorithmFactory<double>(rolParams.sublist("ROL Options"));
-      algo->run(rol_p_primal, reduced_obj, *rolOutput);
+      algo->run(rol_p_primal_transient, reduced_obj, *rolOutput);
       return_status = algo->getState()->statusFlag;
     }
+*/
   }
 
   return return_status;
