@@ -396,26 +396,18 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
   if(computeAdjointSensitivities) {
     double tol = 1e-8;
 
-    Teuchos::Array<Teuchos::RCP<Thyra::VectorSpaceBase<Scalar> const>> p_spaces(num_p_);
-    Teuchos::Array<Teuchos::RCP<Thyra::VectorBase<Scalar>>> p_vecs(num_p_);
-    Teuchos::Array<Teuchos::RCP<Thyra::VectorBase<Scalar>>> g_vecs(num_p_);
     std::vector<int> p_indices(num_p_);
     for (auto i = 0; i < num_p_; ++i) {
       p_indices[i] = i;
-      p_spaces[i] = this->getModel().get_p_space(i);
-      p_vecs[i] = Thyra::createMember(p_spaces[i]);
-      g_vecs[i] = Thyra::createMember(p_spaces[i]);
     }
 
-    RCP<Thyra::DefaultProductVectorSpace<Scalar> const> p_space = Thyra::productVectorSpace<Scalar>(p_spaces);
-    RCP<Thyra::DefaultProductVector<Scalar>> p_prod = Thyra::defaultProductVector<Scalar>(p_space, p_vecs());
+    RCP<Thyra::VectorSpaceBase<Scalar> const> p_space = this->getModel().get_p_space(0);
+    RCP<Thyra::VectorBase<Scalar>> thyra_p = Thyra::createMember(p_space);
 
-    for (auto i = 0; i < num_p_; ++i) {
-      RCP<const Thyra::VectorBase<Scalar> > p_init = modelInArgs.get_p(i) != Teuchos::null ? modelInArgs.get_p(i) : this->getModel().getNominalValues().get_p(i);
-      Thyra::copy(*p_init, p_prod->getNonconstVectorBlock(i).ptr());
-    }
+    RCP<const Thyra::VectorBase<Scalar> > p_init = modelInArgs.get_p(0) != Teuchos::null ? modelInArgs.get_p(0) : this->getModel().getNominalValues().get_p(0);
+    Thyra::copy(*p_init, thyra_p.ptr());
 
-    ROL::ThyraVector<Scalar> rol_p(p_prod);
+    ROL::ThyraVector<Scalar> rol_p(thyra_p);
 
     Teuchos::RCP<Thyra::VectorSpaceBase<Scalar> const> x_space = this->getModel().get_x_space();
     Teuchos::RCP<Thyra::VectorBase<Scalar>> x = Thyra::createMember(x_space);
@@ -425,7 +417,7 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
     Teuchos::RCP<Thyra::VectorBase<Scalar>> lambda_vec = Thyra::createMember(x_space);
     ROL::ThyraVector<Scalar> rol_lambda(lambda_vec);
 
-    RCP<Thyra::DefaultProductVector<Scalar> > current_g = Thyra::defaultProductVector<Scalar>(p_space, g_vecs());
+    RCP<Thyra::VectorBase<Scalar>> current_g = Thyra::createMember(p_space);
     ROL::ThyraVector<Scalar> rol_current_g(current_g);
 
     ROL::Ptr<ROL::Vector<Scalar> > rol_p_ptr = ROL::makePtrFromRef(rol_p);
@@ -460,13 +452,12 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
       RCP<Thyra::VectorBase<Scalar> > g_out = outArgs.get_g(i);
       Thyra::set_ele(0,tmp,g_out.ptr());
 
-      for (int j=0; j<num_p_; ++j) {
-        if (!outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp, i, j).none() &&
-            !outArgs.get_DgDp(i,j).isEmpty()) {
 
-          RCP<Thyra::MultiVectorBase<Scalar> > dgdp_out = outArgs.get_DgDp(i,j).getMultiVector();
-          Thyra::assign(dgdp_out->col(0).ptr(), *current_g->getNonconstVectorBlock(j));
-        }
+      if (!outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp, i, 0).none() &&
+          !outArgs.get_DgDp(i,0).isEmpty()) {
+
+        RCP<Thyra::MultiVectorBase<Scalar> > dgdp_out = outArgs.get_DgDp(i,0).getMultiVector();
+        Thyra::assign(dgdp_out->col(0).ptr(), *current_g);
       }
     }
     return;
@@ -683,7 +674,7 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
               std::endl);
 
         // dg/dp
-        for (int i=0; i<num_p_; i++) {
+        for (int i=0; i<1; i++) {
           if (!outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp,j,i).none()) {
             Thyra::ModelEvaluatorBase::Derivative<Scalar> dgdp = outArgs.get_DgDp(j,i);
             if (dgdp.getLinearOp() != Teuchos::null) {
@@ -1204,30 +1195,20 @@ void Piro::SteadyStateSolver<Scalar>::evalReducedHessian(
 
   double tol = 1e-8;
 
-  Teuchos::Array<Teuchos::RCP<Thyra::VectorSpaceBase<Scalar> const>> p_spaces(num_p_);
-  Teuchos::Array<Teuchos::RCP<Thyra::VectorBase<Scalar>>> p_vecs(num_p_);
-  Teuchos::Array<Teuchos::RCP<Thyra::VectorBase<Scalar>>> direction_p_vecs(num_p_);
-  Teuchos::Array<Teuchos::RCP<Thyra::VectorBase<Scalar>>> hv_vecs(num_p_);
   std::vector<int> p_indices(num_p_);
   for (auto i = 0; i < num_p_; ++i) {
     p_indices[i] = i;
-    p_spaces[i] = this->getModel().get_p_space(i);
-    p_vecs[i] = Thyra::createMember(p_spaces[i]);
-    direction_p_vecs[i] = Thyra::createMember(p_spaces[i]);
-    hv_vecs[i] = Thyra::createMember(p_spaces[i]);
   }
 
-  RCP<Thyra::DefaultProductVectorSpace<Scalar> const> p_space = Thyra::productVectorSpace<Scalar>(p_spaces);
-  RCP<Thyra::DefaultProductVector<Scalar>> p_prod = Thyra::defaultProductVector<Scalar>(p_space, p_vecs());
-  RCP<Thyra::DefaultProductVector<Scalar>> direction_p_prod = Thyra::defaultProductVector<Scalar>(p_space, direction_p_vecs());
+  RCP<Thyra::VectorSpaceBase<Scalar> const> p_space = this->getModel().get_p_space(0);
+  RCP<Thyra::VectorBase<Scalar>> thyra_p = Thyra::createMember(p_space);
+  RCP<Thyra::VectorBase<Scalar>> thyra_direction_p = Thyra::createMember(p_space);
 
-  for (auto i = 0; i < num_p_; ++i) {
-    RCP<const Thyra::VectorBase<Scalar> > p_init = modelInArgs.get_p(i) != Teuchos::null ? modelInArgs.get_p(i) : this->getModel().getNominalValues().get_p(i);
-    Thyra::copy(*p_init, p_prod->getNonconstVectorBlock(i).ptr());
-  }
+  RCP<const Thyra::VectorBase<Scalar> > p_init = modelInArgs.get_p(0) != Teuchos::null ? modelInArgs.get_p(0) : this->getModel().getNominalValues().get_p(0);
+  Thyra::copy(*p_init, thyra_p.ptr());
 
-  ROL::ThyraVector<Scalar> rol_p(p_prod);
-  ROL::ThyraVector<Scalar> rol_direction_p(direction_p_prod);
+  ROL::ThyraVector<Scalar> rol_p(thyra_p);
+  ROL::ThyraVector<Scalar> rol_direction_p(thyra_direction_p);
 
   Teuchos::RCP<Thyra::VectorSpaceBase<Scalar> const> x_space = this->getModel().get_x_space();
   Teuchos::RCP<Thyra::VectorBase<Scalar>> x = Thyra::createMember(x_space);
@@ -1237,7 +1218,7 @@ void Piro::SteadyStateSolver<Scalar>::evalReducedHessian(
   Teuchos::RCP<Thyra::VectorBase<Scalar>> lambda_vec = Thyra::createMember(x_space);
   ROL::ThyraVector<Scalar> rol_lambda(lambda_vec);
 
-  RCP<Thyra::DefaultProductVector<Scalar> > current_hv = Thyra::defaultProductVector<Scalar>(p_space, hv_vecs());
+  RCP<Thyra::VectorBase<Scalar>> current_hv = Thyra::createMember(p_space);
   ROL::ThyraVector<Scalar> rol_current_hv(current_hv);
 
   ROL::Ptr<ROL::Vector<Scalar> > rol_p_ptr = ROL::makePtrFromRef(rol_p);
@@ -1270,23 +1251,20 @@ void Piro::SteadyStateSolver<Scalar>::evalReducedHessian(
     }
 
     for (auto j = 0; j < n_directions; ++j) {
-      for (int p_index=0; p_index<num_p_; ++p_index) {
-        if (Teuchos::nonnull(modelInArgs.get_p_direction(p_index))) {
-          const int current_n_directions = modelInArgs.get_p_direction(p_index)->domain()->dim();
-          if (j < current_n_directions) {
-            RCP<const Thyra::VectorBase<Scalar> > current_p_direction = modelInArgs.get_p_direction(p_index)->col(j);
-            Thyra::copy(*current_p_direction, direction_p_prod->getNonconstVectorBlock(p_index).ptr());
-          }
+      if (Teuchos::nonnull(modelInArgs.get_p_direction(0))) {
+        const int current_n_directions = modelInArgs.get_p_direction(0)->domain()->dim();
+        if (j < current_n_directions) {
+          RCP<const Thyra::VectorBase<Scalar> > current_p_direction = modelInArgs.get_p_direction(0)->col(j);
+          Thyra::copy(*current_p_direction, thyra_direction_p.ptr());
         }
       }
 
       reduced_obj.hessVec(rol_current_hv, rol_direction_p, rol_p, tol);
 
-      for (int p_index=0; p_index<num_p_; ++p_index) {
-        if (outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_pp, g_index, p_index, p_index)) {
-          RCP<Thyra::MultiVectorBase<Scalar> > reduced_hv_out = outArgs.get_hess_vec_prod_g_pp(g_index, p_index, p_index);
-          Thyra::assign(reduced_hv_out->col(j).ptr(), *current_hv->getNonconstVectorBlock(p_index));
-        }
+      
+      if (outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_pp, g_index, 0, 0)) {
+        RCP<Thyra::MultiVectorBase<Scalar> > reduced_hv_out = outArgs.get_hess_vec_prod_g_pp(g_index, 0, 0);
+        Thyra::assign(reduced_hv_out->col(j).ptr(), *current_hv);
       }
     }
   }
