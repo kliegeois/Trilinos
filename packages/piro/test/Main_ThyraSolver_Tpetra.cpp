@@ -120,7 +120,10 @@ int main(int argc, char *argv[]) {
                 rcp(new Teuchos::ParameterList("Piro Parameters"));
             Teuchos::updateParametersFromXmlFile(inputFile, piroParams.ptr());
 
+            std::vector<int> p_indices(1);
+            p_indices[0] = 0;
             const RCP<Thyra::ModelEvaluator<double>> model = rcp(new MockModelEval_A_Tpetra(appComm));
+            //const RCP<Thyra::ModelEvaluator<double>> model_tmp = rcp(new Piro::ProductModelEvaluator<double>(model_tmp,0,p_indices));
             bool adjoint = (piroParams->get("Sensitivity Method", "Forward") == "Adjoint");
             bool explicitAdjointME = adjoint && piroParams->get("Explicit Adjoint Model Evaluator", false);
             RCP<Thyra::ModelEvaluator<double>> adjointModel = Teuchos::null;
@@ -138,12 +141,17 @@ int main(int argc, char *argv[]) {
                 RCP<Thyra::LinearOpWithSolveFactoryBase<double>> lowsFactory =
                     createLinearSolveStrategy(linearSolverBuilder);
 
-                RCP<Thyra::ModelEvaluator<double>> thyraModel = rcp(new Thyra::DefaultModelEvaluatorWithSolveFactory<double>(
+                RCP<Thyra::ModelEvaluator<double>> thyraModel_tmp = rcp(new Thyra::DefaultModelEvaluatorWithSolveFactory<double>(
                     model, lowsFactory));
 
+                const RCP<Thyra::ModelEvaluator<double>> thyraModel = rcp(new Piro::ProductModelEvaluator<double>(thyraModel_tmp,0,p_indices));
+
                 RCP<Thyra::ModelEvaluator<double>> thyraAdjointModel;
-                if(Teuchos::nonnull(adjointModel)) 
-                  thyraAdjointModel= rcp(new Thyra::DefaultModelEvaluatorWithSolveFactory<double>(adjointModel, lowsFactory));
+                if(Teuchos::nonnull(adjointModel)) {
+                  thyraAdjointModel= 
+                  rcp(new Piro::ProductModelEvaluator<double>(
+                    rcp(new Thyra::DefaultModelEvaluatorWithSolveFactory<double>(adjointModel, lowsFactory)),0,p_indices));
+                }
 
                 piro = solverFactory.createSolver(piroParams, thyraModel, thyraAdjointModel);
             }

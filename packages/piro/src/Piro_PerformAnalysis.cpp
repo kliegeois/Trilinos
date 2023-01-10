@@ -287,28 +287,16 @@ Piro::PerformROLAnalysis(
     }
   }
 
+
   //set names of parameters in the "Optimization Status" sublist
   piroParams.sublist("Optimization Status").set("Parameter Names", Teuchos::rcpFromRef(p_names));
 
   if(rolParams.isParameter("Objective Recovery Value"))
     piroParams.sublist("Optimization Status").set("Objective Recovery Value", rolParams.get<double>("Objective Recovery Value"));
 
-  Teuchos::Array<Teuchos::RCP<Thyra::VectorSpaceBase<double> const>> p_spaces(num_parameters);
-  Teuchos::Array<Teuchos::RCP<Thyra::VectorBase<double>>> p_vecs(num_parameters);
-  for (auto i = 0; i < num_parameters; ++i) {
-    p_spaces[i] = model->get_p_space(p_indices[i]);
-    p_vecs[i] = Thyra::createMember(p_spaces[i]);
-  }
-  Teuchos::RCP<Thyra::DefaultProductVectorSpace<double> const> p_space = Thyra::productVectorSpace<double>(p_spaces);
-  Teuchos::RCP<Thyra::DefaultProductVector<double>> p_prod = Thyra::defaultProductVector<double>(p_space, p_vecs());
+  Teuchos::RCP<Thyra::VectorSpaceBase<double> const> p_space = model->get_p_space(0);
+  Teuchos::RCP<Thyra::VectorBase<double>> p_prod = model->getNominalValues().get_p(0)->clone_v();
   p = p_prod;
-
-  //  p = Thyra::createMember(piroModel.get_p_space(p_index));
-
-  for (auto i = 0; i < num_parameters; ++i) {
-    RCP<const Thyra::VectorBase<double> > p_init = model->getNominalValues().get_p(p_indices[i]);
-    Thyra::copy(*p_init, p_prod->getNonconstVectorBlock(i).ptr());
-  }
 
   ROL::ThyraVector<double> rol_p(p_prod);
   //Teuchos::RCP<Thyra::VectorSpaceBase<double> const> p_space;
@@ -585,25 +573,14 @@ Piro::PerformROLAnalysis(
   Teuchos::RCP<const Thyra::LinearOpBase<double> > H_dotP(Teuchos::null), invH_dotP(Teuchos::null), H_sec(Teuchos::null), invH_sec(Teuchos::null);
 
   #ifdef HAVE_PIRO_TEKO
-  {
+  Teko::LinearOp H, invH;
+  Teuchos::RCP<Piro::ProductModelEvaluator<double>> model_PME = Teuchos::rcp_dynamic_cast<Piro::ProductModelEvaluator<double>>(model);
+  if (useHessianDotProduct && !model_PME.is_null()) {
+    int hessianResponseIndex = hessianDotProductList.get<int>("Response Index");
     if(analysisVerbosity > 2)
       *out << "\nPiro::PerformROLAnalysis: Start the computation of H_pp" << std::endl;
- 
-    Teko::BlockedLinearOp bH_dotP, bH_sec;
-
-    if (useCustomDotProduct) {
-      bH_dotP = Teko::createBlockedOp();
-      obj.block_diagonal_hessian_22(bH_dotP, rol_x, rol_p, reponse_index_dotProd);
-    }
-    if(useCustomSecant && (reponse_index_secant != -1 )) {
-      if (reponse_index_dotProd == reponse_index_secant)
-        bH_sec = bH_dotP;
-      else {
-        bH_sec = Teko::createBlockedOp();
-        obj.block_diagonal_hessian_22(bH_sec, rol_x, rol_p, reponse_index_secant);
-      }
-    }
-    
+    Teko::BlockedLinearOp bH = Teko::createBlockedOp();
+    model_PME->block_diagonal_hessian_22(bH, rol_x, rol_p, hessianResponseIndex);
     if(analysisVerbosity > 2)
       *out << "Piro::PerformROLAnalysis: End of the computation of H_pp" << std::endl;
 
@@ -731,18 +708,8 @@ if(useCustomDotProduct) {
   bool boundConstrained = rolParams.get<bool>("Bound Constrained", false);
 
   if(boundConstrained) {
-    Teuchos::Array<Teuchos::RCP<const Thyra::VectorBase<double>>> p_lo_vecs(num_parameters);
-    Teuchos::Array<Teuchos::RCP<const Thyra::VectorBase<double>>> p_up_vecs(num_parameters);
-    //double eps_bound = rolParams.get<double>("epsilon bound", 1e-6);
-    for (auto i = 0; i < num_parameters; ++i) {
-      p_lo_vecs[i] = piroModel.getLowerBounds().get_p(p_indices[i]);
-      p_up_vecs[i] = piroModel.getUpperBounds().get_p(p_indices[i]);
-      TEUCHOS_TEST_FOR_EXCEPTION((p_lo_vecs[i] == Teuchos::null) || (p_up_vecs[i] == Teuchos::null), Teuchos::Exceptions::InvalidParameter,
-          std::endl << "Piro::PerformROLAnalysis, ERROR: " <<
-          "Lower and/or Upper bounds pointers are null, cannot perform bound constrained optimization"<<std::endl);
-    }
-    Teuchos::RCP<Thyra::VectorBase<double>> p_lo = Thyra::defaultProductVector<double>(p_space, p_lo_vecs());
-    Teuchos::RCP<Thyra::VectorBase<double>> p_up = Thyra::defaultProductVector<double>(p_space, p_up_vecs());
+    Teuchos::RCP<Thyra::VectorBase<double>> p_lo = model->getLowerBounds().get_p(0)->clone_v();
+    Teuchos::RCP<Thyra::VectorBase<double>> p_up = model->getUpperBounds().get_p(0)->clone_v();
 
     //ROL::Thyra_BoundConstraint<double> boundConstraint(p_lo->clone_v(), p_up->clone_v(), eps_bound);
     boundConstraint = rcp( new ROL::Bounds<double>(ROL::makePtr<ROL::ThyraVector<double> >(p_lo), ROL::makePtr<ROL::ThyraVector<double> >(p_up)));
