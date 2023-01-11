@@ -55,7 +55,7 @@ namespace Piro {
  */
 
 template<class Real>
-class ProductModelEvaluator : virtual public Thyra::ModelEvaluator<Real>
+class ProductModelEvaluator : public Thyra::ModelEvaluatorDefaultBase<Real>
 {
 public:
 
@@ -83,45 +83,58 @@ public:
     Teuchos::RCP<Thyra::LinearOpBase<Real> > create_hess_g_pp( int j, int l1, int l2 ) const;
 
     /** \brief . */
-    Teuchos::RCP<Thyra::LinearOpBase<Real> > create_DfDp_op(int l) const;
+    //Teuchos::RCP<Thyra::LinearOpBase<Real> > create_DfDp_op(int l) const;
     /** \brief . */
-    Teuchos::RCP<Thyra::LinearOpBase<Real> > create_DgDx_dot_op(int j) const;
+    //Teuchos::RCP<Thyra::LinearOpBase<Real> > create_DgDx_dot_op(int j) const;
     /** \brief . */
-    Teuchos::RCP<Thyra::LinearOpBase<Real> > create_DgDx_op(int j) const;
+    //Teuchos::RCP<Thyra::LinearOpBase<Real> > create_DgDx_op(int j) const;
     /** \brief . */
-    Teuchos::RCP<Thyra::LinearOpBase<Real> > create_DgDp_op(int j, int l) const;
+    //Teuchos::RCP<Thyra::LinearOpBase<Real> > create_DgDp_op(int j, int l) const;
     /** \brief . */
-    Teuchos::RCP<Thyra::LinearOpWithSolveBase<Real> > create_W() const;
+    //Teuchos::RCP<Thyra::LinearOpWithSolveBase<Real> > create_W() const;
     /** \brief . */
-    typename Thyra::ModelEvaluator<Real>::OutArgs createOutArgs() const;
+    //Thyra::ModelEvaluatorBase::OutArgs<Real> createOutArgs() const;
     /** \brief . */
-    void evalModel(
-        const typename Thyra::ModelEvaluator<Real>::InArgs &inArgs,
-        const typename Thyra::ModelEvaluator<Real>::OutArgs &outArgs
-        ) const;
+    //void evalModel(
+    //    const Thyra::ModelEvaluatorBase::InArgs<Real> &inArgs,
+    //    const Thyra::ModelEvaluatorBase::OutArgs<Real> &outArgs
+    //    ) const;
 
     const Teuchos::RCP<Thyra::ModelEvaluator<Real>> getModel() { return thyra_model_; }
 
-    typename Thyra::ModelEvaluator<Real>::InArgs  createInArgs() const;
+    Thyra::ModelEvaluatorBase::InArgs<Real>  createInArgs() const;
+
+    void reportFinalPoint(
+        const Thyra::ModelEvaluatorBase::InArgs<Real>& finalPoint,
+        const bool wasSolved);
+        
+    Teuchos::ArrayView<const std::string> get_g_names(int j) const;
+
+    /** \brief . */
+    Thyra::ModelEvaluatorBase::InArgs<Real> getNominalValues() const;
+    /** \brief . */
+    Thyra::ModelEvaluatorBase::InArgs<Real> getLowerBounds() const;
+    /** \brief . */
+    Thyra::ModelEvaluatorBase::InArgs<Real> getUpperBounds() const;
 
 protected:
 
     /** \brief . */
-    typename Thyra::ModelEvaluator<Real>::OutArgs
+    Thyra::ModelEvaluatorBase::OutArgs<Real>
     createOutArgsImpl() const;
 
     /** \brief . */
     void
     evalModelImpl(
-        const typename Thyra::ModelEvaluator<Real>::InArgs& inArgs,
-        const typename Thyra::ModelEvaluator<Real>::OutArgs& outArgs) const;
+        const Thyra::ModelEvaluatorBase::InArgs<Real>& inArgs,
+        const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs) const;
     //@}
 
 
 private:
 
     /** \brief . */
-    typename Thyra::ModelEvaluator<Real>::InArgs  createInArgsImpl() const;
+    Thyra::ModelEvaluatorBase::InArgs<Real>  createInArgsImpl() const;
 
     const Teuchos::RCP<Thyra::ModelEvaluator<Real>> thyra_model_;
     const int g_index_;
@@ -243,17 +256,17 @@ ProductModelEvaluator<Real>::create_hess_g_pp( int j, int l1, int l2 ) const
 }
 
 template <typename Real>
-typename Thyra::ModelEvaluator<Real>::InArgs
+Thyra::ModelEvaluatorBase::InArgs<Real>
 ProductModelEvaluator<Real>::createInArgs() const
 {
     return this->createInArgs();
 }
 
 template <typename Real>
-typename Thyra::ModelEvaluator<Real>::OutArgs
+Thyra::ModelEvaluatorBase::OutArgs<Real>
 ProductModelEvaluator<Real>::createOutArgsImpl() const
 {
-    typename Thyra::ModelEvaluator<Real>::OutArgsSetup result = thyra_model_->createOutArgsImpl();
+    Thyra::ModelEvaluatorBase::OutArgsSetup<Real> result = thyra_model_->createOutArgs();
     result.setModelEvalDescription(this->description());
     result.set_Np_Ng(1, thyra_model_->Ng());
 
@@ -263,22 +276,73 @@ ProductModelEvaluator<Real>::createOutArgsImpl() const
 template <typename Real>
 void 
 ProductModelEvaluator<Real>::evalModelImpl(
-    const typename Thyra::ModelEvaluator<Real>::InArgs&  inArgs,
-    const typename Thyra::ModelEvaluator<Real>::OutArgs& outArgs) const
+    const Thyra::ModelEvaluatorBase::InArgs<Real>&  inArgs,
+    const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs) const
 {
     
     //thyra_model_->evalModelImpl(internal_inArgs, internal_outArgs);
 }
 
 template <typename Real>
-typename Thyra::ModelEvaluator<Real>::InArgs
+Thyra::ModelEvaluatorBase::InArgs<Real>
 ProductModelEvaluator<Real>::createInArgsImpl() const
 {
-    typename Thyra::ModelEvaluator<Real>::InArgsSetup result = thyra_model_->createInArgsImpl();
+    Thyra::ModelEvaluatorBase::InArgsSetup<Real> result = thyra_model_->createInArgs();
     result.setModelEvalDescription(this->description());
     result.set_Np_Ng(1, thyra_model_->Ng());
 
     return result;
+}
+
+template <typename Real>
+Teuchos::ArrayView<const std::string>
+ProductModelEvaluator<Real>::get_g_names(int j) const
+{
+    return thyra_model_->get_g_names(j);
+}
+
+template <typename Real>
+Thyra::ModelEvaluatorBase::InArgs<Real>
+ProductModelEvaluator<Real>::getNominalValues() const
+{
+  return thyra_model_->getNominalValues();
+}
+
+template <typename Real>
+Thyra::ModelEvaluatorBase::InArgs<Real>
+ProductModelEvaluator<Real>::getLowerBounds() const
+{
+  return thyra_model_->getLowerBounds();
+}
+
+template <typename Real>
+Thyra::ModelEvaluatorBase::InArgs<Real>
+ProductModelEvaluator<Real>::getUpperBounds() const
+{
+  return thyra_model_->getUpperBounds();
+}
+
+template <typename Real>
+int
+ProductModelEvaluator<Real>::Np() const
+{
+    return 1;
+}
+
+template <typename Real>
+int
+ProductModelEvaluator<Real>::Ng() const
+{
+    return thyra_model_->Ng();
+}
+
+template <typename Real>
+void
+ProductModelEvaluator<Real>::reportFinalPoint(
+    const Thyra::ModelEvaluatorBase::InArgs<Real>& finalPoint,
+    const bool wasSolved)
+{
+    return thyra_model_->reportFinalPoint(finalPoint, wasSolved);
 }
 
 } // namespace Piro

@@ -287,6 +287,8 @@ Piro::PerformROLAnalysis(
     }
   }
 
+  ProductModelEvaluator<double> tmp(model, g_index, p_indices);
+
   //set names of parameters in the "Optimization Status" sublist
   piroParams.sublist("Optimization Status").set("Parameter Names", Teuchos::rcpFromRef(p_names));
 
