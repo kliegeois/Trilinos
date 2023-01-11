@@ -133,6 +133,11 @@ protected:
 
 private:
 
+    Thyra::ModelEvaluatorBase::InArgs<Real>  fromInternalInArgs(const Thyra::ModelEvaluatorBase::InArgs<Real>& inArgs) const;
+    Thyra::ModelEvaluatorBase::InArgs<Real>  toInternalInArgs(const Thyra::ModelEvaluatorBase::InArgs<Real>& inArgs) const;
+    Thyra::ModelEvaluatorBase::OutArgs<Real>  fromInternalOutArgs(const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs) const;
+    Thyra::ModelEvaluatorBase::OutArgs<Real>  toInternalOutArgs(const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs) const;
+
     /** \brief . */
     Thyra::ModelEvaluatorBase::InArgs<Real>  createInArgsImpl() const;
 
@@ -259,18 +264,16 @@ template <typename Real>
 Thyra::ModelEvaluatorBase::InArgs<Real>
 ProductModelEvaluator<Real>::createInArgs() const
 {
-    return thyra_model_->createInArgs();
+    Thyra::ModelEvaluatorBase::InArgs<Real> internal_inArgs = thyra_model_->createInArgs();
+    return this->fromInternalInArgs(internal_inArgs);
 }
 
 template <typename Real>
 Thyra::ModelEvaluatorBase::OutArgs<Real>
 ProductModelEvaluator<Real>::createOutArgsImpl() const
 {
-    Thyra::ModelEvaluatorBase::OutArgsSetup<Real> result = thyra_model_->createOutArgs();
-    result.setModelEvalDescription(this->description());
-    result.set_Np_Ng(1, thyra_model_->Ng());
-
-    return result;
+    Thyra::ModelEvaluatorBase::OutArgsSetup<Real> internal_outArgs = thyra_model_->createOutArgs();
+    return this->fromInternalOutArgs(internal_outArgs);
 }
 
 template <typename Real>
@@ -343,6 +346,41 @@ ProductModelEvaluator<Real>::reportFinalPoint(
     const bool wasSolved)
 {
     return thyra_model_->reportFinalPoint(finalPoint, wasSolved);
+}
+
+template <typename Real>
+Thyra::ModelEvaluatorBase::InArgs<Real>
+ProductModelEvaluator<Real>::fromInternalInArgs(const Thyra::ModelEvaluatorBase::InArgs<Real>& inArgs) const
+{
+    Thyra::ModelEvaluatorBase::InArgs<Real> results;
+    //inArgs.supports(IN_ARG_x_dot_dot);
+    return results;
+}
+
+template <typename Real>
+Thyra::ModelEvaluatorBase::InArgs<Real>
+ProductModelEvaluator<Real>::toInternalInArgs(const Thyra::ModelEvaluatorBase::InArgs<Real>& inArgs) const
+{
+    Thyra::ModelEvaluatorBase::InArgs<Real> results;
+    return results;
+}
+
+template <typename Real>
+Thyra::ModelEvaluatorBase::OutArgs<Real>
+ProductModelEvaluator<Real>::fromInternalOutArgs(const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs) const
+{
+    Thyra::ModelEvaluatorBase::OutArgs<Real> results;
+    //results._setModelEvalDescription(this->description());
+    //results._set_Np_Ng(1, thyra_model_->Ng());
+    return results;
+}
+
+template <typename Real>
+Thyra::ModelEvaluatorBase::OutArgs<Real>
+ProductModelEvaluator<Real>::toInternalOutArgs(const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs) const
+{
+    Thyra::ModelEvaluatorBase::OutArgs<Real> results;
+    return results;
 }
 
 } // namespace Piro
