@@ -48,7 +48,6 @@
 #include <iostream>
 #include <string>
 #include "Thyra_DetachedVectorView.hpp"
-#include "Piro_ProductModelEval.hpp"
 
 #ifdef HAVE_PIRO_TRIKOTA
 #include "TriKota_Driver.hpp"
@@ -287,7 +286,6 @@ Piro::PerformROLAnalysis(
     }
   }
 
-  ProductModelEvaluator<double> tmp(model, g_index, p_indices);
 
   //set names of parameters in the "Optimization Status" sublist
   piroParams.sublist("Optimization Status").set("Parameter Names", Teuchos::rcpFromRef(p_names));

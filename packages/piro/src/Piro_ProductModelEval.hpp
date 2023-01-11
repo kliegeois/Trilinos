@@ -259,7 +259,7 @@ template <typename Real>
 Thyra::ModelEvaluatorBase::InArgs<Real>
 ProductModelEvaluator<Real>::createInArgs() const
 {
-    return this->createInArgs();
+    return thyra_model_->createInArgs();
 }
 
 template <typename Real>
@@ -305,21 +305,21 @@ template <typename Real>
 Thyra::ModelEvaluatorBase::InArgs<Real>
 ProductModelEvaluator<Real>::getNominalValues() const
 {
-  return thyra_model_->getNominalValues();
+    return thyra_model_->getNominalValues();
 }
 
 template <typename Real>
 Thyra::ModelEvaluatorBase::InArgs<Real>
 ProductModelEvaluator<Real>::getLowerBounds() const
 {
-  return thyra_model_->getLowerBounds();
+    return thyra_model_->getLowerBounds();
 }
 
 template <typename Real>
 Thyra::ModelEvaluatorBase::InArgs<Real>
 ProductModelEvaluator<Real>::getUpperBounds() const
 {
-  return thyra_model_->getUpperBounds();
+    return thyra_model_->getUpperBounds();
 }
 
 template <typename Real>
