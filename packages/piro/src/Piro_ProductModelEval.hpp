@@ -290,9 +290,13 @@ template <typename Real>
 Thyra::ModelEvaluatorBase::InArgs<Real>
 ProductModelEvaluator<Real>::createInArgsImpl() const
 {
-    Thyra::ModelEvaluatorBase::InArgsSetup<Real> result = thyra_model_->createInArgs();
+    Thyra::ModelEvaluatorBase::InArgs<Real> internal_inArgs = thyra_model_->createInArgs();
+    Thyra::ModelEvaluatorBase::InArgsSetup<Real> result; 
     result.setModelEvalDescription(this->description());
     result.set_Np_Ng(1, thyra_model_->Ng());
+
+    for ( const auto e : Thyra::ModelEvaluator<Real>::EInArgsMembers )
+        result.setSupports(e, internal_inArgs.supports(e));
 
     return result;
 }
