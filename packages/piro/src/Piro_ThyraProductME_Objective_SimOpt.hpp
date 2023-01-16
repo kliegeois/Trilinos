@@ -225,8 +225,6 @@ public:
 
     Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
 
-    //for(std::size_t i=0; i<p_indices_.size(); ++i)
-    //  inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
     inArgs.set_p(0, thyra_prodvec_p);
     inArgs.set_x(thyra_x.getVector());
 
@@ -241,21 +239,21 @@ public:
       outArgs.set_g(g_index_, thyra_g);
     }
 
-    for(std::size_t i=0; i<p_indices_.size(); ++i) {
-      const Thyra::ModelEvaluatorBase::DerivativeSupport dgdp_support =
-          outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp, g_index_, p_indices_[i]);
-      Thyra::ModelEvaluatorBase::EDerivativeMultiVectorOrientation dgdp_orient;
-      if (dgdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM))
-        dgdp_orient = Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM;
-      else if(dgdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM))
-        dgdp_orient = Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM;
-      else {
-        ROL_TEST_FOR_EXCEPTION(true, std::logic_error,
-            "Piro::ThyraProductME_Objective::gradient_2, DgDp does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
-      }
 
-      outArgs.set_DgDp(g_index_,p_indices_[i], Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(prodvec_dgdp_p->getNonconstMultiVectorBlock(i), dgdp_orient));
+    const Thyra::ModelEvaluatorBase::DerivativeSupport dgdp_support =
+        outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp, g_index_, 0);
+    Thyra::ModelEvaluatorBase::EDerivativeMultiVectorOrientation dgdp_orient;
+    if (dgdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM))
+      dgdp_orient = Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM;
+    else if(dgdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM))
+      dgdp_orient = Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM;
+    else {
+      ROL_TEST_FOR_EXCEPTION(true, std::logic_error,
+          "Piro::ThyraProductME_Objective::gradient_2, DgDp does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
     }
+
+    outArgs.set_DgDp(g_index_, 0, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(prodvec_dgdp_p, dgdp_orient));
+
     thyra_model_->evalModel(inArgs, outArgs);
 
     if(!objectiveStr_.isValueValid_) {

@@ -109,8 +109,7 @@ public:
     Thyra::ModelEvaluatorBase::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
 
     outArgs.set_f(thyra_f.getVector());
-    for(std::size_t i=0; i<p_indices_.size(); ++i)
-      inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
+    inArgs.set_p(0, thyra_prodvec_p);
     inArgs.set_x(thyra_x.getVector());
 
     thyra_model_->evalModel(inArgs, outArgs);
@@ -161,8 +160,7 @@ public:
       if(Teuchos::is_null(jacobian1_))
         jacobian1_ = thyra_model_->create_W_op();
 
-      for(std::size_t i=0; i<p_indices_.size(); ++i)
-        inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
+      inArgs.set_p(0, thyra_prodvec_p);
       inArgs.set_x(thyra_x.getVector());
 
       outArgs.set_W_op(jacobian1_);
@@ -196,9 +194,9 @@ public:
     Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
     Thyra::ModelEvaluatorBase::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
 
+    inArgs.set_p(0, thyra_prodvec_p);
     inArgs.set_x(thyra_x.getVector());
     for(std::size_t i=0; i<p_indices_.size(); ++i) {
-      inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
 
       // df/dp
 
@@ -338,9 +336,7 @@ public:
     Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
     Thyra::ModelEvaluatorBase::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
 
-    for(std::size_t i=0; i<p_indices_.size(); ++i)
-      inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
-
+    inArgs.set_p(0, thyra_prodvec_p);
     inArgs.set_x(thyra_x.getVector());
 
     // Create Jacobian and preconditioner
@@ -423,8 +419,7 @@ public:
       Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
       Thyra::ModelEvaluatorBase::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
 
-      for(std::size_t i=0; i<p_indices_.size(); ++i)
-        inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
+      inArgs.set_p(0, thyra_prodvec_p);
       inArgs.set_x(thyra_x.getVector());
 
       // Create implicitly transpose Jacobian and preconditioner
@@ -467,8 +462,7 @@ public:
     Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = availableAdjointModel_ ? thyra_adjointModel_->createInArgs() : thyra_model_->createInArgs();
     Thyra::ModelEvaluatorBase::OutArgs<Real> outArgs = availableAdjointModel_ ? thyra_adjointModel_->createOutArgs() : thyra_model_->createOutArgs();
 
-    for(std::size_t i=0; i<p_indices_.size(); ++i)
-      inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
+    inArgs.set_p(0, thyra_prodvec_p);
     inArgs.set_x(thyra_x.getVector());
 
     // Create implicitly transpose Jacobian and preconditioner
@@ -580,21 +574,21 @@ public:
     Thyra::ModelEvaluatorBase::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
 
     inArgs.set_x(thyra_x.getVector());
-    for(std::size_t i=0; i<p_indices_.size(); ++i) {
-      inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
+    inArgs.set_p(0, thyra_prodvec_p);
 
+    {
       // df/dp
 
-      Thyra::ModelEvaluatorBase::DerivativeSupport ds =  outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DfDp,i);
+      Thyra::ModelEvaluatorBase::DerivativeSupport ds =  outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DfDp, 0);
       // Determine which layout to use for df/dp.
 
       if (ds.supports(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP)) {
-        auto dfdp_op = thyra_model_->create_DfDp_op(i);
+        auto dfdp_op = thyra_model_->create_DfDp_op(0);
         TEUCHOS_TEST_FOR_EXCEPTION(
             dfdp_op == Teuchos::null, std::logic_error,
             std::endl << "Piro::ThyraProductME_Constraint_SimOpt::applyAdjointJacobian_2:  " <<
-            "Needed df/dp operator (" << i << ") is null!" << std::endl);
-        outArgs.set_DfDp(i,dfdp_op);
+            "Needed df/dp operator (" << 0 << ") is null!" << std::endl);
+        outArgs.set_DfDp(0,dfdp_op);
       } else {
         TEUCHOS_TEST_FOR_EXCEPTION(
             !ds.supports(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP),
@@ -603,30 +597,6 @@ public:
             "Piro::ThyraProductME_Constraint_SimOpt::applyAdjointJacobian_2():  " <<
             "The code related to df/dp multivector has been commented out because never tested.  " <<
             std::endl);
-
-        /*
-          if (ds.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM) && f_space_plus->isLocallyReplicated()) {
-          auto dfdp = Thyra::createMembers(p_space, f_space->dim());
-
-          Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>
-          dmv_dfdp(dfdp, Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM);
-          outArgs.set_DfDp(i,dmv_dfdp);
-        } else if (ds.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM) && p_space_plus->isLocallyReplicated()) {
-          auto dfdp = Thyra::createMembers(f_space, p_space->dim());
-          Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>
-          dmv_dfdp(dfdp, Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM);
-          outArgs.set_DfDp(i,dmv_dfdp);
-        }
-        else
-          TEUCHOS_TEST_FOR_EXCEPTION(
-              true, std::logic_error,
-              std::endl << "Piro::ThyraProductME_Constraint_SimOpt::applyAdjointJacobian_2():  " <<
-              "For df/dp(" << i <<") with adjoint sensitivities, " <<
-              "underlying ModelEvaluator must support DERIV_LINEAR_OP, " <<
-              "DERIV_MV_BY_COL with p not distributed, or "
-              "DERIV_TRANS_MV_BY_ROW with f not distributed." <<
-              std::endl);
-         */
       }
     }
 
@@ -721,8 +691,6 @@ public:
       outArgs.set_f(thyra_f.getVector());      
       outArgs.set_g(num_responses_, gx); //will contain the solution
       inArgs.set_p(0, thyra_prodvec_p);
-      //for(std::size_t i=0; i<p_indices_.size(); ++i)
-      //  inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
 
       inArgs.set_x(thyra_x.getVector());
 
@@ -769,9 +737,7 @@ public:
 
       Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
 
-      for(std::size_t i=0; i<p_indices_.size(); ++i) {
-        inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
-      }
+      inArgs.set_p(0, thyra_prodvec_p);
       inArgs.set_x(thyra_x.getVector());
       inArgs.set_x_direction(thyra_v.getVector());
 
@@ -841,9 +807,7 @@ public:
 
       Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
 
-      for(std::size_t i=0; i<p_indices_.size(); ++i) {
-        inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
-      }
+      inArgs.set_p(0, thyra_prodvec_p);
       inArgs.set_x(thyra_x.getVector());
       inArgs.set_x_direction(thyra_v.getVector());
       inArgs.set_f_multiplier(thyra_w.getVector());
@@ -997,10 +961,8 @@ public:
 
       Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
 
-      for(std::size_t i=0; i<p_indices_.size(); ++i) {
-        inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
-        inArgs.set_p_direction(p_indices_[i], thyra_prodvec_v->getVectorBlock(i));
-      }
+      inArgs.set_p(0, thyra_prodvec_p);
+      inArgs.set_p_direction(0, thyra_prodvec_v);
       inArgs.set_x(thyra_x.getVector());
       inArgs.set_f_multiplier(thyra_w.getVector());
 
