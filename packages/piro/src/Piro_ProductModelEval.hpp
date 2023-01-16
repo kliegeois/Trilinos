@@ -265,15 +265,45 @@ Thyra::ModelEvaluatorBase::InArgs<Real>
 ProductModelEvaluator<Real>::createInArgs() const
 {
     Thyra::ModelEvaluatorBase::InArgs<Real> internal_inArgs = thyra_model_->createInArgs();
-    return this->fromInternalInArgs(internal_inArgs);
+    Thyra::ModelEvaluatorBase::InArgsSetup<Real> result; 
+    result.setModelEvalDescription(this->description());
+    result.set_Np_Ng(1, thyra_model_->Ng());
+
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_dot, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_dot));
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot));
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x));
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_poly, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_poly));
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_poly, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_poly));
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_mp, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_mp));
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_mp, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_mp)); 
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_t, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_t)); 
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_alpha, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_alpha)); 
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_beta, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_beta)); 
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_W_x_dot_dot_coeff, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_W_x_dot_dot_coeff)); 
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_step_size, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_step_size)); 
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_stage_number, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_stage_number)); 
+
+    return result;
 }
 
 template <typename Real>
 Thyra::ModelEvaluatorBase::OutArgs<Real>
 ProductModelEvaluator<Real>::createOutArgsImpl() const
 {
-    Thyra::ModelEvaluatorBase::OutArgsSetup<Real> internal_outArgs = thyra_model_->createOutArgs();
-    return this->fromInternalOutArgs(internal_outArgs);
+    Thyra::ModelEvaluatorBase::OutArgs<Real> internal_outArgs = thyra_model_->createOutArgs();
+    Thyra::ModelEvaluatorBase::OutArgsSetup<Real> result; 
+    result.setModelEvalDescription(this->description());
+    result.set_Np_Ng(1, thyra_model_->Ng());
+
+    result.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_f, internal_outArgs.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_f));
+    result.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_W, internal_outArgs.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_W));
+    result.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_f_mp, internal_outArgs.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_f_mp));
+    result.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_W_mp, internal_outArgs.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_W_mp));
+    result.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_W_op, internal_outArgs.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_W_op));
+    result.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_W_prec, internal_outArgs.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_W_prec));
+    result.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_f_poly, internal_outArgs.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_f_poly)); 
+
+    return result;
 }
 
 template <typename Real>
@@ -295,8 +325,19 @@ ProductModelEvaluator<Real>::createInArgsImpl() const
     result.setModelEvalDescription(this->description());
     result.set_Np_Ng(1, thyra_model_->Ng());
 
-    for ( const auto e : Thyra::ModelEvaluator<Real>::EInArgsMembers )
-        result.setSupports(e, internal_inArgs.supports(e));
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_dot, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_dot));
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot));
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x));
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_poly, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_poly));
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_poly, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_poly));
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_mp, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_mp));
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_mp, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_mp)); 
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_t, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_t)); 
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_alpha, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_alpha)); 
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_beta, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_beta)); 
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_W_x_dot_dot_coeff, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_W_x_dot_dot_coeff)); 
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_step_size, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_step_size)); 
+    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_stage_number, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_stage_number)); 
 
     return result;
 }

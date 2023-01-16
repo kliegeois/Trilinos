@@ -720,8 +720,9 @@ public:
 
       outArgs.set_f(thyra_f.getVector());      
       outArgs.set_g(num_responses_, gx); //will contain the solution
-      for(std::size_t i=0; i<p_indices_.size(); ++i)
-        inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
+      inArgs.set_p(0, thyra_prodvec_p);
+      //for(std::size_t i=0; i<p_indices_.size(); ++i)
+      //  inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
 
       inArgs.set_x(thyra_x.getVector());
 
