@@ -96,8 +96,10 @@ public:
     Thyra::ModelEvaluatorBase::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
 
     outArgs.set_g(g_index_, g);
-    for(std::size_t i=0; i<p_indices_.size(); ++i)
-      inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
+    //for(std::size_t i=0; i<p_indices_.size(); ++i)
+    //  inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
+    inArgs.set_p(0, thyra_prodvec_p);
+
     inArgs.set_x(thyra_x.getVector());
 
     thyra_model_->evalModel(inArgs, outArgs);
@@ -148,8 +150,9 @@ public:
 
     Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
 
-    for(std::size_t i=0; i<p_indices_.size(); ++i)
-      inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
+    //for(std::size_t i=0; i<p_indices_.size(); ++i)
+    //  inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
+    inArgs.set_p(0, thyra_prodvec_p);
     inArgs.set_x(thyra_x.getVector());
 
     Thyra::ModelEvaluatorBase::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
@@ -222,8 +225,9 @@ public:
 
     Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
 
-    for(std::size_t i=0; i<p_indices_.size(); ++i)
-      inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
+    //for(std::size_t i=0; i<p_indices_.size(); ++i)
+    //  inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
+    inArgs.set_p(0, thyra_prodvec_p);
     inArgs.set_x(thyra_x.getVector());
 
     Thyra::ModelEvaluatorBase::OutArgs<Real> outArgs = thyra_model_->createOutArgs();

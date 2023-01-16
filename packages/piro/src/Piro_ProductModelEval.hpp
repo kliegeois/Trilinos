@@ -47,6 +47,7 @@
 #include "Thyra_ModelEvaluator.hpp"
 #include "Thyra_DefaultProductVectorSpace.hpp"
 #include "Thyra_DefaultProductVector.hpp"
+#include "Thyra_ModelEvaluatorDelegatorBase.hpp"
 
 namespace Piro {
 
@@ -55,7 +56,7 @@ namespace Piro {
  */
 
 template<class Real>
-class ProductModelEvaluator : public Thyra::ModelEvaluatorDefaultBase<Real>
+class ProductModelEvaluator : public Thyra::ModelEvaluatorDelegatorBase<Real>
 {
 public:
 
@@ -133,10 +134,10 @@ protected:
 
 private:
 
-    Thyra::ModelEvaluatorBase::InArgs<Real>  fromInternalInArgs(const Thyra::ModelEvaluatorBase::InArgs<Real>& inArgs) const;
-    Thyra::ModelEvaluatorBase::InArgs<Real>  toInternalInArgs(const Thyra::ModelEvaluatorBase::InArgs<Real>& inArgs) const;
-    Thyra::ModelEvaluatorBase::OutArgs<Real>  fromInternalOutArgs(const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs) const;
-    Thyra::ModelEvaluatorBase::OutArgs<Real>  toInternalOutArgs(const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs) const;
+    void fromInternalInArgs(const Thyra::ModelEvaluatorBase::InArgs<Real>& inArgs1, Thyra::ModelEvaluatorBase::InArgsSetup<Real>& inArgs2) const;
+    void toInternalInArgs(const Thyra::ModelEvaluatorBase::InArgs<Real>& inArgs1, Thyra::ModelEvaluatorBase::InArgsSetup<Real>& inArgs2) const;
+    void fromInternalOutArgs(const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs1, Thyra::ModelEvaluatorBase::OutArgsSetup<Real>& outArgs2) const;
+    void toInternalOutArgs(const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs1, Thyra::ModelEvaluatorBase::OutArgsSetup<Real>& outArgs2) const;
 
     /** \brief . */
     Thyra::ModelEvaluatorBase::InArgs<Real>  createInArgsImpl() const;
@@ -269,19 +270,7 @@ ProductModelEvaluator<Real>::createInArgs() const
     result.setModelEvalDescription(this->description());
     result.set_Np_Ng(1, thyra_model_->Ng());
 
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_dot, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_dot));
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot));
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x));
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_poly, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_poly));
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_poly, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_poly));
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_mp, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_mp));
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_mp, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_mp)); 
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_t, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_t)); 
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_alpha, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_alpha)); 
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_beta, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_beta)); 
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_W_x_dot_dot_coeff, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_W_x_dot_dot_coeff)); 
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_step_size, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_step_size)); 
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_stage_number, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_stage_number)); 
+    this->fromInternalInArgs(internal_inArgs, result);
 
     return result;
 }
@@ -295,13 +284,7 @@ ProductModelEvaluator<Real>::createOutArgsImpl() const
     result.setModelEvalDescription(this->description());
     result.set_Np_Ng(1, thyra_model_->Ng());
 
-    result.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_f, internal_outArgs.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_f));
-    result.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_W, internal_outArgs.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_W));
-    result.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_f_mp, internal_outArgs.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_f_mp));
-    result.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_W_mp, internal_outArgs.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_W_mp));
-    result.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_W_op, internal_outArgs.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_W_op));
-    result.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_W_prec, internal_outArgs.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_W_prec));
-    result.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_f_poly, internal_outArgs.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_f_poly)); 
+    this->fromInternalOutArgs(internal_outArgs, result);
 
     return result;
 }
@@ -312,8 +295,13 @@ ProductModelEvaluator<Real>::evalModelImpl(
     const Thyra::ModelEvaluatorBase::InArgs<Real>&  inArgs,
     const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs) const
 {
-    
-    //thyra_model_->evalModelImpl(internal_inArgs, internal_outArgs);
+    Thyra::ModelEvaluatorBase::InArgs<Real> internal_inArgs = thyra_model_->createInArgs();
+    Thyra::ModelEvaluatorBase::OutArgs<Real> internal_outArgs = thyra_model_->createOutArgs();
+
+    internal_outArgs.setArgs(outArgs, true);
+    internal_inArgs.setArgs(inArgs, true);
+
+    thyra_model_->evalModel(internal_inArgs,internal_outArgs);
 }
 
 template <typename Real>
@@ -325,19 +313,7 @@ ProductModelEvaluator<Real>::createInArgsImpl() const
     result.setModelEvalDescription(this->description());
     result.set_Np_Ng(1, thyra_model_->Ng());
 
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_dot, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_dot));
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot));
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x));
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_poly, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_poly));
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_poly, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_poly));
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_mp, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_mp));
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_mp, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_mp)); 
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_t, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_t)); 
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_alpha, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_alpha)); 
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_beta, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_beta)); 
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_W_x_dot_dot_coeff, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_W_x_dot_dot_coeff)); 
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_step_size, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_step_size)); 
-    result.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_stage_number, internal_inArgs.supports(Thyra::ModelEvaluator<Real>::IN_ARG_stage_number)); 
+    this->fromInternalInArgs(internal_inArgs, result);
 
     return result;
 }
@@ -394,38 +370,52 @@ ProductModelEvaluator<Real>::reportFinalPoint(
 }
 
 template <typename Real>
-Thyra::ModelEvaluatorBase::InArgs<Real>
-ProductModelEvaluator<Real>::fromInternalInArgs(const Thyra::ModelEvaluatorBase::InArgs<Real>& inArgs) const
+void
+ProductModelEvaluator<Real>::fromInternalInArgs(const Thyra::ModelEvaluatorBase::InArgs<Real>& inArgs1, Thyra::ModelEvaluatorBase::InArgsSetup<Real>& inArgs2) const
 {
-    Thyra::ModelEvaluatorBase::InArgs<Real> results;
-    //inArgs.supports(IN_ARG_x_dot_dot);
-    return results;
+    inArgs2.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_dot, inArgs1.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_dot));
+    inArgs2.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot, inArgs1.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot));
+    inArgs2.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x, inArgs1.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x));
+    inArgs2.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_poly, inArgs1.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_poly));
+    inArgs2.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_poly, inArgs1.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_poly));
+    inArgs2.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_mp, inArgs1.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_dot_mp));
+    inArgs2.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_x_mp, inArgs1.supports(Thyra::ModelEvaluator<Real>::IN_ARG_x_mp)); 
+    inArgs2.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_t, inArgs1.supports(Thyra::ModelEvaluator<Real>::IN_ARG_t)); 
+    inArgs2.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_alpha, inArgs1.supports(Thyra::ModelEvaluator<Real>::IN_ARG_alpha)); 
+    inArgs2.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_beta, inArgs1.supports(Thyra::ModelEvaluator<Real>::IN_ARG_beta)); 
+    inArgs2.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_W_x_dot_dot_coeff, inArgs1.supports(Thyra::ModelEvaluator<Real>::IN_ARG_W_x_dot_dot_coeff)); 
+    inArgs2.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_step_size, inArgs1.supports(Thyra::ModelEvaluator<Real>::IN_ARG_step_size)); 
+    inArgs2.setSupports(Thyra::ModelEvaluator<Real>::IN_ARG_stage_number, inArgs1.supports(Thyra::ModelEvaluator<Real>::IN_ARG_stage_number)); 
 }
 
 template <typename Real>
-Thyra::ModelEvaluatorBase::InArgs<Real>
-ProductModelEvaluator<Real>::toInternalInArgs(const Thyra::ModelEvaluatorBase::InArgs<Real>& inArgs) const
+void
+ProductModelEvaluator<Real>::toInternalInArgs(const Thyra::ModelEvaluatorBase::InArgs<Real>& inArgs1, Thyra::ModelEvaluatorBase::InArgsSetup<Real>& inArgs2) const
 {
-    Thyra::ModelEvaluatorBase::InArgs<Real> results;
-    return results;
+
 }
 
 template <typename Real>
-Thyra::ModelEvaluatorBase::OutArgs<Real>
-ProductModelEvaluator<Real>::fromInternalOutArgs(const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs) const
+void
+ProductModelEvaluator<Real>::fromInternalOutArgs(const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs1, Thyra::ModelEvaluatorBase::OutArgsSetup<Real>& outArgs2) const
 {
-    Thyra::ModelEvaluatorBase::OutArgs<Real> results;
-    //results._setModelEvalDescription(this->description());
-    //results._set_Np_Ng(1, thyra_model_->Ng());
-    return results;
+
+    outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_f, outArgs1.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_f));
+    outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_W, outArgs1.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_W));
+    outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_f_mp, outArgs1.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_f_mp));
+    outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_W_mp, outArgs1.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_W_mp));
+    outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_W_op, outArgs1.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_W_op));
+    outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_W_prec, outArgs1.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_W_prec));
+    outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_f_poly, outArgs1.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_f_poly));
+
+    outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDx, g_index_, outArgs1.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDx, g_index_));
 }
 
 template <typename Real>
-Thyra::ModelEvaluatorBase::OutArgs<Real>
-ProductModelEvaluator<Real>::toInternalOutArgs(const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs) const
+void
+ProductModelEvaluator<Real>::toInternalOutArgs(const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs1, Thyra::ModelEvaluatorBase::OutArgsSetup<Real>& outArgs2) const
 {
-    Thyra::ModelEvaluatorBase::OutArgs<Real> results;
-    return results;
+
 }
 
 } // namespace Piro
