@@ -659,7 +659,7 @@ namespace Ifpack2 {
           const auto pid_send_value = pids.send[i];
           for (local_ordinal_type j=0,jend=epids.size();j<jend;++j)
             if (epids[j] == pid_send_value) lids_send_host[cnt++] = elids[j];
-#if !defined(__HIP_DEVICE_COMPILE__) && !defined(__CUDA_ARCH__)
+#if !defined(__CUDA_ARCH__)
           TEUCHOS_ASSERT(static_cast<size_t>(cnt) == offset_host.send[i+1]);
 #endif
         }
@@ -1487,13 +1487,15 @@ namespace Ifpack2 {
         else                      total_team_size = 160;
         const local_ordinal_type team_size = total_team_size/vector_loop_size;
         const team_policy_type policy(packptr.extent(0)-1, team_size, vector_loop_size);
-#elif defined(KOKKOS_ENABLE_HIP) && defined(__HIP_DEVICE_COMPILE__)
+#elif defined(KOKKOS_ENABLE_HIP)
 	// FIXME: HIP
 	// These settings might be completely wrong
 	// will have to do some experiments to decide
 	// what makes sense on AMD GPUs
         local_ordinal_type total_team_size(0);
-        if      (blocksize <=  5) total_team_size =  32;
+        if(const char* env_total_team_size = std::getenv("TOTAL_TEAM_SIZE"))
+          total_team_size = std::stoi(env_total_team_size);
+        else if (blocksize <=  5) total_team_size =  32;
         else if (blocksize <=  9) total_team_size =  64;
         else if (blocksize <= 12) total_team_size =  96;
         else if (blocksize <= 16) total_team_size = 128;
@@ -1614,7 +1616,7 @@ namespace Ifpack2 {
         const auto dommap = g.getDomainMap();
         TEUCHOS_ASSERT( !(rowmap.is_null() || colmap.is_null() || dommap.is_null()));
 
-#if !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)
+#if !defined(__CUDA_ARCH__) //&& !defined(__HIP_DEVICE_COMPILE__)
         const Kokkos::RangePolicy<host_execution_space> policy(0,nrows);
         Kokkos::parallel_for
           ("performSymbolicPhase::RangePolicy::col2row",
@@ -2591,7 +2593,7 @@ namespace Ifpack2 {
 
       // copy to multivectors : damping factor and Y_scalar_multivector
       Unmanaged<impl_scalar_type_2d_view_tpetra> Y_scalar_multivector;
-#if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
+#if defined(__CUDA_ARCH__) //|| defined(__HIP_DEVICE_COMPILE__)
       AtomicUnmanaged<impl_scalar_type_1d_view> Z_scalar_vector;
 #else
       /* */ Unmanaged<impl_scalar_type_1d_view> Z_scalar_vector;
