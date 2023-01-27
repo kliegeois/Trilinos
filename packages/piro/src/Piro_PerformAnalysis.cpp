@@ -532,12 +532,13 @@ Piro::PerformROLAnalysis(
 
   #ifdef HAVE_PIRO_TEKO
   Teko::LinearOp H, invH;
-  if (useHessianDotProduct) {
+  Teuchos::RCP<Piro::ProductModelEvaluator<double>> model_PME = Teuchos::rcp_dynamic_cast<Piro::ProductModelEvaluator<double>>(model);
+  if (useHessianDotProduct && !model_PME.is_null()) {
     int hessianResponseIndex = hessianDotProductList.get<int>("Response Index");
     if(analysisVerbosity > 2)
       *out << "\nPiro::PerformROLAnalysis: Start the computation of H_pp" << std::endl;
     Teko::BlockedLinearOp bH = Teko::createBlockedOp();
-    obj.block_diagonal_hessian_22(bH, rol_x, rol_p, hessianResponseIndex);
+    model_PME->block_diagonal_hessian_22(bH, rol_x, rol_p, hessianResponseIndex);
     if(analysisVerbosity > 2)
       *out << "Piro::PerformROLAnalysis: End of the computation of H_pp" << std::endl;
 
