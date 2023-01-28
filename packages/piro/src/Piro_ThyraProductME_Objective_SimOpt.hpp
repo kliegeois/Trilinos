@@ -97,8 +97,7 @@ public:
     Thyra::ModelEvaluatorBase::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
 
     outArgs.set_g(g_index_, g);
-    std::cout << thyra_prodvec_p.is_null() << std::endl;
-    inArgs.set_p(0, thyra_p.getVector());
+    inArgs.set_p(0, thyra_prodvec_p);
 
     inArgs.set_x(thyra_x.getVector());
 

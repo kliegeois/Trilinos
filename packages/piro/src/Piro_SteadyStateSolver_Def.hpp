@@ -407,15 +407,14 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
       g_vecs[i] = Thyra::createMember(p_spaces[i]);
     }
 
-    RCP<Thyra::DefaultProductVectorSpace<Scalar> const> p_space = Thyra::productVectorSpace<Scalar>(p_spaces);
-    RCP<Thyra::DefaultProductVector<Scalar>> p_prod = Thyra::defaultProductVector<Scalar>(p_space, p_vecs());
+    RCP<Thyra::DefaultProductVectorSpace<Scalar> const> p_space = 
+      Teuchos::rcp_dynamic_cast<Thyra::DefaultProductVectorSpace<Scalar> const>(this->getModel().get_p_space(0));
+    RCP<Thyra::VectorBase<Scalar>> thyra_p = Thyra::createMember(this->getModel().get_p_space(0));
 
-    for (auto i = 0; i < num_p_; ++i) {
-      RCP<const Thyra::VectorBase<Scalar> > p_init = modelInArgs.get_p(i) != Teuchos::null ? modelInArgs.get_p(i) : this->getModel().getNominalValues().get_p(i);
-      Thyra::copy(*p_init, p_prod->getNonconstVectorBlock(i).ptr());
-    }
+    RCP<const Thyra::VectorBase<Scalar> > p_init = modelInArgs.get_p(0) != Teuchos::null ? modelInArgs.get_p(0) : this->getModel().getNominalValues().get_p(0);
+    Thyra::copy(*p_init, thyra_p.ptr());
 
-    ROL::ThyraVector<Scalar> rol_p(p_prod);
+    ROL::ThyraVector<Scalar> rol_p(thyra_p);
 
     Teuchos::RCP<Thyra::VectorSpaceBase<Scalar> const> x_space = this->getModel().get_x_space();
     Teuchos::RCP<Thyra::VectorBase<Scalar>> x = Thyra::createMember(x_space);

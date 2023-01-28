@@ -305,13 +305,33 @@ ProductModelEvaluator<Real>::evalModelImpl(
     internal_inArgs.setArgs(inArgs, true);
 
     Teuchos::RCP<const Thyra::ProductVectorBase<Real> > prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(inArgs.get_p(0));
-    Teuchos::RCP<const Thyra::ProductVectorBase<Real> > prodvec_direction_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(inArgs.get_p_direction(0));
+    Teuchos::RCP<const Thyra::ProductMultiVectorBase<Real> > prodvec_direction_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductMultiVectorBase<Real>>(inArgs.get_p_direction(0));
 
     for (auto i = 0; i < p_indices_.size(); ++i) {
+        auto tmp = prodvec_p->getVectorBlock(i);
+
+        Teuchos::RCP<const Thyra::ProductVectorBase<Real> > prodvec_p_in
+            = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(tmp);
+
+        TEUCHOS_TEST_FOR_EXCEPTION(!prodvec_p_in.is_null(), std::logic_error,
+            std::endl <<
+            "Error!  ProductModelEvaluator<Real>::evalModelImpl() " <<
+            " ProductVectorBase of ProductVectorBase is not supported.  Parameter index i = " <<
+            i << std::endl);
+
         internal_inArgs.set_p(p_indices_[i], prodvec_p->getVectorBlock(i));
         if (!prodvec_direction_p.is_null())
-            internal_inArgs.set_p_direction(p_indices_[i], prodvec_direction_p->getVectorBlock(i));
+            internal_inArgs.set_p_direction(p_indices_[i], prodvec_direction_p->getMultiVectorBlock(i));
     }
+
+    /*
+    const Teuchos::RCP<const Thyra::VectorBase<double>> p_in = internal_inArgs.get_p(0);
+    Teuchos::RCP<const Thyra::ProductVectorBase<Real> > prodvec_p_in = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(p_in);
+    if (prodvec_p_in.is_null())
+        std::cout << "Fine!" << std::endl;
+    else 
+        std::cout << "Bad!" << std::endl;
+    */
 
     for (auto g_index = 0; g_index < thyra_model_->Ng(); ++g_index) {
         auto dgdp = outArgs.get_DgDp(g_index, 0).getMultiVector();
