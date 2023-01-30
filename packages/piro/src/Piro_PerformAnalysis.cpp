@@ -74,8 +74,6 @@
 #include "ROL_BoundConstraint_SimOpt.hpp"
 #include "ROL_Bounds.hpp"
 #include "Thyra_VectorDefaultBase.hpp"
-#include "Thyra_DefaultProductVectorSpace.hpp"
-#include "Thyra_DefaultProductVector.hpp"
 #include "Thyra_DefaultBlockedLinearOp.hpp"
 #include "Piro_CustomLBFGSSecant.hpp"
 #include "ROL_LinearOpScaledThyraVector.hpp"
