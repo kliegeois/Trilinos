@@ -124,8 +124,7 @@ int main(int argc, char *argv[]) {
                 rcp(new Teuchos::ParameterList("Piro Parameters"));
             Teuchos::updateParametersFromXmlFile(inputFile, piroParams.ptr());
 
-            std::vector<int> p_indices(1);
-            p_indices[0] = 0;
+            std::vector<int> p_indices{0};
             const RCP<Thyra::ModelEvaluator<double>> model = rcp(new MockModelEval_A_Tpetra(appComm));
             //const RCP<Thyra::ModelEvaluator<double>> model_tmp = rcp(new Piro::ProductModelEvaluator<double>(model_tmp,0,p_indices));
             bool adjoint = (piroParams->get("Sensitivity Method", "Forward") == "Adjoint");
