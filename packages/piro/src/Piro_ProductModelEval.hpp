@@ -47,6 +47,7 @@
 #include "Thyra_ModelEvaluator.hpp"
 #include "Thyra_DefaultProductVectorSpace.hpp"
 #include "Thyra_DefaultProductVector.hpp"
+#include "Thyra_DefaultProductMultiVector.hpp"
 #include "Thyra_ModelEvaluatorDelegatorBase.hpp"
 
 namespace Piro {
@@ -337,8 +338,8 @@ ProductModelEvaluator<Real>::evalModelImpl(
         auto dgdp = outArgs.get_DgDp(g_index, 0).getMultiVector();
         if (Teuchos::is_null(dgdp))
             continue;
-        Teuchos::RCP<Thyra::ProductVectorBase<Real> > prodvec_dgdp =
-            Teuchos::rcp_dynamic_cast<Thyra::ProductVectorBase<Real>>(dgdp);
+        Teuchos::RCP<Thyra::ProductMultiVectorBase<Real> > prodvec_dgdp =
+            Teuchos::rcp_dynamic_cast<Thyra::ProductMultiVectorBase<Real>>(dgdp);
         if (Teuchos::is_null(prodvec_dgdp))
             continue;
         for (auto i = 0; i < p_indices_.size(); ++i) {
@@ -355,7 +356,7 @@ ProductModelEvaluator<Real>::evalModelImpl(
             }
             internal_outArgs.set_DgDp(g_index, 
                                     p_indices_[i], 
-                                    Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(prodvec_dgdp->getNonconstVectorBlock(i), 
+                                    Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(prodvec_dgdp->getNonconstMultiVectorBlock(i), 
                                                                                             dgdp_orient));
         }
     }
