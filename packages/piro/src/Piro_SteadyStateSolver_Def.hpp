@@ -396,7 +396,6 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
   if(computeAdjointSensitivities) {
     double tol = 1e-8;
 
-    std::vector<int> p_indices{0};
     RCP<Thyra::VectorSpaceBase<Scalar> const> p_space = this->getModel().get_p_space(0);
     RCP<Thyra::VectorBase<Scalar>> thyra_p = Thyra::createMember(p_space);
 
@@ -421,12 +420,12 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
     ROL::Ptr<ROL::Vector<Scalar> > rol_lambda_ptr = ROL::makePtrFromRef(rol_lambda);
 
 
-    Piro::ThyraProductME_Constraint_SimOpt<Scalar> constr(model_, adjointModel_, p_indices, appParams, Teuchos::VERB_NONE);
+    Piro::ThyraProductME_Constraint_SimOpt<Scalar> constr(model_, adjointModel_, appParams, Teuchos::VERB_NONE);
     auto  stateStore = ROL::makePtr<ROL::VectorController<Scalar>>();
       
     for (int i=0; i<num_g_; ++i) {      
 
-      Piro::ThyraProductME_Objective_SimOpt<Scalar> obj(model_, i, p_indices, appParams, Teuchos::VERB_NONE);
+      Piro::ThyraProductME_Objective_SimOpt<Scalar> obj(model_, i, appParams, Teuchos::VERB_NONE);
 
       ROL::Ptr<ROL::Objective_SimOpt<Scalar> > obj_ptr = ROL::makePtrFromRef(obj);
       ROL::Ptr<ROL::Constraint_SimOpt<Scalar> > constr_ptr = ROL::makePtrFromRef(constr);
@@ -1190,8 +1189,6 @@ void Piro::SteadyStateSolver<Scalar>::evalReducedHessian(
 
   double tol = 1e-8;
 
-  std::vector<int> p_indices{0};
-
   RCP<Thyra::VectorSpaceBase<Scalar> const> p_space = this->getModel().get_p_space(0);
   RCP<Thyra::VectorBase<Scalar>> thyra_p = Thyra::createMember(p_space);
   RCP<Thyra::VectorBase<Scalar>> thyra_direction_p = Thyra::createMember(p_space);
@@ -1223,11 +1220,11 @@ void Piro::SteadyStateSolver<Scalar>::evalReducedHessian(
   }
 
 
-  Piro::ThyraProductME_Constraint_SimOpt<Scalar> constr(model_, adjointModel_, p_indices, appParams, Teuchos::VERB_NONE);
+  Piro::ThyraProductME_Constraint_SimOpt<Scalar> constr(model_, adjointModel_, appParams, Teuchos::VERB_NONE);
   auto stateStore = ROL::makePtr<ROL::VectorController<Scalar>>(); 
   
   for (int g_index=0; g_index<num_g_; ++g_index) {
-    Piro::ThyraProductME_Objective_SimOpt<Scalar> obj(model_, g_index, p_indices, appParams, Teuchos::VERB_NONE);
+    Piro::ThyraProductME_Objective_SimOpt<Scalar> obj(model_, g_index, appParams, Teuchos::VERB_NONE);
     
     ROL::Ptr<ROL::Constraint_SimOpt<Scalar> > constr_ptr = ROL::makePtrFromRef(constr);
     ROL::Ptr<ROL::Objective_SimOpt<Scalar> > obj_ptr = ROL::makePtrFromRef(obj);    

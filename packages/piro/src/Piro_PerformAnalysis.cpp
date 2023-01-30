@@ -275,13 +275,11 @@ Piro::PerformROLAnalysis(
   rolParams.validateParameters(*Piro::getValidPiroAnalysisROLParameters(num_parameters),0);
 
   int g_index = rolParams.get<int>("Response Vector Index", 0);  
-  std::vector<int> p_indices(num_parameters);
   std::vector<std::string> p_names;
 
   for(int i=0; i<num_parameters; ++i) {
     std::ostringstream ss; ss << "Parameter Vector Index " << i;
-    p_indices[i] = rolParams.get<int>(ss.str(), i);
-    const auto names_array = *piroSSSolver->getModel().get_p_names(p_indices[i]);
+    const auto names_array = *piroSSSolver->getModel().get_p_names(0);
     for (int k=0; k<names_array.size(); k++) {
       p_names.push_back(names_array[k]);
     }
@@ -315,8 +313,8 @@ Piro::PerformROLAnalysis(
     case 4: analysisVerbosityLevel= Teuchos::VERB_EXTREME; break;
     default: analysisVerbosityLevel= Teuchos::VERB_NONE;
   }  
-  Piro::ThyraProductME_Objective_SimOpt<double> obj(model, g_index, p_indices, piroParams, analysisVerbosityLevel, observer);
-  Piro::ThyraProductME_Constraint_SimOpt<double> constr(model, adjointModel, p_indices, piroParams, analysisVerbosityLevel, observer);
+  Piro::ThyraProductME_Objective_SimOpt<double> obj(model, g_index, piroParams, analysisVerbosityLevel, observer);
+  Piro::ThyraProductME_Constraint_SimOpt<double> constr(model, adjointModel, piroParams, analysisVerbosityLevel, observer);
 
   constr.setSolveParameters(rolParams.sublist("ROL Options"));
 

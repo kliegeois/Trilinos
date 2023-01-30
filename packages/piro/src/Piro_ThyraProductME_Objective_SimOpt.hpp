@@ -60,10 +60,10 @@ class ThyraProductME_Objective_SimOpt : public ROL::Objective_SimOpt<Real> {
 public:
 
 
-  ThyraProductME_Objective_SimOpt(const Teuchos::RCP<const Thyra::ModelEvaluator<Real>>& thyra_model, int g_index, const std::vector<int>& p_indices,
+  ThyraProductME_Objective_SimOpt(const Teuchos::RCP<const Thyra::ModelEvaluator<Real>>& thyra_model, int g_index,
       Teuchos::ParameterList& piroParams, Teuchos::EVerbosityLevel verbLevel= Teuchos::VERB_HIGH,
       Teuchos::RCP<ROL_ObserverBase<Real>> observer = Teuchos::null) :
-        thyra_model_(thyra_model), g_index_(g_index), p_indices_(p_indices),
+        thyra_model_(thyra_model), g_index_(g_index),
         optParams_(piroParams.sublist("Optimization Status")),
         out_(Teuchos::VerboseObjectBase::getDefaultOStream()),
         verbosityLevel_(verbLevel), observer_(observer)  {
@@ -642,7 +642,7 @@ private:
 
   const Teuchos::RCP<const Thyra::ModelEvaluator<Real>> thyra_model_;
   const int g_index_;
-  const std::vector<int> p_indices_;
+  const std::vector<int> p_indices_{0};
   Real objectiveRecoveryValue_;
   bool useObjectiveRecoveryValue_;
   ROL::UpdateType updateType_;
