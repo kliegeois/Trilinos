@@ -293,10 +293,9 @@ Piro::PerformROLAnalysis(
     piroParams.sublist("Optimization Status").set("Objective Recovery Value", rolParams.get<double>("Objective Recovery Value"));
 
   Teuchos::RCP<Thyra::VectorSpaceBase<double> const> p_space = model->get_p_space(0);
-  Teuchos::RCP<Thyra::VectorBase<double>> p_prod = model->getNominalValues().get_p(0)->clone_v();
-  p = p_prod;
+  p = model->getNominalValues().get_p(0)->clone_v();
 
-  ROL::ThyraVector<double> rol_p(p_prod);
+  ROL::ThyraVector<double> rol_p(p);
   //Teuchos::RCP<Thyra::VectorSpaceBase<double> const> p_space;
   Teuchos::RCP<Thyra::VectorSpaceBase<double> const> x_space = model->get_x_space();
 
