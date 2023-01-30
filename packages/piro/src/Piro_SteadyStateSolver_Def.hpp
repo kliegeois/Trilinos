@@ -396,11 +396,7 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
   if(computeAdjointSensitivities) {
     double tol = 1e-8;
 
-    std::vector<int> p_indices(num_p_);
-    for (auto i = 0; i < num_p_; ++i) {
-      p_indices[i] = i;
-    }
-
+    std::vector<int> p_indices{0};
     RCP<Thyra::VectorSpaceBase<Scalar> const> p_space = this->getModel().get_p_space(0);
     RCP<Thyra::VectorBase<Scalar>> thyra_p = Thyra::createMember(p_space);
 
@@ -1194,10 +1190,7 @@ void Piro::SteadyStateSolver<Scalar>::evalReducedHessian(
 
   double tol = 1e-8;
 
-  std::vector<int> p_indices(num_p_);
-  for (auto i = 0; i < num_p_; ++i) {
-    p_indices[i] = i;
-  }
+  std::vector<int> p_indices{0};
 
   RCP<Thyra::VectorSpaceBase<Scalar> const> p_space = this->getModel().get_p_space(0);
   RCP<Thyra::VectorBase<Scalar>> thyra_p = Thyra::createMember(p_space);
