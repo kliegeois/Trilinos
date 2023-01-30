@@ -299,6 +299,10 @@ ProductModelEvaluator<Real>::evalModelImpl(
     internal_inArgs.set_Np_Ng(thyra_model_->Np(), thyra_model_->Ng());
     internal_outArgs.set_Np_Ng(thyra_model_->Np(), thyra_model_->Ng());
 
+    bool supports_vec_prod_g_xp = outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_xp, g_index_, 0);
+    bool supports_vec_prod_g_px = outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_px, g_index_, 0);
+    bool supports_vec_prod_g_pp = outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_pp, g_index_, 0, 0);
+
     this->toInternalInArgs(inArgs, internal_inArgs);
     this->toInternalOutArgs(outArgs, internal_outArgs);
 
@@ -324,15 +328,6 @@ ProductModelEvaluator<Real>::evalModelImpl(
         if (!prodvec_direction_p.is_null())
             internal_inArgs.set_p_direction(p_indices_[i], prodvec_direction_p->getMultiVectorBlock(i));
     }
-
-    /*
-    const Teuchos::RCP<const Thyra::VectorBase<double>> p_in = internal_inArgs.get_p(0);
-    Teuchos::RCP<const Thyra::ProductVectorBase<Real> > prodvec_p_in = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(p_in);
-    if (prodvec_p_in.is_null())
-        std::cout << "Fine!" << std::endl;
-    else 
-        std::cout << "Bad!" << std::endl;
-    */
 
     for (auto g_index = 0; g_index < thyra_model_->Ng(); ++g_index) {
         auto dgdp = outArgs.get_DgDp(g_index, 0).getMultiVector();
@@ -361,7 +356,69 @@ ProductModelEvaluator<Real>::evalModelImpl(
         }
     }
 
+    if (supports_vec_prod_g_xp) {
+        std::vector<Teuchos::RCP< Thyra::MultiVectorBase<Real> > > hv_vec(p_indices_.size());
+
+        hv_vec[0] = outArgs.get_hess_vec_prod_g_xp(g_index_,0);
+        for(std::size_t j=1; j<p_indices_.size(); ++j) {
+            hv_vec[j] = hv_vec[0]->clone_mv();
+        }
+
+        for(std::size_t j=0; j<p_indices_.size(); ++j) {
+            internal_outArgs.set_hess_vec_prod_g_xp(g_index_,p_indices_[j], hv_vec[j]);
+        }
+    }
+
+    if (supports_vec_prod_g_px) {
+        Teuchos::RCP< Thyra::ProductMultiVectorBase<Real> > prodvec_hv =
+            Teuchos::rcp_dynamic_cast<Thyra::ProductMultiVectorBase<Real>>(outArgs.get_hess_vec_prod_g_px(g_index_,0));
+
+        for(std::size_t i=0; i<p_indices_.size(); ++i) {
+            bool supports_deriv_j =   internal_outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_px, g_index_, p_indices_[i]);
+            ROL_TEST_FOR_EXCEPTION( !supports_deriv_j, std::logic_error, "Piro::ThyraProductME_Objective_SimOpt: H_px product vector is not supported");
+            internal_outArgs.set_hess_vec_prod_g_px(g_index_,p_indices_[i], prodvec_hv->getNonconstMultiVectorBlock(i));
+        }
+    }
+
+    if (supports_vec_prod_g_pp) {
+        Teuchos::RCP< Thyra::ProductMultiVectorBase<Real> > prodvec_hv =
+            Teuchos::rcp_dynamic_cast<Thyra::ProductMultiVectorBase<Real>>(outArgs.get_hess_vec_prod_g_pp(g_index_,0,0));
+        std::vector<std::vector<Teuchos::RCP< Thyra::MultiVectorBase<Real> > > > hv_vec(p_indices_.size());
+
+        for(std::size_t i=0; i<p_indices_.size(); ++i) {
+            hv_vec[i].resize(p_indices_.size());
+            hv_vec[i][0] = prodvec_hv->getNonconstMultiVectorBlock(i);
+            for(std::size_t j=1; j<p_indices_.size(); ++j) {
+                hv_vec[i][j] = hv_vec[i][0]->clone_mv();
+            }
+        }
+
+        for(std::size_t i=0; i<p_indices_.size(); ++i) {
+            for(std::size_t j=0; j<p_indices_.size(); ++j) {
+                bool supports_deriv_j =   internal_outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_pp, g_index_, p_indices_[i], p_indices_[j]);
+                ROL_TEST_FOR_EXCEPTION( !supports_deriv_j, std::logic_error, "Piro::ThyraProductME_Objective_SimOpt: H_pp product vector is not supported");
+
+                internal_outArgs.set_hess_vec_prod_g_pp(g_index_,p_indices_[i], p_indices_[j], hv_vec[i][j]);
+            }
+        }
+    }
+
     thyra_model_->evalModel(internal_inArgs,internal_outArgs);
+
+    if (supports_vec_prod_g_xp) {
+        Teuchos::RCP< Thyra::MultiVectorBase<Real> > hv_vec = internal_outArgs.get_hess_vec_prod_g_xp(g_index_,p_indices_[0]);
+        for(std::size_t j=1; j<p_indices_.size(); ++j)
+            hv_vec->update(1.0, *internal_outArgs.get_hess_vec_prod_g_xp(g_index_,p_indices_[j]));
+        //outArgs.set_hess_vec_prod_g_xp(g_index_,0,hv_vec);
+    }
+
+    if (supports_vec_prod_g_pp) {
+        for(std::size_t i=0; i<p_indices_.size(); ++i) {
+            Teuchos::RCP< Thyra::MultiVectorBase<Real> > hv_vec = internal_outArgs.get_hess_vec_prod_g_pp(g_index_,p_indices_[i],p_indices_[0]);
+            for(std::size_t j=1; j<p_indices_.size(); ++j)
+                hv_vec->update(1.0, *internal_outArgs.get_hess_vec_prod_g_pp(g_index_,p_indices_[i],p_indices_[j]));
+        }
+    }
 }
 
 template <typename Real>

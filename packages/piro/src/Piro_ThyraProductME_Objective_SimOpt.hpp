@@ -362,22 +362,13 @@ public:
       Thyra::put_scalar(1.0, multiplier_g.ptr());
       inArgs.set_g_multiplier(g_index_, multiplier_g);
 
-      std::vector<Teuchos::RCP< Thyra::MultiVectorBase<Real> > > hv_vec(p_indices_.size());
+      Teuchos::RCP< Thyra::MultiVectorBase<Real> >  hv_vec = thyra_hv.getVector();
 
-      hv_vec[0] = thyra_hv.getVector();
-      for(std::size_t j=1; j<p_indices_.size(); ++j) {
-        hv_vec[j] = thyra_hv.getVector()->clone_v();
-      }
+      ROL_TEST_FOR_EXCEPTION( !outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_xp, g_index_, 0), 
+        std::logic_error, "Piro::ThyraProductME_Objective_SimOpt: H_xp product vector is not supported");
+      outArgs.set_hess_vec_prod_g_xp(g_index_,0, hv_vec);
 
-      for(std::size_t j=0; j<p_indices_.size(); ++j) {
-        bool supports_deriv_j =   outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_xp, g_index_, p_indices_[j]);
-        ROL_TEST_FOR_EXCEPTION( !supports_deriv_j, std::logic_error, "Piro::ThyraProductME_Objective_SimOpt: H_xp product vector is not supported");
-        outArgs.set_hess_vec_prod_g_xp(g_index_,p_indices_[j], hv_vec[j]);
-      }
       thyra_model_->evalModel(inArgs, outArgs);
-
-      for(std::size_t j=1; j<p_indices_.size(); ++j)
-        hv_vec[0]->update(1.0, *hv_vec[j]);
 
     } else { //compute derivatives with 2nd-order finite differences
 
@@ -415,7 +406,7 @@ public:
 
     Thyra::ModelEvaluatorBase::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
 
-    bool supports_deriv = outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_px, g_index_, p_indices_[0]);
+    bool supports_deriv = outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_px, g_index_, 0);
 
 
     if(supports_deriv) { //use derivatives computed by model evaluator
@@ -428,8 +419,6 @@ public:
       Teuchos::RCP<const  Thyra::ProductVectorBase<Real> > thyra_prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
       ROL::ThyraVector<Real>  & thyra_hv = dynamic_cast<ROL::ThyraVector<Real>&>(hv);
 
-      Teuchos::RCP< Thyra::ProductMultiVectorBase<Real> > prodvec_hv = Teuchos::rcp_dynamic_cast<Thyra::ProductMultiVectorBase<Real>>(thyra_hv.getVector());
-
       Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
 
       inArgs.set_p(0, thyra_prodvec_p);
@@ -440,11 +429,10 @@ public:
       Thyra::put_scalar(1.0, multiplier_g.ptr());
       inArgs.set_g_multiplier(g_index_, multiplier_g);
 
-      for(std::size_t i=0; i<p_indices_.size(); ++i) {
-        bool supports_deriv_j =   outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_px, g_index_, p_indices_[i]);
-        ROL_TEST_FOR_EXCEPTION( !supports_deriv_j, std::logic_error, "Piro::ThyraProductME_Objective_SimOpt: H_px product vector is not supported");
-        outArgs.set_hess_vec_prod_g_px(g_index_,p_indices_[i], prodvec_hv->getNonconstMultiVectorBlock(i));
-      }
+      ROL_TEST_FOR_EXCEPTION( !outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_px, g_index_, 0), 
+        std::logic_error, "Piro::ThyraProductME_Objective_SimOpt: H_px product vector is not supported");
+      outArgs.set_hess_vec_prod_g_px(g_index_,0, thyra_hv.getVector());
+
       thyra_model_->evalModel(inArgs, outArgs);
 
     } else { //compute derivatives with 2nd-order finite differences
@@ -505,30 +493,13 @@ public:
       Thyra::put_scalar(1.0, multiplier_g.ptr());
       inArgs.set_g_multiplier(g_index_, multiplier_g);
 
-      std::vector<std::vector<Teuchos::RCP< Thyra::MultiVectorBase<Real> > > > hv_vec(p_indices_.size());
+      ROL_TEST_FOR_EXCEPTION( !outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_pp, g_index_, 0, 0), 
+        std::logic_error, "Piro::ThyraProductME_Objective_SimOpt: H_pp product vector is not supported");
 
-      for(std::size_t i=0; i<p_indices_.size(); ++i) {
-        hv_vec[i].resize(p_indices_.size());
-        hv_vec[i][0] = prodvec_hv->getNonconstMultiVectorBlock(i);
-        for(std::size_t j=1; j<p_indices_.size(); ++j) {
-          hv_vec[i][j] = hv_vec[i][0]->clone_mv();
-        }
-      }
+      outArgs.set_hess_vec_prod_g_pp(g_index_,0, 0, prodvec_hv);
 
-      for(std::size_t i=0; i<p_indices_.size(); ++i) {
-        for(std::size_t j=0; j<p_indices_.size(); ++j) {
-          bool supports_deriv_j =   outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_pp, g_index_, p_indices_[i], p_indices_[j]);
-          ROL_TEST_FOR_EXCEPTION( !supports_deriv_j, std::logic_error, "Piro::ThyraProductME_Objective_SimOpt: H_pp product vector is not supported");
-
-          outArgs.set_hess_vec_prod_g_pp(g_index_,p_indices_[i], p_indices_[j], hv_vec[i][j]);
-        }
-      }
       thyra_model_->evalModel(inArgs, outArgs);
 
-      for(std::size_t i=0; i<p_indices_.size(); ++i) {
-        for(std::size_t j=1; j<p_indices_.size(); ++j)
-          hv_vec[i][0]->update(1.0, *hv_vec[i][j]);
-      }
     } else { //compute derivatives with 2nd-order finite differences
 
       Real gtol = std::sqrt(ROL::ROL_EPSILON<Real>());
@@ -642,7 +613,6 @@ private:
 
   const Teuchos::RCP<const Thyra::ModelEvaluator<Real>> thyra_model_;
   const int g_index_;
-  const std::vector<int> p_indices_{0};
   Real objectiveRecoveryValue_;
   bool useObjectiveRecoveryValue_;
   ROL::UpdateType updateType_;
