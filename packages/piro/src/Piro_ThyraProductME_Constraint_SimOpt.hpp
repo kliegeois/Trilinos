@@ -65,10 +65,9 @@ public:
 
   ThyraProductME_Constraint_SimOpt(const Teuchos::RCP<const Thyra::ModelEvaluator<Real>>& thyra_model, 
       const Teuchos::RCP<const Thyra::ModelEvaluator<Real>>& thyra_adjointModel, 
-      const std::vector<int>& p_indices,
       Teuchos::ParameterList& piroParams, Teuchos::EVerbosityLevel verbLevel= Teuchos::VERB_HIGH,
       Teuchos::RCP<ROL_ObserverBase<Real>> observer = Teuchos::null) :
-        thyra_model_(thyra_model), thyra_adjointModel_(thyra_adjointModel), p_indices_(p_indices),
+        thyra_model_(thyra_model), thyra_adjointModel_(thyra_adjointModel),
         optParams_(piroParams.sublist("Optimization Status")),
         out_(Teuchos::VerboseObjectBase::getDefaultOStream()),
         verbosityLevel_(verbLevel), observer_(observer) {
@@ -1067,7 +1066,7 @@ public:
   bool computeJacobian1_, computeAdjointJacobian1_;
   Teuchos::RCP<Thyra::ModelEvaluator<Real>> thyra_solver_;
   const Teuchos::RCP<const Thyra::ModelEvaluator<Real>> thyra_model_, thyra_adjointModel_;
-  const std::vector<int> p_indices_;
+  const std::vector<int> p_indices_{0};
   int num_responses_;
   Teuchos::ParameterList& optParams_;
   Teuchos::RCP<Teuchos::FancyOStream> out_;
