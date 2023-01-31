@@ -251,13 +251,32 @@ Piro::PerformROLAnalysis(
   using std::string;
   Teuchos::RCP<Thyra::ModelEvaluatorDefaultBase<double>> model, adjointModel;
   Teuchos::RCP<Piro::SteadyStateSolver<double>> piroSSSolver;
+
+  auto rolParams = analysisParams.sublist("ROL");  
+  int num_parameters = rolParams.get<int>("Number Of Parameters", 1);
   
 #ifdef HAVE_PIRO_NOX
   auto piroNOXSolver = Teuchos::rcp_dynamic_cast<Piro::NOXSolver<double>>(Teuchos::rcpFromRef(piroModel));
   if(Teuchos::nonnull(piroNOXSolver)) {
     piroSSSolver = Teuchos::rcp_dynamic_cast<Piro::SteadyStateSolver<double>>(piroNOXSolver);
-    model = Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(piroNOXSolver->getSubModel());
-    adjointModel = Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(piroNOXSolver->getAdjointSubModel());
+
+    std::vector<int> p_indices(num_parameters);
+    int g_index = 0;
+
+    for(int i=0; i<num_parameters; ++i) {
+      std::ostringstream ss; ss << "Parameter Vector Index " << i;
+      p_indices[i] = rolParams.get<int>(ss.str(), i);
+    }
+
+    model = Teuchos::rcp(new Piro::ProductModelEvaluator<double>(
+      Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(piroNOXSolver->getSubModel()),
+      g_index,
+      p_indices));
+
+    adjointModel = Teuchos::rcp(new Piro::ProductModelEvaluator<double>(
+      Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(piroNOXSolver->getAdjointSubModel()),
+      g_index,
+      p_indices));
   } else
 #endif
   {
@@ -266,9 +285,6 @@ Piro::PerformROLAnalysis(
         "only Piro::NOXSolver is currently supported for piroModel"<<std::endl);
   }
 
-
-  auto rolParams = analysisParams.sublist("ROL");  
-  int num_parameters = rolParams.get<int>("Number Of Parameters", 1);
   rolParams.validateParameters(*Piro::getValidPiroAnalysisROLParameters(num_parameters),0);
 
   int g_index = rolParams.get<int>("Response Vector Index", 0);  
