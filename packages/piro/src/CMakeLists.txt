@@ -71,6 +71,7 @@ IF (Piro_ENABLE_NOX)
     Piro_SteadyStateSolver_Def.hpp
     Piro_ThyraProductME_Objective_SimOpt.hpp
     Piro_ThyraProductME_Constraint_SimOpt.hpp
+    Piro_ProductModelEval.hpp
     Piro_NOXSolver.hpp
     Piro_NOXSolver_Def.hpp
     Piro_LOCASolver.hpp

@@ -192,40 +192,24 @@ public:
 
     inArgs.set_p(0, thyra_p.getVector());
     inArgs.set_x(thyra_x.getVector());
-    for(std::size_t i=0; i<p_indices_.size(); ++i) {
 
-      // df/dp
+    Thyra::ModelEvaluatorBase::DerivativeSupport ds =  outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DfDp,0);
 
-      auto p_space = thyra_model_->get_p_space(i);
-      auto f_space = thyra_model_->get_f_space();
-      auto p_space_plus = Teuchos::rcp_dynamic_cast<const Thyra::SpmdVectorSpaceDefaultBase<Real>>(p_space);
-      auto f_space_plus = Teuchos::rcp_dynamic_cast<const Thyra::SpmdVectorSpaceDefaultBase<Real>>(f_space);
-      Thyra::ModelEvaluatorBase::DerivativeSupport ds =  outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DfDp,i);
-      // Determine which layout to use for df/dp.  Ideally one would look
-      // at the parameter and residual dimensions, what is supported by the underlying
-      // model evaluator, and the sensitivity method, and make the best
-      // choice to minimze the number of solves.  However this choice depends
-      // also on what layout of dg/dx is supported (e.g., if only the operator
-      // form is supported for forward sensitivities, then df/dp must be
-      // DERIV_MV_BY_COL).  For simplicity, we order the conditional tests
-      // to get the right layout in most situations.
+    if (ds.supports(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP)) {
+      auto dfdp_op = thyra_model_->create_DfDp_op(0);
+      TEUCHOS_TEST_FOR_EXCEPTION(
+          dfdp_op == Teuchos::null, std::logic_error,
+          std::endl << "Piro::ThyraProductME_Constraint_SimOpt::applyJacobian_2():  " <<
+          "Needed df/dp operator (" << 0 << ") is null!" << std::endl);
+      outArgs.set_DfDp(0,dfdp_op);
+    } else {
+      TEUCHOS_TEST_FOR_EXCEPTION(!ds.supports(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP),
+          std::logic_error,
+          std::endl <<
+          "Piro::ThyraProductME_Constraint_SimOpt::applyJacobian_2():  " <<
+          "The code related to df/dp multivector has been commented out because never tested.  " <<
+          std::endl);
 
-      if (ds.supports(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP)) {
-        auto dfdp_op = thyra_model_->create_DfDp_op(i);
-        TEUCHOS_TEST_FOR_EXCEPTION(
-            dfdp_op == Teuchos::null, std::logic_error,
-            std::endl << "Piro::ThyraProductME_Constraint_SimOpt::applyJacobian_2():  " <<
-            "Needed df/dp operator (" << i << ") is null!" << std::endl);
-        outArgs.set_DfDp(i,dfdp_op);
-      } else {
-        TEUCHOS_TEST_FOR_EXCEPTION(!ds.supports(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP),
-            std::logic_error,
-            std::endl <<
-            "Piro::ThyraProductME_Constraint_SimOpt::applyJacobian_2():  " <<
-            "The code related to df/dp multivector has been commented out because never tested.  " <<
-            std::endl);
-
-      }
     }
 
     thyra_model_->evalModel(inArgs, outArgs);
