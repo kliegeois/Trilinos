@@ -143,22 +143,26 @@ int main(int argc, char *argv[]) {
 
         if (mockModel=="MockModelEval_A_Tpetra") {
           if(boundConstrained) {
-            RCP<Thyra::ModelEvaluator<double>> model_tmp = rcp(new MockModelEval_A_Tpetra(appComm,false,probParams));
-            model = rcp(new Piro::ProductModelEvaluator<double>(model_tmp,g_index,p_indices));
+            //RCP<Thyra::ModelEvaluator<double>> model_tmp = rcp(new MockModelEval_A_Tpetra(appComm,false,probParams));
+            //model = rcp(new Piro::ProductModelEvaluator<double>(model_tmp,g_index,p_indices));
+            RCP<Thyra::ModelEvaluator<double>> model = rcp(new MockModelEval_A_Tpetra(appComm,false,probParams));
             if(explicitAdjointME) {
-              RCP<Thyra::ModelEvaluator<double>> adjointModel_tmp = rcp(new MockModelEval_A_Tpetra(appComm,true));
-              adjointModel = rcp(new Piro::ProductModelEvaluator<double>(adjointModel_tmp,g_index,p_indices));
+              adjointModel = rcp(new MockModelEval_A_Tpetra(appComm,true));
+              //RCP<Thyra::ModelEvaluator<double>> adjointModel_tmp = rcp(new MockModelEval_A_Tpetra(appComm,true));
+              //adjointModel = rcp(new Piro::ProductModelEvaluator<double>(adjointModel_tmp,g_index,p_indices));
             }
             modelName = "A";
           } else   // optimization of problem A often diverges when the parameters are not constrained
             continue;
         }
         else {//if (mockModel=="MockModelEval_B_Tpetra") 
-          RCP<Thyra::ModelEvaluator<double>> model_tmp = rcp(new MockModelEval_B_Tpetra(appComm,false,probParams));
-          model = rcp(new Piro::ProductModelEvaluator<double>(model_tmp,g_index,p_indices));
+          //RCP<Thyra::ModelEvaluator<double>> model_tmp = rcp(new MockModelEval_B_Tpetra(appComm,false,probParams));
+          //model = rcp(new Piro::ProductModelEvaluator<double>(model_tmp,g_index,p_indices));
+          model = rcp(new MockModelEval_B_Tpetra(appComm,false,probParams));
           if(explicitAdjointME) {
-            RCP<Thyra::ModelEvaluator<double>> adjointModel_tmp = rcp(new MockModelEval_B_Tpetra(appComm,true));
-            adjointModel = rcp(new Piro::ProductModelEvaluator<double>(adjointModel_tmp,g_index,p_indices));
+            adjointModel = rcp(new MockModelEval_B_Tpetra(appComm,true));
+            //RCP<Thyra::ModelEvaluator<double>> adjointModel_tmp = rcp(new MockModelEval_B_Tpetra(appComm,true));
+            //adjointModel = rcp(new Piro::ProductModelEvaluator<double>(adjointModel_tmp,g_index,p_indices));
           }
           modelName = "B";
         }

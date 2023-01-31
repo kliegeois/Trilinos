@@ -397,6 +397,11 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
     RCP<Thyra::VectorSpaceBase<Scalar> const> p_space = this->getModel().get_p_space(0);
     RCP<Thyra::VectorBase<Scalar>> thyra_p = Thyra::createMember(p_space);
 
+    std::vector<int> p_indices(num_p_);
+    for (auto i = 0; i < num_p_; ++i) {
+      p_indices[i] = i;
+    }
+
     RCP<const Thyra::VectorBase<Scalar> > p_init = modelInArgs.get_p(0) != Teuchos::null ? modelInArgs.get_p(0) : this->getModel().getNominalValues().get_p(0);
     Thyra::copy(*p_init, thyra_p.ptr());
 
