@@ -50,6 +50,14 @@
 #include "Thyra_DefaultProductMultiVector.hpp"
 #include "Thyra_ModelEvaluatorDelegatorBase.hpp"
 
+#ifdef HAVE_PIRO_TEKO
+#include "Teko_InverseLibrary.hpp"
+#include "Teko_PreconditionerFactory.hpp"
+#ifdef HAVE_PIRO_ROL
+#include "ROL_HessianScaledThyraVector.hpp"
+#endif
+#endif
+
 namespace Piro {
 
 /** \brief Product Model Evaluator
@@ -299,6 +307,8 @@ ProductModelEvaluator<Real>::evalModelImpl(
     internal_inArgs.set_Np_Ng(thyra_model_->Np(), thyra_model_->Ng());
     internal_outArgs.set_Np_Ng(thyra_model_->Np(), thyra_model_->Ng());
 
+    bool supports_dfdp_op = outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DfDp,0).supports(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
+
     bool supports_vec_prod_g_xp = outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_xp, g_index_, 0);
     bool supports_vec_prod_g_px = outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_px, g_index_, 0);
     bool supports_vec_prod_g_pp = outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_pp, g_index_, 0, 0);
@@ -458,6 +468,10 @@ ProductModelEvaluator<Real>::evalModelImpl(
 
     thyra_model_->evalModel(internal_inArgs,internal_outArgs);
 
+    if (supports_dfdp_op) {
+        
+    }
+
     if (supports_vec_prod_g_xp) {
         Teuchos::RCP< Thyra::MultiVectorBase<Real> > hv_vec = internal_outArgs.get_hess_vec_prod_g_xp(g_index_,p_indices_[0]);
         for(std::size_t j=1; j<p_indices_.size(); ++j)
@@ -610,6 +624,16 @@ ProductModelEvaluator<Real>::reportFinalPoint(
 template <typename Real>
 Teuchos::RCP<Thyra::LinearOpBase<Real> > 
 ProductModelEvaluator<Real>::create_DfDp_op(int l) const {
+    /*
+    Teko::BlockedLinearOp J = Teko::createBlockedOp();
+    J->beginBlockFill(1, p_indices_.size());
+    for(std::size_t i=0; i<p_indices_.size(); ++i) {
+        auto dfdp_op = thyra_model_->create_DfDp_op(i);
+        J->setBlock(0, i, dfdp_op);
+    }
+    J->endBlockFill();
+    return J;
+    */
     return thyra_model_->create_DfDp_op(0);
 }
 
