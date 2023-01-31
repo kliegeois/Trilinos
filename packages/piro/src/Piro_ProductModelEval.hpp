@@ -58,6 +58,9 @@
 #endif
 #endif
 
+#include "ROL_Vector.hpp"
+#include "ROL_ThyraVector.hpp"
+
 namespace Piro {
 
 /** \brief Product Model Evaluator
