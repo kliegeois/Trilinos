@@ -1938,7 +1938,9 @@ namespace Ifpack2 {
 								const int internal_vector_length) {
       const int vector_size = vector_length/internal_vector_length;
       int total_team_size(0);
-      if      (blksize <=  5) total_team_size =  32;
+      if(const char* env_total_team_size = std::getenv("TOTAL_TEAM_SIZE"))
+        total_team_size = std::stoi(env_total_team_size);
+      else if (blksize <=  5) total_team_size =  32;
       else if (blksize <=  9) total_team_size =  32; // 64
       else if (blksize <= 12) total_team_size =  96;
       else if (blksize <= 16) total_team_size = 128;
@@ -2508,7 +2510,9 @@ namespace Ifpack2 {
 							  const int internal_vector_length) {
       const int vector_size = vector_length/internal_vector_length;
       int total_team_size(0);
-      if      (blksize <=  5) total_team_size =  32;
+      if(const char* env_total_team_size = std::getenv("TOTAL_TEAM_SIZE"))
+        total_team_size = std::stoi(env_total_team_size);
+      else if (blksize <=  5) total_team_size =  32;
       else if (blksize <=  9) total_team_size =  32; // 64
       else if (blksize <= 12) total_team_size =  96;
       else if (blksize <= 16) total_team_size = 128;
@@ -3071,7 +3075,9 @@ namespace Ifpack2 {
     static inline int ComputeResidualVectorRecommendedHIPVectorSize(const int blksize,
 								    const int team_size) {
       int total_team_size(0);
-      if      (blksize <=  5) total_team_size =  32;
+      if(const char* env_total_team_size = std::getenv("TOTAL_TEAM_SIZE"))
+        total_team_size = std::stoi(env_total_team_size);
+      else if (blksize <=  5) total_team_size =  32;
       else if (blksize <=  9) total_team_size =  32; // 64
       else if (blksize <= 12) total_team_size =  96;
       else if (blksize <= 16) total_team_size = 128;
