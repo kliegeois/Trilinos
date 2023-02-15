@@ -773,6 +773,7 @@ namespace Ifpack2 {
         else                       vector_size = 32;
 
         const auto work_item_property = Kokkos::Experimental::WorkItemProperty::HintLightWeight;
+        //std::cout << " Construct 1 team_policy_type with " << idiff << " " << 1 << " " << vector_size << std::endl;
         const team_policy_type policy(exec_instance_, idiff, 1, vector_size);
         Kokkos::parallel_for
           (//"AsyncableImport::TeamPolicy::copyViaCudaStream",
@@ -902,6 +903,7 @@ namespace Ifpack2 {
           else if (blocksize_ <=  8) vector_size =  8;
           else if (blocksize_ <= 16) vector_size = 16;
           else                       vector_size = 32;
+          //std::cout << " Construct 2 team_policy_type with " << idiff << 1 << vector_size << std::endl;
           const team_policy_type policy(idiff, 1, vector_size);
           Kokkos::parallel_for
             ("AsyncableImport::TeamPolicy::copy",
@@ -1486,6 +1488,7 @@ namespace Ifpack2 {
         else if (blocksize <= 20) total_team_size = 160;
         else                      total_team_size = 160;
         const local_ordinal_type team_size = total_team_size/vector_loop_size;
+        //std::cout << " Construct 2 team_policy_type with " << packptr.extent(0)-1 << " " << team_size << " " << vector_loop_size << std::endl;
         const team_policy_type policy(packptr.extent(0)-1, team_size, vector_loop_size);
 #elif defined(KOKKOS_ENABLE_HIP)
 	// FIXME: HIP
@@ -1503,8 +1506,10 @@ namespace Ifpack2 {
         else                      total_team_size = 160;
         const local_ordinal_type team_size = total_team_size/vector_loop_size;
         //std::cout << " team_size = " << team_size << ", total_team_size = " << total_team_size << ", vector_loop_size = " << vector_loop_size << std::endl;
+        //std::cout << " Construct 3 team_policy_type with " << packptr.extent(0)-1 << " " << team_size << " " << vector_loop_size << std::endl;
         const team_policy_type policy(packptr.extent(0)-1, team_size, vector_loop_size);
 #else // Host architecture: team size is always one
+        //std::cout << " Construct 4 team_policy_type with " << packptr.extent(0)-1 << " " << 1 << " " << 1 << std::endl;
         const team_policy_type policy(packptr.extent(0)-1, 1, 1);
 #endif
         Kokkos::parallel_for
@@ -1938,7 +1943,9 @@ namespace Ifpack2 {
 								const int internal_vector_length) {
       const int vector_size = vector_length/internal_vector_length;
       int total_team_size(0);
-      if      (blksize <=  5) total_team_size =  32;
+      if(const char* env_total_team_size = std::getenv("TOTAL_TEAM_SIZE"))
+        total_team_size = std::stoi(env_total_team_size);
+      else if (blksize <=  5) total_team_size =  32;
       else if (blksize <=  9) total_team_size =  32; // 64
       else if (blksize <= 12) total_team_size =  96;
       else if (blksize <= 16) total_team_size = 128;
@@ -2508,7 +2515,9 @@ namespace Ifpack2 {
 							  const int internal_vector_length) {
       const int vector_size = vector_length/internal_vector_length;
       int total_team_size(0);
-      if      (blksize <=  5) total_team_size =  32;
+      if(const char* env_total_team_size = std::getenv("TOTAL_TEAM_SIZE"))
+        total_team_size = std::stoi(env_total_team_size);
+      else if (blksize <=  5) total_team_size =  32;
       else if (blksize <=  9) total_team_size =  32; // 64
       else if (blksize <= 12) total_team_size =  96;
       else if (blksize <= 16) total_team_size = 128;
@@ -3071,7 +3080,9 @@ namespace Ifpack2 {
     static inline int ComputeResidualVectorRecommendedHIPVectorSize(const int blksize,
 								    const int team_size) {
       int total_team_size(0);
-      if      (blksize <=  5) total_team_size =  32;
+      if(const char* env_total_team_size = std::getenv("TOTAL_TEAM_SIZE"))
+        total_team_size = std::stoi(env_total_team_size);
+      else if (blksize <=  5) total_team_size =  32;
       else if (blksize <=  9) total_team_size =  32; // 64
       else if (blksize <= 12) total_team_size =  96;
       else if (blksize <= 16) total_team_size = 128;
@@ -3577,6 +3588,7 @@ namespace Ifpack2 {
           const local_ordinal_type blocksize = blocksize_requested;
           const local_ordinal_type team_size = 8;
           const local_ordinal_type vector_size = ComputeResidualVectorRecommendedHIPVectorSize(blocksize, team_size);
+          //std::cout << " Construct 9 team_policy_type with " << rowptr.extent(0) - 1 << " " << team_size << " " << vector_size << std::endl;
           const Kokkos::TeamPolicy<execution_space,SeqTag> policy(rowptr.extent(0) - 1, team_size, vector_size);
           Kokkos::parallel_for
             ("ComputeResidual::TeamPolicy::run<SeqTag>", policy, *this);
