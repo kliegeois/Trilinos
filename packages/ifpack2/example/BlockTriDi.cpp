@@ -18,7 +18,7 @@ namespace { // (anonymous)
 
 // Values of command-line arguments.
 struct CmdLineArgs {
-  CmdLineArgs ():blockSize(-1),numIters(10),tol(1e-12),nx(172),lpp(10),useStackedTimer(false){}
+  CmdLineArgs ():blockSize(-1),numIters(10),tol(1e-12),nx(172),lpp(10),useStackedTimer(false),overlapCommAndComp(false){}
 
   std::string mapFilename;
   std::string matrixFilename;
@@ -30,6 +30,7 @@ struct CmdLineArgs {
   int nx;
   int lpp;
   bool useStackedTimer;
+  bool overlapCommAndComp;
   std::string problemName;
 };
 
@@ -53,6 +54,8 @@ getCmdLineArgs (CmdLineArgs& args, int argc, char* argv[])
   cmdp.setOption ("lpp", &args.lpp, "If using inline meshing, number of lines per proc");
   cmdp.setOption ("withStackedTimer", "withoutStackedTimer", &args.useStackedTimer,
       "Whether to run with a StackedTimer and print the timer tree at the end (and try to output Watchr report)");
+  cmdp.setOption ("withOverlapCommAndComp", "withoutOverlapCommAndComp", &args.overlapCommAndComp,
+      "Whether to run with overlapCommAndComp)");
   cmdp.setOption("problemName", &args.problemName, "Human-readable problem name for Watchr plot");
   auto result = cmdp.parse (argc, argv);
   return result == Teuchos::CommandLineProcessor::PARSE_SUCCESSFUL;
@@ -420,7 +423,14 @@ main (int argc, char* argv[])
 
   {
     Teuchos::TimeMonitor precSetupTimeMon (*precSetupTime);
-    precond = rcp(new BTDC(Ablock,parts,true));
+    precond = rcp(new BTDC(Ablock,parts,args.overlapCommAndComp));
+
+    if(args.overlapCommAndComp) {
+      if(rank0) std::cout<<"With overlapCommAndComp..."<<std::endl;
+    }
+    else {
+      if(rank0) std::cout<<"Without overlapCommAndComp..."<<std::endl;
+    }
 
     if(rank0) std::cout<<"Initializing preconditioner..."<<std::endl;
     precond->initialize ();
