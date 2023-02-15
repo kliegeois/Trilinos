@@ -420,7 +420,7 @@ main (int argc, char* argv[])
 
   {
     Teuchos::TimeMonitor precSetupTimeMon (*precSetupTime);
-    precond = rcp(new BTDC(Ablock,parts));
+    precond = rcp(new BTDC(Ablock,parts,true));
 
     if(rank0) std::cout<<"Initializing preconditioner..."<<std::endl;
     precond->initialize ();
