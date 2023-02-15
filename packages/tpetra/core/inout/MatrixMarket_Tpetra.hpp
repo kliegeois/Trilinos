@@ -5895,19 +5895,33 @@ namespace Tpetra {
                                                 numNonzeros, lineNumber,
                                                 tolerant);
             
+            //std::cerr << " proc " << myRank << " numRows = " << numRows << " rowMap->getLocalNumElements() = " << rowMap->getLocalNumElements() << std::endl;
             // Sanity checking of headers
             TEUCHOS_TEST_FOR_EXCEPTION(numRows != (LO)rowMap->getLocalNumElements(), std::invalid_argument,
-                                       "# rows in file does not match rowmap.");
+                                       "# rows in file " << numRows << " does not match rowmap " << rowMap->getLocalNumElements() << " on rank " << myRank << ".");
             TEUCHOS_TEST_FOR_EXCEPTION(!colMap.is_null() && numCols != (LO)colMap->getLocalNumElements(), std::invalid_argument,
                                        "# rows in file does not match colmap.");
             
+            if (debug) {
+              std::cerr << "-- Reading matrix data 0" << std::endl;
+            }
             
             // Read the data
             typedef Teuchos::MatrixMarket::Raw::Adder<scalar_type,global_ordinal_type> raw_adder_type;
             bool tolerant_required = true;
+            if (debug) {
+              std::cerr << "-- Reading matrix data 1" << std::endl;
+            }
+
             Teuchos::RCP<raw_adder_type> pRaw =
               Teuchos::rcp (new raw_adder_type (numRows,numCols,numNonzeros,tolerant_required,debug));
+            if (debug) {
+              std::cerr << "-- Reading matrix data 2" << std::endl;
+            }
             RCP<adder_type> pAdder =  Teuchos::rcp (new adder_type (pRaw, pBanner->symmType ()));
+            if (debug) {
+              std::cerr << "-- Reading matrix data 3" << std::endl;
+            }
             
             if (debug) {
               std::cerr << "-- Reading matrix data" << std::endl;
@@ -5970,7 +5984,7 @@ namespace Tpetra {
                                          "Row indices are out of order, even though they are supposed "
                                          "to be sorted.  curRow = " << curRow << ", prvRow = "
                                          << prvRow << ", at curPos = " << curPos << ".  Please report "
-                                         "this bug to the Tpetra developers.");
+                                         "this bug to the Tpetra developers on rank " << myRank << " with " << rowMap->getMinGlobalIndex() << " and " << rowMap->getIndexBase() << ".");
               if (curRow > prvRow) {
                 // NOTE: There's a subtle contiguous map assumption here
                 for (global_ordinal_type r = prvRow+1; r <= curRow; ++r) {

@@ -310,10 +310,15 @@ main (int argc, char* argv[])
         return EXIT_FAILURE;
       }
 
+      std::cout<<" Rank " << comm->getRank() << " has " << point_map->getLocalNumElements() << " rows, point_map->getMinGlobalIndex() = " << point_map->getMinGlobalIndex() << " point_map->getIndexBase() = " << point_map->getIndexBase() << std::endl;
+
       // Read matrix
       if(rank0) std::cout<<"Reading matrix (as point)..."<<std::endl;
       RCP<const map_type> dummy_col_map;
-      A = reader_type::readSparseFile(args.matrixFilename, point_map, dummy_col_map, point_map, point_map);
+      if (comm->getSize() == 0)
+        A = reader_type::readSparseFile(args.matrixFilename, point_map, dummy_col_map, point_map, point_map);
+      else
+        A = reader_type::readSparsePerRank(args.matrixFilename, ".mtx", point_map, dummy_col_map, point_map, point_map, true, false, 8, true);
       if (A.is_null()) {
         if (rank0) {
           cerr << "Failed to load sparse matrix A from file "
