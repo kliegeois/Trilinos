@@ -554,11 +554,12 @@ namespace Ifpack2 {
       local_ordinal_type_1d_view dm2cm; // permutation
 
 #if defined(KOKKOS_ENABLE_CUDA)
-      using cuda_stream_1d_std_vector = std::vector<cudaStream_t>;
-      cuda_stream_1d_std_vector stream;
-
+      //using cuda_stream_1d_std_vector = std::vector<cudaStream_t>;
+      //cuda_stream_1d_std_vector stream;    
+#endif
+#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
       using exec_instance_1d_std_vector = std::vector<execution_space>;
-      exec_instance_1d_std_vector exec_instances;      
+      exec_instance_1d_std_vector exec_instances;  
 #endif
 
       // for cuda
@@ -667,30 +668,16 @@ namespace Ifpack2 {
       }
 
       void createExecutionSpaceInstances() {
-#if defined(KOKKOS_ENABLE_CUDA)
+#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
         const local_ordinal_type num_streams = 8;
-        {
-          stream.clear();
-          stream.resize(num_streams);
-          exec_instances.clear();
-          exec_instances.resize(num_streams);
-          for (local_ordinal_type i=0;i<num_streams;++i) {
-            KOKKOS_IMPL_CUDA_SAFE_CALL(cudaStreamCreateWithFlags(&stream[i], cudaStreamNonBlocking));
-            ExecutionSpaceFactory<execution_space>::createInstance(stream[i], exec_instances[i]);
-          }
-        }
+        exec_instances =
+          Kokkos::Experimental::partition_space(execution_space(), 1, 1, 1, 1, 1, 1, 1, 1);
 #endif
       }
 
       void destroyExecutionSpaceInstances() {
-#if defined(KOKKOS_ENABLE_CUDA)
-        {
-          const local_ordinal_type num_streams = stream.size();
-          for (local_ordinal_type i=0;i<num_streams;++i)
-            KOKKOS_IMPL_CUDA_SAFE_CALL(cudaStreamDestroy(stream[i]));
-        }
-        stream.clear();
-        exec_instances.clear();
+#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
+        //exec_instances.clear();
 #endif
       }
 
@@ -750,7 +737,7 @@ namespace Ifpack2 {
       // - cuda only with kokkos develop branch
       // ======================================================================
 
-#if defined(KOKKOS_ENABLE_CUDA) 
+#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
       template<typename PackTag>
       static
       void copy(const local_ordinal_type_1d_view &lids_,
@@ -1010,7 +997,7 @@ namespace Ifpack2 {
       /// front interface
       ///
       void asyncSendRecv(const impl_scalar_type_2d_view_tpetra &mv) {
-#if defined(KOKKOS_ENABLE_CUDA)
+#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
 #if defined(IFPACK2_BLOCKTRIDICONTAINER_USE_EXEC_SPACE_INSTANCES)
         asyncSendRecvVar1(mv);
 #else
@@ -1021,7 +1008,7 @@ namespace Ifpack2 {
 #endif
       }
       void syncRecv() {
-#if defined(KOKKOS_ENABLE_CUDA)
+#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
 #if defined(IFPACK2_BLOCKTRIDICONTAINER_USE_EXEC_SPACE_INSTANCES)
         syncRecvVar1();
 #else
