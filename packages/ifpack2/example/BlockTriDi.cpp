@@ -18,7 +18,7 @@ namespace { // (anonymous)
 
 // Values of command-line arguments.
 struct CmdLineArgs {
-  CmdLineArgs ():blockSize(-1),numIters(10),tol(1e-12),nx(172),lpp(10),useStackedTimer(false){}
+  CmdLineArgs ():blockSize(-1),numIters(10),tol(1e-12),nx(172),lpp(10),useStackedTimer(false),overlapCommAndComp(false){}
 
   std::string mapFilename;
   std::string matrixFilename;
@@ -28,9 +28,12 @@ struct CmdLineArgs {
   int numIters;
   double tol;
   int nx;
+  int ny;
   int lpp;
   bool useStackedTimer;
+  bool overlapCommAndComp;
   std::string problemName;
+  std::string matrixType;
 };
 
 // Read in values of command-line arguments.
@@ -50,10 +53,14 @@ getCmdLineArgs (CmdLineArgs& args, int argc, char* argv[])
   cmdp.setOption ("numIters", &args.numIters, "Number of iterations");
   cmdp.setOption ("tol", &args.tol, "Solver tolerance");
   cmdp.setOption ("nx", &args.nx, "If using inline meshing, number of nodes in the x direction per proc");
+  cmdp.setOption ("ny", &args.ny, "If using inline meshing, number of nodes in the y direction");
   cmdp.setOption ("lpp", &args.lpp, "If using inline meshing, number of lines per proc");
   cmdp.setOption ("withStackedTimer", "withoutStackedTimer", &args.useStackedTimer,
       "Whether to run with a StackedTimer and print the timer tree at the end (and try to output Watchr report)");
+  cmdp.setOption ("withOverlapCommAndComp", "withoutOverlapCommAndComp", &args.overlapCommAndComp,
+      "Whether to run with overlapCommAndComp)");
   cmdp.setOption("problemName", &args.problemName, "Human-readable problem name for Watchr plot");
+  cmdp.setOption("matrixType", &args.matrixType, "matrixType");
   auto result = cmdp.parse (argc, argv);
   return result == Teuchos::CommandLineProcessor::PARSE_SUCCESSFUL;
 }
@@ -278,8 +285,14 @@ main (int argc, char* argv[])
   if(args.matrixFilename == "") {
     // matrix
     Teuchos::ParameterList plist;
-    plist.set("matrixType","Laplace1D");    
+    if(args.matrixType == "")
+      plist.set("matrixType", "Laplace1D");
+    else
+      plist.set("matrixType", args.matrixType);
     plist.set("nx", (GO)args.nx*comm->getSize());
+    plist.set("ny", (GO)args.ny);
+    plist.set("mx", (GO)1);
+    plist.set("my", (GO)comm->getSize());
     Ablock = BuildBlockMatrix<SC,LO,GO,NO>(plist,comm);
 
     //rhs 
@@ -293,8 +306,10 @@ main (int argc, char* argv[])
     for(LO i=0; i<(LO)line_ids.size(); i++)
       line_ids[i] = i / line_length;     
 
-    if(rank0)
+    if(rank0) {
+      std::cout<<"Using matrixType = "<<plist.get<std::string>("matrixType")<<" nx = "<<plist.get<GO>("nx")<<" ny = "<<plist.get<GO>("ny")<<std::endl;
       std::cout<<"Using block_size = "<<args.blockSize<<" # lines per proc= "<<args.lpp<<" and average line length = "<<line_length<<std::endl;
+    }
   }
   else
 #endif 
@@ -420,7 +435,14 @@ main (int argc, char* argv[])
 
   {
     Teuchos::TimeMonitor precSetupTimeMon (*precSetupTime);
-    precond = rcp(new BTDC(Ablock,parts));
+    precond = rcp(new BTDC(Ablock,parts,args.overlapCommAndComp));
+
+    if(args.overlapCommAndComp) {
+      if(rank0) std::cout<<"With overlapCommAndComp..."<<std::endl;
+    }
+    else {
+      if(rank0) std::cout<<"Without overlapCommAndComp..."<<std::endl;
+    }
 
     if(rank0) std::cout<<"Initializing preconditioner..."<<std::endl;
     precond->initialize ();
