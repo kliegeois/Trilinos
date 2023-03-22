@@ -268,15 +268,27 @@ Piro::PerformROLAnalysis(
       p_indices[i] = rolParams.get<int>(ss.str(), i);
     }
 
-    model = Teuchos::rcp(new Piro::ProductModelEvaluator<double>(
-      Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(piroNOXSolver->getSubModel()),
-      g_index,
-      p_indices));
 
-    adjointModel = Teuchos::rcp(new Piro::ProductModelEvaluator<double>(
-      Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(piroNOXSolver->getAdjointSubModel()),
-      g_index,
-      p_indices));
+    Teuchos::RCP<const Thyra::ProductVectorBase<double> > prodvec_p 
+      = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<double>>(piroNOXSolver->getSubModel()->getNominalValues().get_p(0));
+
+    if ( prodvec_p.is_null()) {
+      model = Teuchos::rcp(new Piro::ProductModelEvaluator<double>(
+        Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(piroNOXSolver->getSubModel()),
+        g_index,
+        p_indices));
+
+      if (!piroNOXSolver->getAdjointSubModel().is_null()) {
+        adjointModel = Teuchos::rcp(new Piro::ProductModelEvaluator<double>(
+          Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(piroNOXSolver->getAdjointSubModel()),
+          g_index,
+          p_indices));
+      }
+    }
+    else {
+      model = Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(piroNOXSolver->getSubModel());
+      adjointModel = Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(piroNOXSolver->getAdjointSubModel());
+    }
   } else
 #endif
   {
