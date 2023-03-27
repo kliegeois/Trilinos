@@ -218,8 +218,6 @@ public:
     Teuchos::RCP<const  Thyra::ProductVectorBase<Real> > thyra_prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
     ROL::ThyraVector<Real>  & thyra_dgdp = dynamic_cast<ROL::ThyraVector<Real>&>(g);
 
-    Teuchos::RCP< Thyra::ProductMultiVectorBase<Real> > prodvec_dgdp_p = Teuchos::rcp_dynamic_cast<Thyra::ProductMultiVectorBase<Real>>(thyra_dgdp.getVector());
-
     Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
 
     inArgs.set_p(0, thyra_prodvec_p);
@@ -249,7 +247,7 @@ public:
           "Piro::ThyraProductME_Objective::gradient_2, DgDp does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
     }
 
-    outArgs.set_DgDp(g_index_, 0, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(prodvec_dgdp_p, dgdp_orient));
+    outArgs.set_DgDp(g_index_, 0, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(thyra_dgdp.getVector(), dgdp_orient));
 
     thyra_model_->evalModel(inArgs, outArgs);
 
@@ -482,8 +480,6 @@ public:
       Teuchos::RCP<const  Thyra::ProductVectorBase<Real> > thyra_prodvec_v = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_v.getVector());
       ROL::ThyraVector<Real>  & thyra_hv = dynamic_cast<ROL::ThyraVector<Real>&>(hv);
 
-      Teuchos::RCP< Thyra::ProductMultiVectorBase<Real> > prodvec_hv = Teuchos::rcp_dynamic_cast<Thyra::ProductMultiVectorBase<Real>>(thyra_hv.getVector());
-
       Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
 
       inArgs.set_p(0, thyra_prodvec_p);
@@ -496,7 +492,7 @@ public:
       ROL_TEST_FOR_EXCEPTION( !outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_pp, g_index_, 0, 0), 
         std::logic_error, "Piro::ThyraProductME_Objective_SimOpt: H_pp product vector is not supported");
 
-      outArgs.set_hess_vec_prod_g_pp(g_index_,0, 0, prodvec_hv);
+      outArgs.set_hess_vec_prod_g_pp(g_index_,0, 0, thyra_hv.getVector());
 
       thyra_model_->evalModel(inArgs, outArgs);
 

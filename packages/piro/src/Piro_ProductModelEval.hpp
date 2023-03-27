@@ -247,7 +247,7 @@ ProductModelEvaluator<Real>::get_p_names(int l) const
     const std::string name = ss.str();
     (*p_names)[i] = name;
     }
-    return p_names;
+    return thyra_model_->get_p_names(l);
 }
 
 template <typename Real>
@@ -329,6 +329,16 @@ ProductModelEvaluator<Real>::evalModelImpl(
 
     Teuchos::RCP<const Thyra::ProductVectorBase<Real> > prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(inArgs.get_p(0));
     Teuchos::RCP<const Thyra::ProductMultiVectorBase<Real> > prodvec_direction_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductMultiVectorBase<Real>>(inArgs.get_p_direction(0));
+
+    TEUCHOS_TEST_FOR_EXCEPTION(inArgs.get_p(0).is_null(), std::logic_error,
+        std::endl <<
+        "Error!  ProductModelEvaluator<Real>::evalModelImpl() " <<
+        " inArgs.get_p(0) is null " << std::endl);
+
+    TEUCHOS_TEST_FOR_EXCEPTION(prodvec_p.is_null(), std::logic_error,
+        std::endl <<
+        "Error!  ProductModelEvaluator<Real>::evalModelImpl() " <<
+        " prodvec_p is not a ProductVectorBase " << std::endl);
 
     for (auto i = 0; i < p_indices_.size(); ++i) {
         auto tmp = prodvec_p->getVectorBlock(i);
