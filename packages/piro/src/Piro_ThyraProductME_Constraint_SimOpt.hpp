@@ -223,7 +223,12 @@ public:
       if (dfdp_op != Teuchos::null) {
         auto temp_jv_ptr = Teuchos::rcp_dynamic_cast<ROL::ThyraVector<Real>>(thyra_jv.clone());
         temp_jv_ptr->zero();
-        dfdp_op->apply(Thyra::NOTRANS,*thyra_prodvec_v->getVectorBlock(i), temp_jv_ptr->getVector().ptr(),1.0, 0.0);
+        if (thyra_prodvec_v != Teuchos::null) {
+          dfdp_op->apply(Thyra::NOTRANS,*thyra_prodvec_v->getVectorBlock(i), temp_jv_ptr->getVector().ptr(),1.0, 0.0);
+        }
+        else{
+          dfdp_op->apply(Thyra::NOTRANS,*thyra_v.getVector(), temp_jv_ptr->getVector().ptr(),1.0, 0.0);
+        }
         thyra_jv.axpy(1.0, *temp_jv_ptr);
       } else {
         TEUCHOS_TEST_FOR_EXCEPTION(
