@@ -91,13 +91,12 @@ public:
     unew->set(u);
     const ROL::ThyraVector<Real>  & thyra_x = dynamic_cast<const ROL::ThyraVector<Real>&>(*unew);
     Teuchos::RCP< Thyra::VectorBase<Real> > g = Thyra::createMember<Real>(thyra_model_->get_g_space(g_index_));
-    Teuchos::RCP<const Thyra::ProductVectorBase<Real> > thyra_prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
 
     Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
     Thyra::ModelEvaluatorBase::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
 
     outArgs.set_g(g_index_, g);
-    inArgs.set_p(0, thyra_prodvec_p);
+    inArgs.set_p(0, thyra_p.getVector());
 
     inArgs.set_x(thyra_x.getVector());
 
@@ -144,12 +143,11 @@ public:
     unew->set(u);
     const ROL::ThyraVector<Real>  & thyra_x = dynamic_cast<const ROL::ThyraVector<Real>&>(*unew);
 
-    Teuchos::RCP<const  Thyra::ProductVectorBase<Real> > thyra_prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
     ROL::ThyraVector<Real>  & thyra_dgdx = dynamic_cast<ROL::ThyraVector<Real>&>(g);
 
     Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
 
-    inArgs.set_p(0, thyra_prodvec_p);
+    inArgs.set_p(0, thyra_p.getVector());
     inArgs.set_x(thyra_x.getVector());
 
     Thyra::ModelEvaluatorBase::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
@@ -215,12 +213,11 @@ public:
     unew->set(u);
     const ROL::ThyraVector<Real>  & thyra_x = dynamic_cast<const ROL::ThyraVector<Real>&>(*unew);
 
-    Teuchos::RCP<const  Thyra::ProductVectorBase<Real> > thyra_prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
     ROL::ThyraVector<Real>  & thyra_dgdp = dynamic_cast<ROL::ThyraVector<Real>&>(g);
 
     Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
 
-    inArgs.set_p(0, thyra_prodvec_p);
+    inArgs.set_p(0, thyra_p.getVector());
     inArgs.set_x(thyra_x.getVector());
 
     Thyra::ModelEvaluatorBase::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
@@ -285,12 +282,11 @@ public:
       const ROL::ThyraVector<Real>  & thyra_x = dynamic_cast<const ROL::ThyraVector<Real>&>(*unew);
       const ROL::ThyraVector<Real>  & thyra_v = dynamic_cast<const ROL::ThyraVector<Real>&>(v);
 
-      Teuchos::RCP<const  Thyra::ProductVectorBase<Real> > thyra_prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
       ROL::ThyraVector<Real>  & thyra_hv = dynamic_cast<ROL::ThyraVector<Real>&>(hv);
 
       Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
 
-      inArgs.set_p(0, thyra_prodvec_p);
+      inArgs.set_p(0, thyra_p.getVector());
       inArgs.set_x(thyra_x.getVector());
       inArgs.set_x_direction(thyra_v.getVector());
 
@@ -346,14 +342,12 @@ public:
       const ROL::ThyraVector<Real>  & thyra_x = dynamic_cast<const ROL::ThyraVector<Real>&>(*unew);
       const ROL::ThyraVector<Real>  & thyra_v = dynamic_cast<const ROL::ThyraVector<Real>&>(v);
 
-      Teuchos::RCP<const  Thyra::ProductVectorBase<Real> > thyra_prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
-      Teuchos::RCP<const  Thyra::ProductVectorBase<Real> > thyra_prodvec_v = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_v.getVector());
       ROL::ThyraVector<Real>  & thyra_hv = dynamic_cast<ROL::ThyraVector<Real>&>(hv);
 
       Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
 
-      inArgs.set_p(0, thyra_prodvec_p);
-      inArgs.set_p_direction(0, thyra_prodvec_v);
+      inArgs.set_p(0, thyra_p.getVector());
+      inArgs.set_p_direction(0, thyra_v.getVector());
       inArgs.set_x(thyra_x.getVector());
 
       Teuchos::RCP< Thyra::VectorBase<Real> > multiplier_g = Thyra::createMember<Real>(thyra_model_->get_g_multiplier_space(g_index_));
@@ -414,12 +408,11 @@ public:
       const ROL::ThyraVector<Real>  & thyra_x = dynamic_cast<const ROL::ThyraVector<Real>&>(*unew);
       const ROL::ThyraVector<Real>  & thyra_v = dynamic_cast<const ROL::ThyraVector<Real>&>(v);
 
-      Teuchos::RCP<const  Thyra::ProductVectorBase<Real> > thyra_prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
       ROL::ThyraVector<Real>  & thyra_hv = dynamic_cast<ROL::ThyraVector<Real>&>(hv);
 
       Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
 
-      inArgs.set_p(0, thyra_prodvec_p);
+      inArgs.set_p(0, thyra_p.getVector());
       inArgs.set_x(thyra_x.getVector());
       inArgs.set_x_direction(thyra_v.getVector());
 
@@ -476,14 +469,12 @@ public:
       const ROL::ThyraVector<Real>  & thyra_x = dynamic_cast<const ROL::ThyraVector<Real>&>(*unew);
       const ROL::ThyraVector<Real>  & thyra_v = dynamic_cast<const ROL::ThyraVector<Real>&>(v);
 
-      Teuchos::RCP<const  Thyra::ProductVectorBase<Real> > thyra_prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
-      Teuchos::RCP<const  Thyra::ProductVectorBase<Real> > thyra_prodvec_v = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_v.getVector());
       ROL::ThyraVector<Real>  & thyra_hv = dynamic_cast<ROL::ThyraVector<Real>&>(hv);
 
       Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
 
-      inArgs.set_p(0, thyra_prodvec_p);
-      inArgs.set_p_direction(0, thyra_prodvec_v);
+      inArgs.set_p(0, thyra_p.getVector());
+      inArgs.set_p_direction(0, thyra_v.getVector());
       inArgs.set_x(thyra_x.getVector());
       Teuchos::RCP< Thyra::VectorBase<Real> > multiplier_g = Thyra::createMember<Real>(thyra_model_->get_g_multiplier_space(g_index_));
       Thyra::put_scalar(1.0, multiplier_g.ptr());
