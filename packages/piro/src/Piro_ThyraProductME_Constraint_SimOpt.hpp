@@ -524,8 +524,14 @@ public:
       Thyra::ModelEvaluatorBase::Derivative<Real> dfdp_dv = outArgs.get_DfDp(i);
       auto dfdp_op = dfdp_dv.getLinearOp();      
       if (dfdp_op != Teuchos::null) {
-        dfdp_op->apply(Thyra::TRANS,*thyra_v.getVector(), thyra_prodvec_ajv->getNonconstVectorBlock(i).ptr(),1.0, 0.0);
-        // Thyra::update(1.0,  *tmp, thyra_ajv.getMultiVector().ptr());
+        if (thyra_prodvec_ajv != Teuchos::null) {
+          dfdp_op->apply(Thyra::TRANS,*thyra_v.getVector(), thyra_prodvec_ajv->getNonconstVectorBlock(i).ptr(),1.0, 0.0);
+          // Thyra::update(1.0,  *tmp, thyra_ajv.getMultiVector().ptr());
+        }
+        else {
+          dfdp_op->apply(Thyra::TRANS,*thyra_v.getVector(), thyra_ajv.getMultiVector().ptr(),1.0, 0.0);
+          // Thyra::update(1.0,  *tmp, thyra_ajv.getMultiVector().ptr());
+        }
       } else {
         TEUCHOS_TEST_FOR_EXCEPTION(
             dfdp_op == Teuchos::null,
