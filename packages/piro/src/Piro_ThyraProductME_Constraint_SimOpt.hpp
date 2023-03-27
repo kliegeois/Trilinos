@@ -809,8 +809,6 @@ public:
 
       ROL::ThyraVector<Real>  & thyra_ahwv = dynamic_cast<ROL::ThyraVector<Real>&>(ahwv);
 
-      Teuchos::RCP< Thyra::ProductMultiVectorBase<Real> > prodvec_ahwv = Teuchos::rcp_dynamic_cast<Thyra::ProductMultiVectorBase<Real>>(thyra_ahwv.getVector());
-
       Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
 
       inArgs.set_p(0, thyra_p.getVector());
@@ -821,7 +819,7 @@ public:
       ROL_TEST_FOR_EXCEPTION( !outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_pp, 0, 0),
         std::logic_error, "Piro::ThyraProductME_Constraint_SimOpt: H_pp product vector is not supported");
 
-      outArgs.set_hess_vec_prod_f_pp(0, 0, prodvec_ahwv);
+      outArgs.set_hess_vec_prod_f_pp(0, 0, thyra_ahwv.getVector());
 
       thyra_model_->evalModel(inArgs, outArgs);
 
