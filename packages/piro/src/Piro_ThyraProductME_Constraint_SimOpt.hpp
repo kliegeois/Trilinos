@@ -186,7 +186,6 @@ public:
     const ROL::ThyraVector<Real>  & thyra_v = dynamic_cast<const ROL::ThyraVector<Real>&>(v);
     ROL::ThyraVector<Real>  & thyra_jv = dynamic_cast<ROL::ThyraVector<Real>&>(jv);
 
-    Teuchos::RCP<const Thyra::ProductVectorBase<Real> > thyra_prodvec_v = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_v.getVector());
     Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
     Thyra::ModelEvaluatorBase::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
 
@@ -223,12 +222,7 @@ public:
       if (dfdp_op != Teuchos::null) {
         auto temp_jv_ptr = Teuchos::rcp_dynamic_cast<ROL::ThyraVector<Real>>(thyra_jv.clone());
         temp_jv_ptr->zero();
-        if (thyra_prodvec_v != Teuchos::null) {
-          dfdp_op->apply(Thyra::NOTRANS,*thyra_prodvec_v->getVectorBlock(i), temp_jv_ptr->getVector().ptr(),1.0, 0.0);
-        }
-        else{
-          dfdp_op->apply(Thyra::NOTRANS,*thyra_v.getVector(), temp_jv_ptr->getVector().ptr(),1.0, 0.0);
-        }
+        dfdp_op->apply(Thyra::NOTRANS,*thyra_v.getVector(), temp_jv_ptr->getVector().ptr(),1.0, 0.0);
         thyra_jv.axpy(1.0, *temp_jv_ptr);
       } else {
         TEUCHOS_TEST_FOR_EXCEPTION(
@@ -490,9 +484,6 @@ public:
     ROL::ThyraVector<Real>  & thyra_ajv = dynamic_cast<ROL::ThyraVector<Real>&>(ajv);
     thyra_ajv.zero();
 
-    Teuchos::RCP<Thyra::ProductVectorBase<Real> > thyra_prodvec_ajv = Teuchos::rcp_dynamic_cast<Thyra::ProductVectorBase<Real>>(thyra_ajv.getVector());
-    
-
     Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
     Thyra::ModelEvaluatorBase::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
 
@@ -529,14 +520,8 @@ public:
       Thyra::ModelEvaluatorBase::Derivative<Real> dfdp_dv = outArgs.get_DfDp(i);
       auto dfdp_op = dfdp_dv.getLinearOp();      
       if (dfdp_op != Teuchos::null) {
-        if (thyra_prodvec_ajv != Teuchos::null) {
-          dfdp_op->apply(Thyra::TRANS,*thyra_v.getVector(), thyra_prodvec_ajv->getNonconstVectorBlock(i).ptr(),1.0, 0.0);
-          // Thyra::update(1.0,  *tmp, thyra_ajv.getMultiVector().ptr());
-        }
-        else {
-          dfdp_op->apply(Thyra::TRANS,*thyra_v.getVector(), thyra_ajv.getMultiVector().ptr(),1.0, 0.0);
-          // Thyra::update(1.0,  *tmp, thyra_ajv.getMultiVector().ptr());
-        }
+        dfdp_op->apply(Thyra::TRANS,*thyra_v.getVector(), thyra_ajv.getMultiVector().ptr(),1.0, 0.0);
+        // Thyra::update(1.0,  *tmp, thyra_ajv.getMultiVector().ptr());
       } else {
         TEUCHOS_TEST_FOR_EXCEPTION(
             dfdp_op == Teuchos::null,
@@ -693,8 +678,6 @@ public:
 
       ROL::ThyraVector<Real>  & thyra_ahwv = dynamic_cast<ROL::ThyraVector<Real>&>(ahwv);
 
-      Teuchos::RCP< Thyra::ProductVectorBase<Real> > prodvec_ahwv = Teuchos::rcp_dynamic_cast<Thyra::ProductVectorBase<Real>>(thyra_ahwv.getVector());
-
       Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model_->createInArgs();
 
       inArgs.set_p(0, thyra_p.getVector());
@@ -702,7 +685,7 @@ public:
       inArgs.set_x_direction(thyra_v.getVector());
       inArgs.set_f_multiplier(thyra_w.getVector());
 
-      outArgs.set_hess_vec_prod_f_px(0, prodvec_ahwv);
+      outArgs.set_hess_vec_prod_f_px(0, thyra_ahwv.getVector());
 
       thyra_model_->evalModel(inArgs, outArgs);
 
