@@ -485,6 +485,17 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
           }
         }
       }
+      /*
+      if(!outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DfDp, l).none()) {
+        const Thyra::ModelEvaluatorBase::Derivative<Scalar> dfdp_deriv =
+            outArgs.get_DfDp(l);
+        if (Teuchos::nonnull(dfdp_deriv.getLinearOp())) {
+          dfdp_request.plus(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
+        } else if (Teuchos::nonnull(dfdp_deriv.getMultiVector())) {
+          dfdp_request.plus(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM);
+        }
+      }
+      */
 
       if (!dfdp_request.none()) {
         Thyra::ModelEvaluatorBase::Derivative<Scalar> dfdp_deriv;
