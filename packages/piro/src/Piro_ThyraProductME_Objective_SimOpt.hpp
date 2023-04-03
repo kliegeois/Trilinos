@@ -231,32 +231,15 @@ public:
       outArgs.set_g(g_index_, thyra_g);
     }
 
-    if ( true ) {
-      Teko::BlockedLinearOp dgdp_op =
-          Teuchos::rcp_dynamic_cast<Thyra::PhysicallyBlockedLinearOpBase<Real>>(thyra_model_->create_DgDp_op(g_index_, 0));
-      Teuchos::RCP<Thyra::ProductMultiVectorBase<Real> > prodvec_dgdp =
-          Teuchos::rcp_dynamic_cast<Thyra::ProductMultiVectorBase<Real>>(thyra_dgdp.getVector());
-      for (size_t i = 0; i < prodvec_dgdp->productSpace()->numBlocks(); ++i) {
-        dgdp_op->setNonconstBlock(0, i, prodvec_dgdp->getNonconstMultiVectorBlock(i));
-      }
-      Thyra::ModelEvaluatorBase::Derivative<Real> dgdp_der(Teuchos::rcp_dynamic_cast<Thyra::LinearOpBase<Real>>(dgdp_op));
-      outArgs.set_DgDp(g_index_, 0, dgdp_der);
+    Teko::BlockedLinearOp dgdp_op =
+        Teuchos::rcp_dynamic_cast<Thyra::PhysicallyBlockedLinearOpBase<Real>>(thyra_model_->create_DgDp_op(g_index_, 0));
+    Teuchos::RCP<Thyra::ProductMultiVectorBase<Real> > prodvec_dgdp =
+        Teuchos::rcp_dynamic_cast<Thyra::ProductMultiVectorBase<Real>>(thyra_dgdp.getVector());
+    for (size_t i = 0; i < prodvec_dgdp->productSpace()->numBlocks(); ++i) {
+      dgdp_op->setNonconstBlock(0, i, prodvec_dgdp->getNonconstMultiVectorBlock(i));
     }
-    else {
-      const Thyra::ModelEvaluatorBase::DerivativeSupport dgdp_support =
-          outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp, g_index_, 0);
-      Thyra::ModelEvaluatorBase::EDerivativeMultiVectorOrientation dgdp_orient;
-      if (dgdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM))
-        dgdp_orient = Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM;
-      else if(dgdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM))
-        dgdp_orient = Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM;
-      else {
-        ROL_TEST_FOR_EXCEPTION(true, std::logic_error,
-            "Piro::ThyraProductME_Objective::gradient_2, DgDp does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
-      }
-
-      outArgs.set_DgDp(g_index_, 0, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(thyra_dgdp.getVector(), dgdp_orient));      
-    }
+    Thyra::ModelEvaluatorBase::Derivative<Real> dgdp_der(Teuchos::rcp_dynamic_cast<Thyra::LinearOpBase<Real>>(dgdp_op));
+    outArgs.set_DgDp(g_index_, 0, dgdp_der);
 
     thyra_model_->evalModel(inArgs, outArgs);
 
