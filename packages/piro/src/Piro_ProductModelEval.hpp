@@ -107,7 +107,7 @@ public:
     /** \brief . */
     //Teuchos::RCP<Thyra::LinearOpBase<Real> > create_DgDx_op(int j) const;
     /** \brief . */
-    //Teuchos::RCP<Thyra::LinearOpBase<Real> > create_DgDp_op(int j, int l) const;
+    Teuchos::RCP<Thyra::LinearOpBase<Real> > create_DgDp_op(int j, int l) const;
     /** \brief . */
     //Teuchos::RCP<Thyra::LinearOpWithSolveBase<Real> > create_W() const;
     /** \brief . */
@@ -163,6 +163,7 @@ private:
     const int g_index_;
     const std::vector<int> p_indices_;
     Teuchos::Array<Thyra::ModelEvaluatorBase::DerivativeSupport> DfDp_op_support_;
+    Teuchos::Array<Thyra::ModelEvaluatorBase::DerivativeSupport> DgDp_op_support_;
 }; // class ProductModelEvaluator
 
 
@@ -178,9 +179,15 @@ ProductModelEvaluator(
     Thyra::ModelEvaluatorDelegatorBase<Real>(thyra_model)
 {
     DfDp_op_support_.clear();
+    DgDp_op_support_.clear();
     Thyra::ModelEvaluatorBase::OutArgs<Real> internal_outArgs = thyra_model_->createOutArgs();
     for (auto i = 0; i < p_indices_.size(); ++i) {
         DfDp_op_support_.push_back(internal_outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DfDp, p_indices_[i]));
+    }
+    for (auto i = 0; i < thyra_model_->Ng(); ++i) {
+        for (auto j = 0; j < p_indices_.size(); ++j) {
+            DgDp_op_support_.push_back(internal_outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp, i, p_indices_[j]));
+        }
     }
 }
 
@@ -389,7 +396,7 @@ ProductModelEvaluator<Real>::evalModelImpl(
                 dgdp_orient = Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM;
             else {
             ROL_TEST_FOR_EXCEPTION(true, std::logic_error,
-                "Piro::ThyraProductME_Objective::gradient_2, DgDp does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
+                "Piro::ProductME, DgDp does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
             }
             internal_outArgs.set_DgDp(g_index, 
                                     p_indices_[i], 
@@ -500,6 +507,45 @@ ProductModelEvaluator<Real>::evalModelImpl(
         if (!Teuchos::is_null(dfdp_op))
         for(std::size_t j=0; j<p_indices_.size(); ++j) {
             internal_outArgs.set_DfDp( p_indices_[j], Thyra::ModelEvaluatorBase::Derivative(Teuchos::rcp_dynamic_cast<Thyra::LinearOpBase<Real>>(dfdp_op->getNonconstBlock(0, j))));
+        }
+    }
+
+    for (auto i = 0; i < thyra_model_->Ng(); ++i) {
+        if (outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp,i,0).supports(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP)) {
+            std::cout << "DgDp " << i << " 0 supports DERIV_LINEAR_OP " << std::endl;
+            Teko::BlockedLinearOp dgdp_op =
+                Teuchos::rcp_dynamic_cast<Thyra::PhysicallyBlockedLinearOpBase<Real>>(outArgs.get_DgDp(i,0).getLinearOp());
+            if (!Teuchos::is_null(dgdp_op)) {
+                for(std::size_t j=0; j<p_indices_.size(); ++j) {
+                    auto dgdp_j_mv =
+                        Teuchos::rcp_dynamic_cast<Thyra::MultiVectorBase<Real>>(dgdp_op->getNonconstBlock(0, j));
+                    if (!Teuchos::is_null(dgdp_j_mv)) {
+                        std::cout << "dgdp_j_mv is not null!" << std::endl;
+                        if (DgDp_op_support_[i*p_indices_.size()+j].supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM))
+                            internal_outArgs.set_DgDp(i, p_indices_[j], Thyra::ModelEvaluatorBase::Derivative(dgdp_j_mv, Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM));
+                        if (DgDp_op_support_[i*p_indices_.size()+j].supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM))
+                            internal_outArgs.set_DgDp(i, p_indices_[j], Thyra::ModelEvaluatorBase::Derivative(dgdp_j_mv, Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM));
+                        /*if (!Teuchos::is_null(dgdp_j->getMultiVector())) {
+                            std::cout << "dgdp_j->getMultiVector() is not null!" << std::endl;
+                            internal_outArgs.set_DgDp(i, p_indices_[j], Thyra::ModelEvaluatorBase::Derivative(dgdp_j_mv, dgdp_j->getMultiVectorOrientation()));
+                        }
+                        else {
+                            std::cout << "dgdp_j->getMultiVector() is null!" << std::endl;
+                            internal_outArgs.set_DgDp(i, p_indices_[j], Thyra::ModelEvaluatorBase::Derivative(dgdp_j->getLinearOp()));
+                        }
+                        */
+                    }
+                    else {
+                        std::cout << "dgdp_j_mv is null!" << std::endl;
+                    }
+                }
+            }
+            else {
+                std::cout << "dgdp_op is null!" << std::endl;
+            }
+        }
+        else {
+            std::cout << "DgDp " << i << " 0 doesn't support DERIV_LINEAR_OP " << std::endl;
         }
     }
 
@@ -657,15 +703,6 @@ ProductModelEvaluator<Real>::reportFinalPoint(
 template <typename Real>
 Teuchos::RCP<Thyra::LinearOpBase<Real> > 
 ProductModelEvaluator<Real>::create_DfDp_op(int l) const {
-    /*
-    Teuchos::Array<Teuchos::RCP<Thyra::LinearOpBase<Real> >> dfdp_op_internal;
-    int dim_vector = 0;
-    for(std::size_t i=0; i<p_indices_.size(); ++i) {
-        auto dfdp_op = thyra_model_->create_DfDp_op(p_indices_[i]);
-        dfdp_op_internal.pus_back(dfdp_op);
-        dim_vector += dfdp_op
-    }
-    */
     
     Teko::BlockedLinearOp J = Teko::createBlockedOp();
     J->beginBlockFill(1, p_indices_.size());
@@ -674,11 +711,20 @@ ProductModelEvaluator<Real>::create_DfDp_op(int l) const {
         J->setNonconstBlock(0, i, dfdp_op);
     }
     J->endBlockFill();
-    //return J;
+    return J;
+}
 
-
-    //return Thyra::createMembers(this->get_f_space(), this->get_p_space(l)->dim());
-    return thyra_model_->create_DfDp_op(0);
+template <typename Real>
+Teuchos::RCP<Thyra::LinearOpBase<Real> > 
+ProductModelEvaluator<Real>::create_DgDp_op(int j, int l) const {    
+    Teko::BlockedLinearOp J = Teko::createBlockedOp();
+    J->beginBlockFill(1, p_indices_.size());
+    for(std::size_t i=0; i<p_indices_.size(); ++i) {
+        Teuchos::RCP<Thyra::LinearOpBase<Real> > dgdp_op = thyra_model_->create_DgDp_op(j, p_indices_[i]);
+        J->setNonconstBlock(0, i, dgdp_op);
+    }
+    J->endBlockFill();
+    return J;
 }
 
 template <typename Real>
@@ -733,36 +779,40 @@ ProductModelEvaluator<Real>::fromInternalOutArgs(const Thyra::ModelEvaluatorBase
 
     for (auto g_index = 0; g_index < outArgs1.Ng(); ++g_index) {
         outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDx, g_index, outArgs1.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDx, g_index));
-
-        bool all_mv_gradient_form = false;
-        bool all_mv_jacobian_form = false;
-        for (auto i = 0; i < p_indices_.size(); ++i) {
-            const Thyra::ModelEvaluatorBase::DerivativeSupport dgdp_support =
-                outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp, g_index, p_indices_[i]);
-            if (dgdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM)) {
-                if (i == 0) all_mv_gradient_form = true;
-                if (!all_mv_gradient_form)
-                    TEUCHOS_TEST_FOR_EXCEPTION(true, std::logic_error,
-                                std::endl <<
-                                "Piro::ThyraProductME_Objective::gradient_2, DgDp does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms" << std::endl);
-            }
-            else if(dgdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM)) {
-                if (i == 0) all_mv_jacobian_form = true;
-                if (!all_mv_jacobian_form)
-                    TEUCHOS_TEST_FOR_EXCEPTION(true, std::logic_error,
-                                std::endl <<
-                                "Piro::ThyraProductME_Objective::gradient_2, DgDp does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms" << std::endl);
-            }
-            else {
-                TEUCHOS_TEST_FOR_EXCEPTION(true, std::logic_error,
-                            std::endl <<
-                            "Piro::ThyraProductME_Objective::gradient_2, DgDp does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms" << std::endl);
-            }
+        if ( true ) {
+            outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDp, g_index, 0, Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
         }
-        outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDp, g_index, 0, outArgs1.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDp, g_index, p_indices_[0]));
+        else {
+            bool all_mv_gradient_form = false;
+            bool all_mv_jacobian_form = false;
+            for (auto i = 0; i < p_indices_.size(); ++i) {
+                const Thyra::ModelEvaluatorBase::DerivativeSupport dgdp_support =
+                    outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp, g_index, p_indices_[i]);
+                if (dgdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM)) {
+                    if (i == 0) all_mv_gradient_form = true;
+                    if (!all_mv_gradient_form)
+                        TEUCHOS_TEST_FOR_EXCEPTION(true, std::logic_error,
+                                    std::endl <<
+                                    "Piro::ThyraProductME_Objective::gradient_2, DgDp does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms" << std::endl);
+                }
+                else if(dgdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM)) {
+                    if (i == 0) all_mv_jacobian_form = true;
+                    if (!all_mv_jacobian_form)
+                        TEUCHOS_TEST_FOR_EXCEPTION(true, std::logic_error,
+                                    std::endl <<
+                                    "Piro::ThyraProductME_Objective::gradient_2, DgDp does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms" << std::endl);
+                }
+                else {
+                    TEUCHOS_TEST_FOR_EXCEPTION(true, std::logic_error,
+                                std::endl <<
+                                "Piro::ThyraProductME_Objective::gradient_2, DgDp does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms" << std::endl);
+                }
+            }
+            outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDp, g_index, 0, outArgs1.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDp, g_index, p_indices_[0]));
+        }
     }
 
-    outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_DfDp, 0, Thyra::ModelEvaluatorBase::DERIV_MV_BY_COL);
+    outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_DfDp, 0, Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
 
     bool all_hess_g_pp = false;
     for (auto i = 0; i < p_indices_.size(); ++i) {
@@ -804,6 +854,12 @@ ProductModelEvaluator<Real>::toInternalOutArgs(const Thyra::ModelEvaluatorBase::
 
     for (auto i = 0; i < p_indices_.size(); ++i) {
         outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_DfDp, p_indices_[i], DfDp_op_support_[i]);
+    }
+
+    for (auto i = 0; i < thyra_model_->Ng(); ++i) {
+        for (auto j = 0; j < p_indices_.size(); ++j) {
+            outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp, i, p_indices_[j], DgDp_op_support_[i*p_indices_.size()+j]);
+        }
     }
 }
 
