@@ -482,8 +482,7 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
           if (Teuchos::nonnull(dgdp_deriv.getLinearOp())) {
             dfdp_request.plus(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
           } else if (Teuchos::nonnull(dgdp_deriv.getMultiVector())) {
-            dfdp_request.plus(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
-            //dfdp_request.plus(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM);
+            dfdp_request.plus(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM);
           }
         }
       }
