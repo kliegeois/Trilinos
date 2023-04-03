@@ -241,6 +241,7 @@ Thyra::ModelEvaluatorBase::OutArgs<Scalar> Piro::SteadyStateSolver<Scalar>::crea
         if (dxdp_mvJacSupport) {
           dxdp_support.plus(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM);
         }
+        std::cout << " dxdp_linOpSupport = " << dxdp_linOpSupport << " and dxdp_mvJacSupport = " << dxdp_mvJacSupport << std::endl;
         result.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp, num_g_, l, dxdp_support);
       }
 
@@ -474,6 +475,7 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
     // DfDp derivatives
     for (int l = 0; l < num_p_; ++l) {
       Thyra::ModelEvaluatorBase::DerivativeSupport dfdp_request;
+
       for (int j = 0; j <= num_g_; ++j) {
         if(!outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp, j, l).none()) {
           const Thyra::ModelEvaluatorBase::Derivative<Scalar> dgdp_deriv =
@@ -481,30 +483,42 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
           if (Teuchos::nonnull(dgdp_deriv.getLinearOp())) {
             dfdp_request.plus(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
           } else if (Teuchos::nonnull(dgdp_deriv.getMultiVector())) {
-            dfdp_request.plus(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM);
+            std::cout << " dgdp_deriv.getMultiVector() is not null for j = " << j << " and l = " << l << std::endl; 
+            dfdp_request.plus(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
+            //dfdp_request.plus(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM);
           }
         }
       }
-      /*
-      if(!outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DfDp, l).none()) {
-        const Thyra::ModelEvaluatorBase::Derivative<Scalar> dfdp_deriv =
-            outArgs.get_DfDp(l);
-        if (Teuchos::nonnull(dfdp_deriv.getLinearOp())) {
-          dfdp_request.plus(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
-        } else if (Teuchos::nonnull(dfdp_deriv.getMultiVector())) {
-          dfdp_request.plus(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM);
-        }
-      }
-      */
 
+      const Thyra::ModelEvaluatorBase::DerivativeSupport dfdp_support =
+          outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DfDp, l);
       if (!dfdp_request.none()) {
         Thyra::ModelEvaluatorBase::Derivative<Scalar> dfdp_deriv;
         if (dfdp_request.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM)) {
           dfdp_deriv = Thyra::create_DfDp_mv(*model_, l, Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM);
+        } else if (dfdp_request.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM)) {
+          dfdp_deriv = Thyra::create_DfDp_mv(*model_, l, Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM);
         } else if (dfdp_request.supports(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP)) {
           dfdp_deriv = model_->create_DfDp_op(l);
+          RCP<Thyra::LinearOpBase<Scalar> > dfdp_op =
+              dfdp_deriv.getLinearOp();
+          if (Teuchos::is_null(dfdp_op)) {
+            TEUCHOS_TEST_FOR_EXCEPTION(
+                true, std::logic_error,
+                std::endl << "Piro::SteadyStateSolver::evalConvergedModelResponsesAndSensitivities():  " <<
+                "For df/dp, getLinearOp is null. " << std::endl);
+          }
         }
         modelOutArgs.set_DfDp(l, dfdp_deriv);
+      }
+      else {
+        std::cout << "dfdp_request is none for l = " << l << std::endl;
+      }
+    }
+
+    for (int l = 0; l < num_p_; ++l) {
+      if (outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp, num_g_, l).supports(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP)) {
+        ;//modelOutArgs.set_DgDp(num_g_, l, model_->create_DgDp_op(num_g_, l));
       }
     }
 
@@ -591,12 +605,13 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
         // to get the right layout in most situations.
 
         if (ds.supports(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP)) {
-          auto dfdp_op = this->getModel().create_DfDp_op(i);
+          Thyra::ModelEvaluatorBase::Derivative<Scalar> dfdp_deriv = this->getModel().create_DfDp_op(i);
+          RCP<Thyra::LinearOpBase<Scalar> > dfdp_op = dfdp_deriv.getLinearOp();
           TEUCHOS_TEST_FOR_EXCEPTION(
               dfdp_op == Teuchos::null, std::logic_error,
               std::endl << "Piro::SteadyStateSolver::evalConvergedModelResponsesAndSensitivities():  " <<
               "Needed df/dp operator (" << i << ") is null!" << std::endl);
-          modelOutArgs.set_DfDp(i,dfdp_op);
+          modelOutArgs.set_DfDp(i,dfdp_deriv);
         } else {
           /*
           TEUCHOS_TEST_FOR_EXCEPTION(
@@ -737,7 +752,7 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
     model_->evalModel(modelInArgs, modelOutArgs);
   }
 
-
+  std::cout << "computeForwardSensitivities = " << computeForwardSensitivities << " computeAdjointSensitivities = " << computeAdjointSensitivities << std::endl;
   if(computeForwardSensitivities) {
 
     // Assemble user-requested sensitivities
@@ -749,6 +764,12 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
           const Thyra::ModelEvaluatorBase::DerivativeSupport dfdp_support =
               modelOutArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DfDp, l);
           if (!dfdp_support.none()) {
+            const bool dfdp_linOpSupport =
+                dfdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
+            const bool dfdp_mvJacSupport =
+                dfdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM);
+            const bool dfdp_mvGradSupport =
+                dfdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM);
             const Thyra::ModelEvaluatorBase::Derivative<Scalar> dfdp_deriv =
                 modelOutArgs.get_DfDp(l);
             const RCP<Thyra::MultiVectorBase<Scalar> > dfdp_mv =
@@ -759,12 +780,40 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
               dfdp_op = dfdp_mv;
             }
 
+            if (Teuchos::is_null(dfdp_mv) && Teuchos::is_null(dfdp_op))
+              TEUCHOS_TEST_FOR_EXCEPTION(
+                  true, std::logic_error,
+                  std::endl << "Piro::SteadyStateSolver::evalConvergedModelResponsesAndSensitivities():  " <<
+                  "For df/dp, both getMultiVector and getLinearOp are null. " << dfdp_linOpSupport << " " << dfdp_mvJacSupport << " " << dfdp_mvGradSupport <<
+                  std::endl);
+
             const Thyra::ModelEvaluatorBase::Derivative<Scalar> dxdp_deriv =
                 outArgs.get_DgDp(num_g_, l);
             const RCP<Thyra::LinearOpBase<Scalar> > dxdp_op =
                 dxdp_deriv.getLinearOp();
             const RCP<Thyra::MultiVectorBase<Scalar> > dxdp_mv =
                 dxdp_deriv.getMultiVector();
+
+            const Thyra::ModelEvaluatorBase::DerivativeSupport dxdp_support =
+                outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp, num_g_, l);
+            const bool dxdp_linOpSupport =
+                dxdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
+            const bool dxdp_mvJacSupport =
+                dxdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM);
+            const bool dxdp_mvGradSupport =
+                dxdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM);
+
+            if (Teuchos::nonnull(dxdp_op)) {
+              std::cout << "dxdp_op non null " << num_g_ << " " << l << std::endl;
+            } else {
+              std::cout << "dxdp_op is null " << num_g_ << " " << l << std::endl;
+            }
+            if (Teuchos::nonnull(dxdp_mv)) {
+              std::cout << "dxdp_mv non null " << num_g_ << " " << l << std::endl;
+            } else {
+              std::cout << "dxdp_mv is null " << num_g_ << " " << l << std::endl;
+            }
+            std::cout << "dxdp_support = " << dxdp_linOpSupport << ", " << dxdp_mvJacSupport << ", " << dxdp_mvGradSupport << " " << num_g_ << " " << l << std::endl;
 
             RCP<const Thyra::LinearOpBase<Scalar> > minus_dxdp_op;
             RCP<Thyra::MultiVectorBase<Scalar> > minus_dxdp_mv;
@@ -782,6 +831,7 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
               const RCP<const Thyra::LinearOpBase<Scalar> > dfdx_inv_op =
                   Thyra::inverse<Scalar>(jacobian);
               minus_dxdp_op = Thyra::multiply<Scalar>(dfdx_inv_op, dfdp_op);
+              std::cout << " minus_dxdp_op set " << std::endl;
             }
 
             if (Teuchos::nonnull(minus_dxdp_mv) && Teuchos::nonnull(dfdp_mv)) {
@@ -807,6 +857,7 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
             if (Teuchos::nonnull(dxdp_mv)) {
               minus_dxdp_mv = Teuchos::null; // Invalidates temporary
               Thyra::scale(-Teuchos::ScalarTraits<Scalar>::one(), dxdp_mv.ptr());
+              std::cout << " dxdp_mv scaled " << std::endl;
             } else if (Teuchos::nonnull(dxdp_op)) {
               const RCP<Thyra::DefaultMultipliedLinearOp<Scalar> > dxdp_op_downcasted =
                   Teuchos::rcp_dynamic_cast<Thyra::DefaultMultipliedLinearOp<Scalar> >(dxdp_op);
@@ -821,6 +872,7 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
                   Thyra::scale<Scalar>(-Teuchos::ScalarTraits<Scalar>::one(), Thyra::identity(dfdp_op->domain()));
 
               dxdp_op_downcasted->initialize(Teuchos::tuple(minus_dxdp_op, minus_id_op));
+              std::cout << " dxdp_op_downcasted set " << std::endl;
             }
 
             // Response sensitivities
@@ -870,6 +922,7 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
                   const RCP<Thyra::MultiVectorBase<Scalar> > dgdp_mv =
                       dgdp_deriv.getMultiVector();
                   if (Teuchos::nonnull(dgdp_mv)) {
+                    std::cout << "dgdp_mv non null " << std::endl;
                     if (dgdp_deriv.getMultiVectorOrientation() == Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM) {
                       if (Teuchos::nonnull(dxdp_mv)) {
                         Thyra::apply(
@@ -879,9 +932,17 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
                             dgdp_mv.ptr(),
                             Teuchos::ScalarTraits<Scalar>::one(),
                             Teuchos::ScalarTraits<Scalar>::one());
-                      } else {
+                      } else if (Teuchos::nonnull(minus_dxdp_mv)) {
                         Thyra::apply(
                             *minus_dxdp_mv,
+                            Thyra::TRANS,
+                            *dgdx_mv,
+                            dgdp_mv.ptr(),
+                            -Teuchos::ScalarTraits<Scalar>::one(),
+                            Teuchos::ScalarTraits<Scalar>::one());
+                      } else {
+                        Thyra::apply(
+                            *minus_dxdp_op,
                             Thyra::TRANS,
                             *dgdx_mv,
                             dgdp_mv.ptr(),
@@ -897,7 +958,7 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
                             dgdp_mv.ptr(),
                             Teuchos::ScalarTraits<Scalar>::one(),
                             Teuchos::ScalarTraits<Scalar>::one());
-                      } else {
+                      } else if (Teuchos::nonnull(minus_dxdp_mv)) {
                         Thyra::apply(
                             *dgdx_op,
                             Thyra::NOTRANS,
@@ -905,6 +966,8 @@ void Piro::SteadyStateSolver<Scalar>::evalConvergedModelResponsesAndSensitivitie
                             dgdp_mv.ptr(),
                             -Teuchos::ScalarTraits<Scalar>::one(),
                             Teuchos::ScalarTraits<Scalar>::one());
+                      } else {
+                        std::cout << "oups " << std::endl;
                       }
                     }
                   }
