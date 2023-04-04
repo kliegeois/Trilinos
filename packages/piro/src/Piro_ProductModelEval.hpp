@@ -759,10 +759,26 @@ ProductModelEvaluator<Real>::fromInternalOutArgs(const Thyra::ModelEvaluatorBase
 
     for (auto g_index = 0; g_index < outArgs1.Ng(); ++g_index) {
         outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDx, g_index, outArgs1.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDx, g_index));
-        outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDp, g_index, 0, Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
+        Thyra::ModelEvaluatorBase::DerivativeSupport dgdp_support;
+        for (auto i = 0; i < p_indices_.size(); ++i) {
+            if (!outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp, g_index, p_indices_[i]).none()) {
+                dgdp_support.plus(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
+                break;
+            }
+        }
+        outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDp, g_index, 0, dgdp_support);
+        //outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDp, g_index, 0, Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
     }
 
-    outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_DfDp, 0, Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
+    Thyra::ModelEvaluatorBase::DerivativeSupport dfdp_support;
+    for (auto i = 0; i < p_indices_.size(); ++i) {
+        if (!outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DfDp, p_indices_[i]).none()) {
+            dfdp_support.plus(Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
+            break;
+        }
+    }
+    outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_DfDp, 0, dfdp_support);
+    //outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_DfDp, 0, Thyra::ModelEvaluatorBase::DERIV_LINEAR_OP);
 
     bool all_hess_g_pp = false;
     for (auto i = 0; i < p_indices_.size(); ++i) {
