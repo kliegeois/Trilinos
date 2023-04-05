@@ -343,31 +343,34 @@ ProductModelEvaluator<Real>::evalModelImpl(
     Teuchos::RCP<const Thyra::ProductVectorBase<Real> > prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(inArgs.get_p(0));
     Teuchos::RCP<const Thyra::ProductMultiVectorBase<Real> > prodvec_direction_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductMultiVectorBase<Real>>(inArgs.get_p_direction(0));
 
-    TEUCHOS_TEST_FOR_EXCEPTION(inArgs.get_p(0).is_null(), std::logic_error,
-        std::endl <<
-        "Error!  ProductModelEvaluator<Real>::evalModelImpl() " <<
-        " inArgs.get_p(0) is null " << std::endl);
+    //TEUCHOS_TEST_FOR_EXCEPTION(inArgs.get_p(0).is_null(), std::logic_error,
+    //    std::endl <<
+    //    "Error!  ProductModelEvaluator<Real>::evalModelImpl() " <<
+    //    " inArgs.get_p(0) is null " << std::endl);
 
-    TEUCHOS_TEST_FOR_EXCEPTION(prodvec_p.is_null(), std::logic_error,
+    TEUCHOS_TEST_FOR_EXCEPTION(!inArgs.get_p(0).is_null() && prodvec_p.is_null(), std::logic_error,
         std::endl <<
         "Error!  ProductModelEvaluator<Real>::evalModelImpl() " <<
         " prodvec_p is not a ProductVectorBase " << std::endl);
 
     for (auto i = 0; i < p_indices_.size(); ++i) {
-        auto tmp = prodvec_p->getVectorBlock(i);
+        if (!prodvec_p.is_null()) {
+            auto tmp = prodvec_p->getVectorBlock(i);
 
-        Teuchos::RCP<const Thyra::ProductVectorBase<Real> > prodvec_p_in
-            = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(tmp);
+            Teuchos::RCP<const Thyra::ProductVectorBase<Real> > prodvec_p_in
+                = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(tmp);
 
-        TEUCHOS_TEST_FOR_EXCEPTION(!prodvec_p_in.is_null(), std::logic_error,
-            std::endl <<
-            "Error!  ProductModelEvaluator<Real>::evalModelImpl() " <<
-            " ProductVectorBase of ProductVectorBase is not supported.  Parameter index i = " <<
-            i << std::endl);
+            TEUCHOS_TEST_FOR_EXCEPTION(!prodvec_p_in.is_null(), std::logic_error,
+                std::endl <<
+                "Error!  ProductModelEvaluator<Real>::evalModelImpl() " <<
+                " ProductVectorBase of ProductVectorBase is not supported.  Parameter index i = " <<
+                i << std::endl);
 
-        internal_inArgs.set_p(p_indices_[i], prodvec_p->getVectorBlock(i));
-        if (!prodvec_direction_p.is_null())
+            internal_inArgs.set_p(p_indices_[i], prodvec_p->getVectorBlock(i));
+        }
+        if (!prodvec_direction_p.is_null()) {
             internal_inArgs.set_p_direction(p_indices_[i], prodvec_direction_p->getMultiVectorBlock(i));
+        }
     }
 
     for (auto g_index = 0; g_index < thyra_model_->Ng(); ++g_index) {
