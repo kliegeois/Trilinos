@@ -273,7 +273,7 @@ Piro::PerformROLAnalysis(
     Teuchos::RCP<const Thyra::ProductVectorBase<double> > prodvec_p 
       = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<double>>(piroNOXSolver->getSubModel()->getNominalValues().get_p(0));
 
-    if ( prodvec_p.is_null()) {
+    if ( prodvec_p.is_null() || prodvec_p->productSpace()->numBlocks() < 1) {
       model = Teuchos::rcp(new Piro::ProductModelEvaluator<double>(
         Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(piroNOXSolver->getSubModel()),
         g_index,
@@ -289,6 +289,10 @@ Piro::PerformROLAnalysis(
     else {
       model = Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(piroNOXSolver->getSubModel());
       adjointModel = Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(piroNOXSolver->getAdjointSubModel());
+
+      auto model_tmp = Teuchos::rcp_dynamic_cast<Piro::ProductModelEvaluator<double>>(model);
+      TEUCHOS_TEST_FOR_EXCEPTION(true, Teuchos::Exceptions::InvalidParameter,
+          std::endl << "model is not ProductModelEvaluator "<<std::endl);      
     }
   } else
 #endif
@@ -600,6 +604,12 @@ Piro::PerformROLAnalysis(
       *out << "\nPiro::PerformROLAnalysis: Start the computation of H_pp" << std::endl;
  
     Teko::BlockedLinearOp bH_dotP, bH_sec;
+    Teuchos::RCP<Piro::ProductModelEvaluator<double>> model_PME =
+      Teuchos::rcp_dynamic_cast<Piro::ProductModelEvaluator<double>>(model);
+
+    TEUCHOS_TEST_FOR_EXCEPTION(model_PME.is_null(), Teuchos::Exceptions::InvalidParameter,
+              std::endl << "Piro::PerformROLAnalysis, ERROR: " <<
+              "model is not a ProductModelEvaluator"<<std::endl);
 
     if (useCustomDotProduct) {
       bH_dotP = Teko::createBlockedOp();

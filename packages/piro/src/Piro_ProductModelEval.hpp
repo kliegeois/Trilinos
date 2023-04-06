@@ -52,13 +52,11 @@
 #include "Thyra_PhysicallyBlockedLinearOpBase.hpp"
 
 #include "ROL_Types.hpp"
-#include "ROL_HessianScaledThyraVector.hpp"
 
 #ifdef HAVE_PIRO_TEKO
 #include "Teko_InverseLibrary.hpp"
 #include "Teko_PreconditionerFactory.hpp"
 #ifdef HAVE_PIRO_ROL
-#include "ROL_HessianScaledThyraVector.hpp"
 #endif
 #endif
 
@@ -189,6 +187,12 @@ ProductModelEvaluator(
             DgDp_op_support_.push_back(internal_outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp, i, p_indices_[j]));
         }
     }
+
+    Teuchos::RCP<Piro::ProductModelEvaluator<Real>> thyra_prod_model =
+        Teuchos::rcp_dynamic_cast<Piro::ProductModelEvaluator<Real>>(thyra_model);
+    TEUCHOS_TEST_FOR_EXCEPTION(!thyra_prod_model.is_null(), std::logic_error,
+                        std::endl <<
+                        "Error!  ProductModelEvaluator::ProductModelEvaluator() The supplied thyra_model is already a ProductModelEvaluator." << std::endl);
 }
 
 template <typename Real>
@@ -360,13 +364,17 @@ ProductModelEvaluator<Real>::evalModelImpl(
             Teuchos::RCP<const Thyra::ProductVectorBase<Real> > prodvec_p_in
                 = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(tmp);
 
-            TEUCHOS_TEST_FOR_EXCEPTION(!prodvec_p_in.is_null(), std::logic_error,
-                std::endl <<
-                "Error!  ProductModelEvaluator<Real>::evalModelImpl() " <<
-                " ProductVectorBase of ProductVectorBase is not supported.  Parameter index i = " <<
-                i << std::endl);
-
-            internal_inArgs.set_p(p_indices_[i], prodvec_p->getVectorBlock(i));
+            if ( prodvec_p_in.is_null() ) {
+                internal_inArgs.set_p(p_indices_[i], prodvec_p->getVectorBlock(i));
+            }
+            else {
+                TEUCHOS_TEST_FOR_EXCEPTION(prodvec_p_in->productSpace()->numBlocks() > 0, std::logic_error,
+                    std::endl <<
+                    "Error!  ProductModelEvaluator<Real>::evalModelImpl() " <<
+                    " ProductVectorBase of ProductVectorBase with numBlocks larger than 1 is not yet supported.  Parameter index i = " <<
+                    i << std::endl);
+                internal_inArgs.set_p(p_indices_[i], prodvec_p_in->getVectorBlock(0));
+            }
         }
         if (!prodvec_direction_p.is_null()) {
             internal_inArgs.set_p_direction(p_indices_[i], prodvec_direction_p->getMultiVectorBlock(i));
