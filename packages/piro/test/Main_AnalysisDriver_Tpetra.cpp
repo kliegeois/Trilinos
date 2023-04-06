@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
 
         if (mockModel=="MockModelEval_A_Tpetra") {
           if(boundConstrained) {
-            RCP<Thyra::ModelEvaluator<double>> model_tmp = rcp(new MockModelEval_A_Tpetra(appComm,false,probParams));
+            RCP<Thyra::ModelEvaluator<double>> model_tmp = rcp(new MockModelEval_A_Tpetra(appComm,false,probParams,true));
             model = rcp(new Piro::ProductModelEvaluator<double>(model_tmp,g_index,p_indices));
             //RCP<Thyra::ModelEvaluator<double>> model = rcp(new MockModelEval_A_Tpetra(appComm,false,probParams));
             if(explicitAdjointME) {
@@ -160,7 +160,7 @@ int main(int argc, char *argv[]) {
             continue;
         }
         else {//if (mockModel=="MockModelEval_B_Tpetra") 
-          RCP<Thyra::ModelEvaluator<double>> model_tmp = rcp(new MockModelEval_B_Tpetra(appComm,false,probParams));
+          RCP<Thyra::ModelEvaluator<double>> model_tmp = rcp(new MockModelEval_B_Tpetra(appComm,false,probParams,true));
           model = rcp(new Piro::ProductModelEvaluator<double>(model_tmp,g_index,p_indices));
           //model = rcp(new MockModelEval_B_Tpetra(appComm,false,probParams));
           if(explicitAdjointME) {
