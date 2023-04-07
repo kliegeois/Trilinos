@@ -555,6 +555,12 @@ Piro::PerformROLAnalysis(
   #ifdef HAVE_PIRO_TEKO
   Teko::LinearOp H, invH;
   Teuchos::RCP<Piro::ProductModelEvaluator<double>> model_PME = Teuchos::rcp_dynamic_cast<Piro::ProductModelEvaluator<double>>(model);
+  if (model_PME.is_null()) {
+    Teuchos::RCP<Thyra::ModelEvaluatorDelegatorBase<double>> model_MEDB = Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDelegatorBase<double>>(model);
+    if (!model_MEDB.is_null()) {
+      model_PME = Teuchos::rcp_dynamic_cast<Piro::ProductModelEvaluator<double>>(model_MEDB->getNonconstUnderlyingModel());
+    }
+  }
   if (useHessianDotProduct && !model_PME.is_null()) {
     int hessianResponseIndex = hessianDotProductList.get<int>("Response Index");
     if(analysisVerbosity > 2)
