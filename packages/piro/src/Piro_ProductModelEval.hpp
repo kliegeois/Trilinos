@@ -522,10 +522,21 @@ ProductModelEvaluator<Real>::evalModelImpl(
                     auto dgdp_j_mv =
                         Teuchos::rcp_dynamic_cast<Thyra::MultiVectorBase<Real>>(dgdp_op->getNonconstBlock(0, j));
                     if (!Teuchos::is_null(dgdp_j_mv)) {
-                        if (DgDp_op_support_[i*p_indices_.size()+j].supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM))
-                            internal_outArgs.set_DgDp(i, p_indices_[j], Thyra::ModelEvaluatorBase::Derivative(dgdp_j_mv, Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM));
-                        if (DgDp_op_support_[i*p_indices_.size()+j].supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM))
-                            internal_outArgs.set_DgDp(i, p_indices_[j], Thyra::ModelEvaluatorBase::Derivative(dgdp_j_mv, Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM));
+                        const Thyra::ModelEvaluatorBase::DerivativeSupport dgdp_support =
+                            DgDp_op_support_[i*p_indices_.size()+j];
+                            //internal_outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp, i, p_indices_[j]);
+                        Thyra::ModelEvaluatorBase::EDerivativeMultiVectorOrientation dgdp_orient;
+                        if (dgdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM)) {
+                            dgdp_orient = Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM;
+                        }
+                        else if(dgdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM)) {
+                            dgdp_orient = Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM;
+                        }
+                        else {
+                            ROL_TEST_FOR_EXCEPTION(true, std::logic_error,
+                                "Piro::ProductME, DgDp does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
+                        }
+                        internal_outArgs.set_DgDp(i, p_indices_[j], Thyra::ModelEvaluatorBase::Derivative(dgdp_j_mv, dgdp_orient));
                     }
                 }
             }

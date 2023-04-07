@@ -238,9 +238,11 @@ public:
       if ( !prodvec_dgdp.is_null()) {
         Teko::BlockedLinearOp dgdp_op =
             Teuchos::rcp_dynamic_cast<Thyra::PhysicallyBlockedLinearOpBase<Real>>(thyra_model_->create_DgDp_op(g_index_, 0));
+        dgdp_op->beginBlockFill();
         for (size_t i = 0; i < prodvec_dgdp->productSpace()->numBlocks(); ++i) {
           dgdp_op->setNonconstBlock(0, i, prodvec_dgdp->getNonconstMultiVectorBlock(i));
         }
+        dgdp_op->endBlockFill();
         Thyra::ModelEvaluatorBase::Derivative<Real> dgdp_der(Teuchos::rcp_dynamic_cast<Thyra::LinearOpBase<Real>>(dgdp_op));
         outArgs.set_DgDp(g_index_, 0, dgdp_der);
       }
