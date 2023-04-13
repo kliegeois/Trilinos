@@ -108,6 +108,7 @@ public:
     //Teuchos::RCP<Thyra::LinearOpBase<Real> > create_DgDx_op(int j) const;
     /** \brief . */
     Teuchos::RCP<Thyra::LinearOpBase<Real> > create_DgDp_op(int j, int l) const;
+    Teuchos::RCP<Thyra::LinearOpBase<Real> > create_DgDp_op(int j, int l, Teuchos::RCP<Thyra::ProductMultiVectorBase<Real> > prodvec_dgdp) const;
     /** \brief . */
     //Teuchos::RCP<Thyra::LinearOpWithSolveBase<Real> > create_W() const;
     /** \brief . */
@@ -372,7 +373,7 @@ ProductModelEvaluator<Real>::evalModelImpl(
             internal_inArgs.set_p_direction(p_indices_[i], prodvec_direction_p->getMultiVectorBlock(i));
         }
     }
-
+/*
     for (auto g_index = 0; g_index < thyra_model_->Ng(); ++g_index) {
 
         const Thyra::ModelEvaluatorBase::DerivativeSupport dgdp_support_tmp =
@@ -407,7 +408,7 @@ ProductModelEvaluator<Real>::evalModelImpl(
                                                                                             dgdp_orient));
         }
     }
-
+*/
     if (supports_vec_prod_g_xp) {
         std::vector<Teuchos::RCP< Thyra::MultiVectorBase<Real> > > hv_vec(p_indices_.size());
 
@@ -520,7 +521,7 @@ ProductModelEvaluator<Real>::evalModelImpl(
             if (!Teuchos::is_null(dgdp_op)) {
                 for(std::size_t j=0; j<p_indices_.size(); ++j) {
                     auto dgdp_j_mv =
-                        Teuchos::rcp_dynamic_cast<Thyra::MultiVectorBase<Real>>(dgdp_op->getNonconstBlock(0, j));
+                        Teuchos::rcp_dynamic_cast<Thyra::MultiVectorBase<Real>>( Teuchos::rcp_dynamic_cast<Thyra::DefaultScaledAdjointLinearOp<Real>>(dgdp_op->getNonconstBlock(0, j))->getNonconstOp() );
                     if (!Teuchos::is_null(dgdp_j_mv)) {
                         const Thyra::ModelEvaluatorBase::DerivativeSupport dgdp_support =
                             DgDp_op_support_[i*p_indices_.size()+j];
@@ -719,6 +720,33 @@ ProductModelEvaluator<Real>::create_DgDp_op(int j, int l) const {
     }
     J->endBlockFill();
     return J;
+}
+
+template <typename Real>
+Teuchos::RCP<Thyra::LinearOpBase<Real> > 
+ProductModelEvaluator<Real>::create_DgDp_op(int j, int l, Teuchos::RCP<Thyra::ProductMultiVectorBase<Real> > prodvec_dgdp) const {    
+    Teko::BlockedLinearOp dgdp_op = Teko::createBlockedOp();
+    dgdp_op->beginBlockFill(1, p_indices_.size());
+    for(std::size_t i=0; i<p_indices_.size(); ++i) {
+        Teuchos::RCP<Thyra::DefaultScaledAdjointLinearOp<Real>> dgdp_i_ALOP;
+
+        const Thyra::ModelEvaluatorBase::DerivativeSupport dgdp_support = DgDp_op_support_[j*p_indices_.size()+i];
+
+
+        if (dgdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM)) {
+            dgdp_i_ALOP = Teuchos::rcp<Thyra::DefaultScaledAdjointLinearOp<Real>>( 
+                new Thyra::DefaultScaledAdjointLinearOp<Real>(1, Thyra::EOpTransp::TRANS, 
+                Teuchos::rcp_dynamic_cast<Thyra::LinearOpBase<Real> > (prodvec_dgdp->getNonconstMultiVectorBlock(i))));
+        }
+        else if(dgdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM)) {
+            dgdp_i_ALOP = Teuchos::rcp<Thyra::DefaultScaledAdjointLinearOp<Real>>( 
+                new Thyra::DefaultScaledAdjointLinearOp<Real>(1, Thyra::EOpTransp::NOTRANS, 
+                Teuchos::rcp_dynamic_cast<Thyra::LinearOpBase<Real> > (prodvec_dgdp->getNonconstMultiVectorBlock(i))));
+        }
+        dgdp_op->setNonconstBlock(0, i, dgdp_i_ALOP);
+    }
+    dgdp_op->endBlockFill();
+    return dgdp_op;
 }
 
 template <typename Real>

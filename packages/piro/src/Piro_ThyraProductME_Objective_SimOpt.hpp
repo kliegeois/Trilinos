@@ -236,15 +236,40 @@ public:
         Teuchos::rcp_dynamic_cast<Thyra::ProductMultiVectorBase<Real>>(thyra_dgdp.getVector());
     if ( !thyra_dgdp.getVector().is_null()) {
       if ( !prodvec_dgdp.is_null()) {
-        Teko::BlockedLinearOp dgdp_op =
-            Teuchos::rcp_dynamic_cast<Thyra::PhysicallyBlockedLinearOpBase<Real>>(thyra_model_->create_DgDp_op(g_index_, 0));
-        dgdp_op->beginBlockFill();
-        for (size_t i = 0; i < prodvec_dgdp->productSpace()->numBlocks(); ++i) {
-          dgdp_op->setNonconstBlock(0, i, prodvec_dgdp->getNonconstMultiVectorBlock(i));
+        Teuchos::RCP<const Piro::ProductModelEvaluator<Real>> model_PME = 
+          Teuchos::rcp_dynamic_cast<const Piro::ProductModelEvaluator<Real>>(thyra_model_);
+        if (model_PME.is_null()) {
+          Teuchos::RCP<const Thyra::ModelEvaluatorDelegatorBase<Real>> model_MEDB =
+            Teuchos::rcp_dynamic_cast<const Thyra::ModelEvaluatorDelegatorBase<Real>>(thyra_model_);
+          if (!model_MEDB.is_null()) {
+            model_PME = Teuchos::rcp_dynamic_cast<const Piro::ProductModelEvaluator<Real>>(model_MEDB->getUnderlyingModel());
+          }
         }
-        dgdp_op->endBlockFill();
-        Thyra::ModelEvaluatorBase::Derivative<Real> dgdp_der(Teuchos::rcp_dynamic_cast<Thyra::LinearOpBase<Real>>(dgdp_op));
-        outArgs.set_DgDp(g_index_, 0, dgdp_der);
+
+        if ( !model_PME.is_null()) {
+          Teko::BlockedLinearOp dgdp_op =
+              Teuchos::rcp_dynamic_cast<Thyra::PhysicallyBlockedLinearOpBase<Real>>(model_PME->create_DgDp_op(g_index_, 0, prodvec_dgdp));
+          Thyra::ModelEvaluatorBase::Derivative<Real> dgdp_der(Teuchos::rcp_dynamic_cast<Thyra::LinearOpBase<Real>>(dgdp_op));
+          outArgs.set_DgDp(g_index_, 0, dgdp_der);
+        }
+        else {
+          ROL_TEST_FOR_EXCEPTION( true, std::logic_error, "Piro::ThyraProductME_Objective: dgdp is not supported for the used ModelEvaluator.");
+          /*
+          Teko::BlockedLinearOp dgdp_op =
+              Teuchos::rcp_dynamic_cast<Thyra::PhysicallyBlockedLinearOpBase<Real>>(thyra_model_->create_DgDp_op(g_index_, 0));
+
+          dgdp_op->beginBlockFill();
+          for (size_t i = 0; i < prodvec_dgdp->productSpace()->numBlocks(); ++i) {
+            Teuchos::RCP<Thyra::DefaultScaledAdjointLinearOp<Real>> dgdp_i_der = Teuchos::rcp<Thyra::DefaultScaledAdjointLinearOp<Real>>( 
+              new Thyra::DefaultScaledAdjointLinearOp<Real>(1, Thyra::EOpTransp::TRANS, Teuchos::rcp_dynamic_cast<Thyra::LinearOpBase<Real> > (prodvec_dgdp->getNonconstMultiVectorBlock(i))));
+            //dgdp_op->setNonconstBlock(0, i, dgdp_i_der);
+          }
+          dgdp_op->endBlockFill();
+
+          Thyra::ModelEvaluatorBase::Derivative<Real> dgdp_der(Teuchos::rcp_dynamic_cast<Thyra::LinearOpBase<Real>>(dgdp_op));
+          outArgs.set_DgDp(g_index_, 0, dgdp_der);
+          */
+        }
       }
       else {
         const Thyra::ModelEvaluatorBase::DerivativeSupport dgdp_support =
