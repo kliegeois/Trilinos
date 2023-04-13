@@ -52,6 +52,7 @@
 #include "Xpetra_IO.hpp"
 
 #include "MueLu_Aggregates.hpp"
+#include "MueLu_Aggregates_kokkos.hpp"
 #include "MueLu_CoordinatesTransferFactory_decl.hpp"
 #include "MueLu_Utilities.hpp"
 

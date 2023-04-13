@@ -302,6 +302,13 @@ namespace MueLu {
     //  If # of global aggregates is unknown, this method does coummunication and internally record the value
     GO GetNumGlobalAggregatesComputeIfNeeded();
 
+    /*! \brief Get global number of aggregates
+
+    \note If # of global aggregates is unknown, this method does coummunication and internally record
+    the value.
+    */
+    GO GetNumGlobalAggregatesComputeIfNeeded();
+
     //! @name Overridden from Teuchos::Describable
     //@{
 

@@ -603,12 +603,40 @@ Piro::PerformROLAnalysis(
       model_PME = Teuchos::rcp_dynamic_cast<Piro::ProductModelEvaluator<double>>(model_MEDB->getNonconstUnderlyingModel());
     }
   }
-  if (useHessianDotProduct && !model_PME.is_null()) {
-    int hessianResponseIndex = hessianDotProductList.get<int>("Response Index");
+
+
+  
+  Teuchos::RCP<Thyra::VectorBase<double> > scaling_vector_p = Teuchos::null;
+  Teuchos::RCP<const Thyra::LinearOpBase<double> > H_dotP(Teuchos::null), invH_dotP(Teuchos::null), H_sec(Teuchos::null), invH_sec(Teuchos::null);
+
+  #ifdef HAVE_PIRO_TEKO
+  {
     if(analysisVerbosity > 2)
       *out << "\nPiro::PerformROLAnalysis: Start the computation of H_pp" << std::endl;
-    Teko::BlockedLinearOp bH = Teko::createBlockedOp();
-    model_PME->block_diagonal_hessian_22(bH, rol_x, rol_p, hessianResponseIndex);
+
+    Teuchos::RCP<Piro::ProductModelEvaluator<double>> model_PME = Teuchos::rcp_dynamic_cast<Piro::ProductModelEvaluator<double>>(model);
+    if (model_PME.is_null()) {
+      Teuchos::RCP<Thyra::ModelEvaluatorDelegatorBase<double>> model_MEDB = Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDelegatorBase<double>>(model);
+      if (!model_MEDB.is_null()) {
+        model_PME = Teuchos::rcp_dynamic_cast<Piro::ProductModelEvaluator<double>>(model_MEDB->getNonconstUnderlyingModel());
+      }
+    }
+
+    Teko::BlockedLinearOp bH_dotP, bH_sec;
+
+    if (useCustomDotProduct && !model_PME.is_null()) {
+      bH_dotP = Teko::createBlockedOp();
+      model_PME->block_diagonal_hessian_22(bH_dotP, rol_x, rol_p, reponse_index_dotProd);
+    }
+    if(useCustomSecant && (reponse_index_secant != -1 ) && !model_PME.is_null()) {
+      if (reponse_index_dotProd == reponse_index_secant)
+        bH_sec = bH_dotP;
+      else {
+        bH_sec = Teko::createBlockedOp();
+        model_PME->block_diagonal_hessian_22(bH_sec, rol_x, rol_p, reponse_index_secant);
+      }
+    }
+    
     if(analysisVerbosity > 2)
       *out << "Piro::PerformROLAnalysis: End of the computation of H_pp" << std::endl;
 
