@@ -81,9 +81,12 @@ namespace Ifpack2 {
   ::initInternal (const Teuchos::RCP<const row_matrix_type>& matrix,
                   const Teuchos::Array<Teuchos::Array<local_ordinal_type> >& partitions,
                   const Teuchos::RCP<const import_type>& importer,
+                  const int n_sublines,
                   const bool overlapCommAndComp,
                   const bool useSeqMethod) 
   {
+    n_sublines_ = n_sublines;
+
     // create pointer of impl
     impl_ = Teuchos::rcp(new BlockTriDiSchurContainerDetails::ImplObject<MatrixType>());
 
@@ -164,17 +167,19 @@ namespace Ifpack2 {
   {
     const bool useSeqMethod = false;
     const bool overlapCommAndComp = false;
-    initInternal(matrix, partitions, importer, overlapCommAndComp, useSeqMethod);
+    initInternal(matrix, partitions, importer, 2, overlapCommAndComp, useSeqMethod);
   }
 
   template <typename MatrixType>
   BlockTriDiSchurContainer<MatrixType, BlockTriDiSchurContainerDetails::ImplSimdTag>
   ::BlockTriDiSchurContainer (const Teuchos::RCP<const row_matrix_type>& matrix,
                        const Teuchos::Array<Teuchos::Array<local_ordinal_type> >& partitions,
-                       const bool overlapCommAndComp, const bool useSeqMethod)
+                       const int n_sublines,
+                       const bool overlapCommAndComp, 
+                       const bool useSeqMethod)
     : Container<MatrixType>(matrix, partitions, false)
   {
-    initInternal(matrix, partitions, Teuchos::null, overlapCommAndComp, useSeqMethod);
+    initInternal(matrix, partitions, Teuchos::null, n_sublines, overlapCommAndComp, useSeqMethod);
   }
 
   template <typename MatrixType>

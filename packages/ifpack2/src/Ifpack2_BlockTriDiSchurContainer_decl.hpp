@@ -228,6 +228,7 @@ namespace Ifpack2 {
     ///   purposes only.
     BlockTriDiSchurContainer (const Teuchos::RCP<const row_matrix_type>& matrix,
                          const Teuchos::Array<Teuchos::Array<local_ordinal_type> >& partitions,
+                         const int n_sublines,
                          bool overlapCommAndComp = false, bool useSequentialMethod = false);
 
     //! Destructor (declared virtual for memory safety of derived classes).
@@ -389,11 +390,13 @@ namespace Ifpack2 {
 
     // hide details of impl using ImplObj; finally I understand why AMB did that way.
     Teuchos::RCP<BlockTriDiSchurContainerDetails::ImplObject<MatrixType> > impl_;
+    int n_sublines_;
     
     // initialize distributed and local objects
     void initInternal (const Teuchos::RCP<const row_matrix_type>& matrix,
                        const Teuchos::Array<Teuchos::Array<local_ordinal_type> >& partitions,
                        const Teuchos::RCP<const import_type> &importer,
+                       const int n_sublines,
                        const bool overlapCommAndComp,
                        const bool useSeqMethod);
 

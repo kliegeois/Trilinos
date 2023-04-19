@@ -446,7 +446,7 @@ main (int argc, char* argv[])
 
     {
       Teuchos::TimeMonitor precSetupTimeMon (*precSetupTime);
-      precond = rcp(new BTDC(Ablock,parts,args.overlapCommAndComp));
+      precond = rcp(new BTDC(Ablock,parts,2,args.overlapCommAndComp));
 
       if(args.overlapCommAndComp) {
         if(rank0) std::cout<<"With overlapCommAndComp..."<<std::endl;
