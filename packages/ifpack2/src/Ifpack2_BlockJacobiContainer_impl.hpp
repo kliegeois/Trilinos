@@ -171,12 +171,6 @@ namespace Ifpack2 {
     //template<> struct SmallScalarType<Kokkos::complex<double> > { typedef Kokkos::complex<float> type; };
 #endif
 
-#if defined(HAVE_IFPACK2_BLOCKTRIDICONTAINER_TIMERS)
-#define IFPACK2_BLOCKTRIDICONTAINER_TIMER(label) TEUCHOS_FUNC_TIME_MONITOR(label);
-#else
-#define IFPACK2_BLOCKTRIDICONTAINER_TIMER(label)
-#endif
-
 #if defined(KOKKOS_ENABLE_CUDA) && defined(IFPACK2_BLOCKTRIDICONTAINER_ENABLE_PROFILE)
 #define IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_BEGIN \
     KOKKOS_IMPL_CUDA_SAFE_CALL(cudaProfilerStart());
@@ -195,7 +189,7 @@ namespace Ifpack2 {
     template<typename MatrixType>
     typename Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_import_type>
     createBlockCrsTpetraImporter(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A) {
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockJacobi::CreateBlockCrsTpetraImporter");
+      IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::CreateBlockCrsTpetraImporter");
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using tpetra_map_type = typename impl_type::tpetra_map_type;
       using tpetra_mv_type = typename impl_type::tpetra_block_multivector_type;
@@ -529,7 +523,7 @@ namespace Ifpack2 {
       }
 
       void asyncSendRecvVar1(const impl_scalar_type_2d_view_tpetra &mv) {
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockJacobi::AsyncableImport::AsyncSendRecv");
+        IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::AsyncableImport::AsyncSendRecv");
 
 #ifdef HAVE_IFPACK2_MPI
         // constants and reallocate data buffers if necessary
@@ -583,7 +577,7 @@ namespace Ifpack2 {
       }
 
       void syncRecvVar1() {
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockJacobi::AsyncableImport::SyncRecv");
+        IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::AsyncableImport::SyncRecv");
 #ifdef HAVE_IFPACK2_MPI
         // 0. wait for receive async.
         for (local_ordinal_type i=0;i<static_cast<local_ordinal_type>(pids.recv.extent(0));++i) {
@@ -674,7 +668,7 @@ namespace Ifpack2 {
       /// standard comm
       ///
       void asyncSendRecvVar0(const impl_scalar_type_2d_view_tpetra &mv) {
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockJacobi::AsyncableImport::AsyncSendRecv");
+        IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::AsyncableImport::AsyncSendRecv");
 
 #ifdef HAVE_IFPACK2_MPI
         // constants and reallocate data buffers if necessary
@@ -715,7 +709,7 @@ namespace Ifpack2 {
       }
 
       void syncRecvVar0() {
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockJacobi::AsyncableImport::SyncRecv");
+        IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::AsyncableImport::SyncRecv");
 #ifdef HAVE_IFPACK2_MPI
         // receive async.
         for (local_ordinal_type i=0,iend=pids.recv.extent(0);i<iend;++i) {
@@ -756,7 +750,7 @@ namespace Ifpack2 {
       }
 
       void syncExchange(const impl_scalar_type_2d_view_tpetra &mv) {
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockJacobi::AsyncableImport::SyncExchange");
+        IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::AsyncableImport::SyncExchange");
         asyncSendRecv(mv);
         syncRecv();
       }
@@ -1159,7 +1153,7 @@ namespace Ifpack2 {
                          BlockTridiags<MatrixType> &btdm,
                          BlockHelperDetails::AmD<MatrixType> &amd,
                          const bool overlap_communication_and_computation) {
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockJacobi::SymbolicPhase");
+      IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::SymbolicPhase");
 
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       // using node_memory_space = typename impl_type::node_memory_space;
@@ -1869,7 +1863,7 @@ namespace Ifpack2 {
                         const BlockHelperDetails::PartInterface<MatrixType> &interf,
                         BlockTridiags<MatrixType> &btdm,
                         const typename BlockHelperDetails::ImplType<MatrixType>::magnitude_type tiny) {
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockJacobi::NumericPhase");
+      IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::NumericPhase");
       ExtractAndFactorizeTridiags<MatrixType> function(btdm, interf, A, tiny);
       function.run();
     }
@@ -1986,7 +1980,7 @@ namespace Ifpack2 {
 
       void run(const const_impl_scalar_type_2d_view_tpetra &scalar_multivector_) {
         IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_BEGIN;
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockJacobi::MultiVectorConverter");
+        IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::MultiVectorConverter");
 
         scalar_multivector = scalar_multivector_;
         if constexpr (BlockHelperDetails::is_device<execution_space>::value) {
@@ -2476,7 +2470,7 @@ namespace Ifpack2 {
       void run(const impl_scalar_type_2d_view_tpetra &Y,
                const impl_scalar_type_1d_view &Z) {
         IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_BEGIN;
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockJacobi::SolveJacobi");
+        IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::SolveJacobi");
 
         /// set vectors
         this->Y_scalar_multivector = Y;
@@ -2569,7 +2563,7 @@ namespace Ifpack2 {
                        const int max_num_sweeps,
                        const typename BlockHelperDetails::ImplType<MatrixType>::magnitude_type tol,
                        const int check_tol_every) {
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockJacobi::ApplyInverseJacobi");
+      IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::ApplyInverseJacobi");
 
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using node_memory_space = typename impl_type::node_memory_space;

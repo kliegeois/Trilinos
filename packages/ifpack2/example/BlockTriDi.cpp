@@ -1,5 +1,6 @@
 #include <Ifpack2_Factory.hpp>
 #include <Ifpack2_BlockTriDiContainer.hpp>
+#include <Ifpack2_BlockTriDiSchurContainer.hpp>
 #include <Ifpack2_BlockJacobiContainer.hpp>
 #include <BelosTpetraAdapter.hpp>
 #include <BelosSolverFactory.hpp>
@@ -214,7 +215,7 @@ main (int argc, char* argv[])
   typedef Tpetra::Vector<LO,LO,GO,NO> IV;
   typedef Tpetra::MatrixMarket::Reader<crs_matrix_type> reader_type;
   typedef Tpetra::MatrixMarket::Reader<Tpetra::CrsMatrix<LO,LO,GO,NO> > LO_reader_type;
-  typedef Ifpack2::BlockTriDiContainer<row_matrix_type> BTDC;
+  typedef Ifpack2::BlockTriDiSchurContainer<row_matrix_type> BTDC;
   typedef Ifpack2::BlockJacobiContainer<row_matrix_type> BJC;
 
   Tpetra::ScopeGuard tpetraScope (&argc, &argv);
@@ -438,7 +439,7 @@ main (int argc, char* argv[])
     Ablock->apply(*X,*temp);
   }
 
-  if(false) {
+  if(true) {
     // Create Ifpack2 preconditioner.
     if(rank0) std::cout<<"Creating preconditioner..."<<std::endl;
     RCP<BTDC> precond;
