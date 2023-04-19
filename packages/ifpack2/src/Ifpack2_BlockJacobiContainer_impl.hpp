@@ -2033,10 +2033,10 @@ namespace Ifpack2 {
     /// solve tridiags
     ///
     template<typename ArgActiveExecutionMemorySpace>
-    struct SolveTridiagsDefaultModeAndAlgo;
+    struct SolveJacobiDefaultModeAndAlgo;
 
     template<>
-    struct SolveTridiagsDefaultModeAndAlgo<Kokkos::HostSpace> {
+    struct SolveJacobiDefaultModeAndAlgo<Kokkos::HostSpace> {
       typedef KB::Mode::Serial mode_type;
       typedef KB::Algo::Level2::Unblocked single_vector_algo_type;
 #if defined(__KOKKOSBATCHED_INTEL_MKL_COMPACT_BATCHED__)
@@ -2052,7 +2052,7 @@ namespace Ifpack2 {
     };
 
 #if defined(KOKKOS_ENABLE_CUDA)
-    static inline int SolveTridiagsRecommendedCudaTeamSize(const int blksize,
+    static inline int SolveJacobiRecommendedCudaTeamSize(const int blksize,
                                                            const int vector_length,
                                                            const int internal_vector_length) {
       const int vector_size = vector_length/internal_vector_length;
@@ -2067,31 +2067,31 @@ namespace Ifpack2 {
     }
 
     template<>
-    struct SolveTridiagsDefaultModeAndAlgo<Kokkos::CudaSpace> {
+    struct SolveJacobiDefaultModeAndAlgo<Kokkos::CudaSpace> {
       typedef KB::Mode::Team mode_type;
       typedef KB::Algo::Level2::Unblocked single_vector_algo_type;
       typedef KB::Algo::Level3::Unblocked multi_vector_algo_type;
       static int recommended_team_size(const int blksize,
                                        const int vector_length,
                                        const int internal_vector_length) {
-        return SolveTridiagsRecommendedCudaTeamSize(blksize, vector_length, internal_vector_length);
+        return SolveJacobiRecommendedCudaTeamSize(blksize, vector_length, internal_vector_length);
       }
     };
     template<>
-    struct SolveTridiagsDefaultModeAndAlgo<Kokkos::CudaUVMSpace> {
+    struct SolveJacobiDefaultModeAndAlgo<Kokkos::CudaUVMSpace> {
       typedef KB::Mode::Team mode_type;
       typedef KB::Algo::Level2::Unblocked single_vector_algo_type;
       typedef KB::Algo::Level3::Unblocked multi_vector_algo_type;
       static int recommended_team_size(const int blksize,
                                        const int vector_length,
                                        const int internal_vector_length) {
-        return SolveTridiagsRecommendedCudaTeamSize(blksize, vector_length, internal_vector_length);
+        return SolveJacobiRecommendedCudaTeamSize(blksize, vector_length, internal_vector_length);
       }
     };
 #endif
 
 #if defined(KOKKOS_ENABLE_HIP)
-    static inline int SolveTridiagsRecommendedHIPTeamSize(const int blksize,
+    static inline int SolveJacobiRecommendedHIPTeamSize(const int blksize,
 							  const int vector_length,
 							  const int internal_vector_length) {
       const int vector_size = vector_length/internal_vector_length;
@@ -2106,31 +2106,31 @@ namespace Ifpack2 {
     }
 
     template<>
-    struct SolveTridiagsDefaultModeAndAlgo<Kokkos::Experimental::HIPSpace> {
+    struct SolveJacobiDefaultModeAndAlgo<Kokkos::Experimental::HIPSpace> {
       typedef KB::Mode::Team mode_type;
       typedef KB::Algo::Level2::Unblocked single_vector_algo_type;
       typedef KB::Algo::Level3::Unblocked multi_vector_algo_type;
       static int recommended_team_size(const int blksize,
                                        const int vector_length,
                                        const int internal_vector_length) {
-        return SolveTridiagsRecommendedHIPTeamSize(blksize, vector_length, internal_vector_length);
+        return SolveJacobiRecommendedHIPTeamSize(blksize, vector_length, internal_vector_length);
       }
     };
     template<>
-    struct SolveTridiagsDefaultModeAndAlgo<Kokkos::Experimental::HIPHostPinnedSpace> {
+    struct SolveJacobiDefaultModeAndAlgo<Kokkos::Experimental::HIPHostPinnedSpace> {
       typedef KB::Mode::Team mode_type;
       typedef KB::Algo::Level2::Unblocked single_vector_algo_type;
       typedef KB::Algo::Level3::Unblocked multi_vector_algo_type;
       static int recommended_team_size(const int blksize,
                                        const int vector_length,
                                        const int internal_vector_length) {
-        return SolveTridiagsRecommendedHIPTeamSize(blksize, vector_length, internal_vector_length);
+        return SolveJacobiRecommendedHIPTeamSize(blksize, vector_length, internal_vector_length);
       }
     };
 #endif
 
 #if defined(KOKKOS_ENABLE_SYCL)
-    static inline int SolveTridiagsRecommendedSYCLTeamSize(const int blksize,
+    static inline int SolveJacobiRecommendedSYCLTeamSize(const int blksize,
                                                           const int vector_length,
                                                           const int internal_vector_length) {
       const int vector_size = vector_length/internal_vector_length;
@@ -2145,25 +2145,25 @@ namespace Ifpack2 {
     }
 
     template<>
-    struct SolveTridiagsDefaultModeAndAlgo<Kokkos::Experimental::SYCLSharedUSMSpace> {
+    struct SolveJacobiDefaultModeAndAlgo<Kokkos::Experimental::SYCLSharedUSMSpace> {
       typedef KB::Mode::Team mode_type;
       typedef KB::Algo::Level2::Unblocked single_vector_algo_type;
       typedef KB::Algo::Level3::Unblocked multi_vector_algo_type;
       static int recommended_team_size(const int blksize,
                                        const int vector_length,
                                        const int internal_vector_length) {
-        return SolveTridiagsRecommendedSYCLTeamSize(blksize, vector_length, internal_vector_length);
+        return SolveJacobiRecommendedSYCLTeamSize(blksize, vector_length, internal_vector_length);
       }
     };
     template<>
-    struct SolveTridiagsDefaultModeAndAlgo<Kokkos::Experimental::SYCLDeviceUSMSpace> {
+    struct SolveJacobiDefaultModeAndAlgo<Kokkos::Experimental::SYCLDeviceUSMSpace> {
       typedef KB::Mode::Team mode_type;
       typedef KB::Algo::Level2::Unblocked single_vector_algo_type;
       typedef KB::Algo::Level3::Unblocked multi_vector_algo_type;
       static int recommended_team_size(const int blksize,
                                        const int vector_length,
                                        const int internal_vector_length) {
-        return SolveTridiagsRecommendedSYCLTeamSize(blksize, vector_length, internal_vector_length);
+        return SolveJacobiRecommendedSYCLTeamSize(blksize, vector_length, internal_vector_length);
       }
     };
 #endif
@@ -2172,7 +2172,7 @@ namespace Ifpack2 {
 
     
     template<typename MatrixType>
-    struct SolveTridiags {
+    struct SolveJacobi {
     public:
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using execution_space = typename impl_type::execution_space;
@@ -2232,7 +2232,7 @@ namespace Ifpack2 {
       const bool compute_diff;
 
     public:
-      SolveTridiags(const BlockHelperDetails::PartInterface<MatrixType> &interf,
+      SolveJacobi(const BlockHelperDetails::PartInterface<MatrixType> &interf,
                     const BlockTridiags<MatrixType> &btdm,
                     const vector_type_3d_view &pmv,
                     const impl_scalar_type damping_factor,
@@ -2354,7 +2354,7 @@ namespace Ifpack2 {
                         const local_ordinal_type &v,
                         const WWViewType &WW) const {
 
-        typedef SolveTridiagsDefaultModeAndAlgo
+        typedef SolveJacobiDefaultModeAndAlgo
           <typename execution_space::memory_space> default_mode_and_algo_type;
 
         typedef typename default_mode_and_algo_type::mode_type default_mode_type;
@@ -2414,7 +2414,7 @@ namespace Ifpack2 {
                        const local_ordinal_type &v,
                        const WWViewType &WW) const {
 
-        typedef SolveTridiagsDefaultModeAndAlgo
+        typedef SolveJacobiDefaultModeAndAlgo
           <typename execution_space::memory_space> default_mode_and_algo_type;
 
         typedef typename default_mode_and_algo_type::mode_type default_mode_type;
@@ -2502,7 +2502,7 @@ namespace Ifpack2 {
       void run(const impl_scalar_type_2d_view_tpetra &Y,
                const impl_scalar_type_1d_view &Z) {
         IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_BEGIN;
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockJacobi::SolveTridiags");
+        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockJacobi::SolveJacobi");
 
         /// set vectors
         this->Y_scalar_multivector = Y;
@@ -2512,7 +2512,7 @@ namespace Ifpack2 {
         const local_ordinal_type blocksize = D_internal_vector_values.extent(1);
 
         const local_ordinal_type team_size =
-          SolveTridiagsDefaultModeAndAlgo<typename execution_space::memory_space>::
+          SolveJacobiDefaultModeAndAlgo<typename execution_space::memory_space>::
           recommended_team_size(blocksize, vector_length, internal_vector_length);
         const int per_team_scratch = internal_vector_scratch_type_3d_view
           ::shmem_size(blocksize, num_vectors, vector_loop_size);
@@ -2523,13 +2523,13 @@ namespace Ifpack2 {
           const Kokkos::TeamPolicy<execution_space,SingleVectorTag<B> > \
             policy(packptr.extent(0) - 1, team_size, vector_loop_size); \
           Kokkos::parallel_for                                          \
-            ("SolveTridiags::TeamPolicy::run<SingleVector>",            \
+            ("SolveJacobi::TeamPolicy::run<SingleVector>",            \
              policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch)), *this); \
         } else {                                                        \
           const Kokkos::TeamPolicy<execution_space,MultiVectorTag<B> > \
             policy(packptr.extent(0) - 1, team_size, vector_loop_size); \
           Kokkos::parallel_for                                          \
-            ("SolveTridiags::TeamPolicy::run<MultiVector>",             \
+            ("SolveJacobi::TeamPolicy::run<MultiVector>",             \
              policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch)), *this); \
         } break
 #else
@@ -2539,14 +2539,14 @@ namespace Ifpack2 {
             policy(packptr.extent(0) - 1, team_size, vector_loop_size); \
           policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch)); \
           Kokkos::parallel_for                                          \
-            ("SolveTridiags::TeamPolicy::run<SingleVector>",            \
+            ("SolveJacobi::TeamPolicy::run<SingleVector>",            \
              policy, *this);                                            \
         } else {                                                        \
           Kokkos::TeamPolicy<execution_space,MultiVectorTag<B> >        \
             policy(packptr.extent(0) - 1, team_size, vector_loop_size); \
           policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch)); \
           Kokkos::parallel_for                                          \
-            ("SolveTridiags::TeamPolicy::run<MultiVector>",             \
+            ("SolveJacobi::TeamPolicy::run<MultiVector>",             \
              policy, *this);                                            \
         } break
 #endif
@@ -2672,7 +2672,7 @@ namespace Ifpack2 {
       if (is_y_zero) Kokkos::deep_copy(YY, zero);
 
       MultiVectorConverter<MatrixType> multivector_converter(interf, pmv);
-      SolveTridiags<MatrixType> solve_tridiags(interf, btdm, pmv,
+      SolveJacobi<MatrixType> solve_tridiags(interf, btdm, pmv,
                                                damping_factor, is_norm_manager_active);
 
       const local_ordinal_type_1d_view dummy_local_ordinal_type_1d_view;
