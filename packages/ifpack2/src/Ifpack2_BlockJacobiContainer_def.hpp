@@ -87,7 +87,7 @@ namespace Ifpack2 {
     // create pointer of impl
     impl_ = Teuchos::rcp(new BlockJacobiContainerDetails::ImplObject<MatrixType>());
 
-    using impl_type = BlockJacobiContainerDetails::ImplType<MatrixType>;
+    using impl_type = BlockHelperDetails::ImplType<MatrixType>;
     // using block_crs_matrix_type = typename impl_type::tpetra_block_crs_matrix_type;
 
     impl_->A = Teuchos::rcp_dynamic_cast<const block_crs_matrix_type>(matrix);
@@ -124,7 +124,7 @@ namespace Ifpack2 {
 
     impl_->part_interface  = BlockJacobiContainerDetails::createPartInterface<MatrixType>(impl_->A, partitions);
     impl_->block_tridiags  = BlockJacobiContainerDetails::createBlockTridiags<MatrixType>(impl_->part_interface);
-    impl_->norm_manager    = BlockJacobiContainerDetails::NormManager<MatrixType>(impl_->A->getComm());
+    impl_->norm_manager    = BlockHelperDetails::NormManager<MatrixType>(impl_->A->getComm());
   }
 
   template <typename MatrixType>
@@ -132,11 +132,11 @@ namespace Ifpack2 {
   BlockJacobiContainer<MatrixType, BlockJacobiContainerDetails::ImplSimdTag>
   ::clearInternal ()
   {
-    using impl_type = BlockJacobiContainerDetails::ImplType<MatrixType>;
-    using part_interface_type = BlockJacobiContainerDetails::PartInterface<MatrixType>;
+    using impl_type = BlockHelperDetails::ImplType<MatrixType>;
+    using part_interface_type = BlockHelperDetails::PartInterface<MatrixType>;
     using block_tridiags_type = BlockJacobiContainerDetails::BlockTridiags<MatrixType>;
-    using amd_type = BlockJacobiContainerDetails::AmD<MatrixType>;
-    using norm_manager_type = BlockJacobiContainerDetails::NormManager<MatrixType>;
+    using amd_type = BlockHelperDetails::AmD<MatrixType>;
+    using norm_manager_type = BlockHelperDetails::NormManager<MatrixType>;
     
     impl_->A = Teuchos::null;
     impl_->tpetra_importer = Teuchos::null;
