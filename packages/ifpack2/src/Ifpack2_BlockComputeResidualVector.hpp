@@ -43,6 +43,7 @@
 #ifndef IFPACK2_BLOCKCOMPUTERES_IMPL_HPP
 #define IFPACK2_BLOCKCOMPUTERES_IMPL_HPP
 
+#include "Ifpack2_BlockHelper.hpp"
 
 namespace Ifpack2 {
 

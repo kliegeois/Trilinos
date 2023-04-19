@@ -171,32 +171,6 @@ namespace Ifpack2 {
     //template<> struct SmallScalarType<Kokkos::complex<double> > { typedef Kokkos::complex<float> type; };
 #endif
 
-    ///
-    /// cuda specialization
-    ///
-    template<typename T> struct is_cuda                 { enum : bool { value = false }; };
-#if defined(KOKKOS_ENABLE_CUDA)
-    template<> struct is_cuda<Kokkos::Cuda>             { enum : bool { value = true  }; };
-#endif
-
-    ///
-    /// hip specialization
-    ///
-    template<typename T> struct is_hip                  { enum : bool { value = false }; };
-#if defined(KOKKOS_ENABLE_HIP)
-    template<> struct is_hip<Kokkos::Experimental::HIP> { enum : bool { value = true  }; };
-#endif
-
-    ///
-    /// sycl specialization
-    ///
-    template<typename T> struct is_sycl                  { enum : bool { value = false }; };
-#if defined(KOKKOS_ENABLE_SYCL)
-    template<> struct is_sycl<Kokkos::Experimental::SYCL> { enum : bool { value = true  }; };
-#endif
-
-    template<typename T> struct is_device                  { enum : bool { value = is_cuda<T>::value || is_hip<T>::value || is_sycl<T>::value }; };
-
 #if defined(HAVE_IFPACK2_BLOCKTRIDICONTAINER_TIMERS)
 #define IFPACK2_BLOCKTRIDICONTAINER_TIMER(label) TEUCHOS_FUNC_TIME_MONITOR(label);
 #else
@@ -651,7 +625,7 @@ namespace Ifpack2 {
         const local_ordinal_type mv_blocksize = blocksize_*num_vectors;
         const local_ordinal_type idiff = iend_ - ibeg_;
         const auto abase = buffer_.data() + mv_blocksize*ibeg_;
-        if constexpr (is_device<execution_space>::value) {
+        if constexpr (BlockHelperDetails::is_device<execution_space>::value) {
           using team_policy_type = Kokkos::TeamPolicy<execution_space>;
           local_ordinal_type vector_size(0);
           if      (blocksize_ <=  4) vector_size =  4;
@@ -2015,7 +1989,7 @@ namespace Ifpack2 {
         IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockJacobi::MultiVectorConverter");
 
         scalar_multivector = scalar_multivector_;
-        if constexpr (is_device<execution_space>::value) {
+        if constexpr (BlockHelperDetails::is_device<execution_space>::value) {
           const local_ordinal_type vl = vector_length;
           const Kokkos::TeamPolicy<execution_space> policy(packptr.extent(0) - 1, Kokkos::AUTO(), vl);
           Kokkos::parallel_for
