@@ -1893,6 +1893,24 @@ namespace Ifpack2 {
         }
       }
 
+      template<typename AAViewType,
+               typename WWViewType>
+      KOKKOS_INLINE_FUNCTION
+      void
+      factorize_Schur(const member_type &member,
+                const local_ordinal_type &i0,
+                const local_ordinal_type &nrows,
+                const local_ordinal_type &v,
+                const AAViewType &AA,
+                const WWViewType &WW) const {
+
+        typedef ExtractAndFactorizeTridiagsDefaultModeAndAlgo
+          <typename execution_space::memory_space> default_mode_and_algo_type;
+
+        typedef typename default_mode_and_algo_type::mode_type default_mode_type;
+        typedef typename default_mode_and_algo_type::algo_type default_algo_type;
+      }
+
     public:
 
       struct ExtractAndFactorizeSubLineTag {};
@@ -1932,6 +1950,32 @@ namespace Ifpack2 {
       KOKKOS_INLINE_FUNCTION
       void
       operator() (const ExtractAndFactorizeSchurTag &, const member_type &member) const {
+        // btdm is packed and sorted from largest one
+        const local_ordinal_type packidx = member.league_rank();
+
+        const local_ordinal_type partidx = packptr(packidx);
+        const local_ordinal_type npacks = packptr(packidx+1) - partidx;
+        const local_ordinal_type i0 = pack_td_ptr(partidx);
+        const local_ordinal_type nrows = partptr(partidx+1) - partptr(partidx);
+
+        internal_vector_scratch_type_3d_view
+          WW(member.team_scratch(0), blocksize, blocksize, vector_loop_size);
+        if (vector_loop_size == 1) {
+          extract(partidx, npacks);
+          factorize_Schur(member, i0, nrows, 0, internal_vector_values, WW);
+        } else {
+          Kokkos::parallel_for
+            (Kokkos::ThreadVectorRange(member, vector_loop_size),
+	     [&](const local_ordinal_type &v) {
+              const local_ordinal_type vbeg = v*internal_vector_length;
+              if (vbeg < npacks)
+                extract(member, partidx+vbeg, npacks, vbeg);
+              // this is not safe if vector loop size is different from vector size of 
+              // the team policy. we always make sure this when constructing the team policy
+              member.team_barrier();
+              factorize_Schur(member, i0, nrows, v, internal_vector_values, WW);
+            });
+        }
       }
 
       void run() {
