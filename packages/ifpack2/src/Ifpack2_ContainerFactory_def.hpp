@@ -48,6 +48,7 @@
 #include "Ifpack2_DenseContainer.hpp"
 #include "Ifpack2_SparseContainer.hpp"
 #include "Ifpack2_BandedContainer.hpp"
+#include "Ifpack2_BlockJacobiContainer.hpp"
 #include "Ifpack2_BlockTriDiContainer.hpp"
 #include "Ifpack2_ILUT.hpp"
 #include "Teuchos_ArrayView.hpp"
@@ -69,6 +70,7 @@ registerDefaults()
   registerContainer<SparseContainer<MatrixType, Details::Amesos2Wrapper<MatrixType>>>("SparseAmesos2");
 #endif
 #ifdef HAVE_IFPACK2_EXPERIMENTAL_KOKKOSKERNELS_FEATURES
+  registerContainer<Ifpack2::BlockJacobiContainer<MatrixType>>("BlockJacobi");
   registerContainer<Ifpack2::BlockTriDiContainer<MatrixType>>("BlockTriDi");
 #endif
   registeredDefaults = true;
