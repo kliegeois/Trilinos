@@ -61,7 +61,6 @@
 #include "MueLu_CoarseMapFactory_decl.hpp"
 #include "MueLu_Level.hpp"
 #include "MueLu_Aggregates.hpp"
-#include "MueLu_Aggregates_kokkos.hpp"
 #include "MueLu_Monitor.hpp"
 
 namespace MueLu {
