@@ -60,7 +60,6 @@
 #include "MueLu_Exceptions.hpp"
 
 #include "MueLu_Aggregates.hpp"
-#include "MueLu_Aggregates_kokkos.hpp"
 
 namespace MueLu {
 
