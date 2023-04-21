@@ -614,6 +614,7 @@ Piro::PerformROLAnalysis(
       model_PME->block_diagonal_hessian_22(bH_dotP, rol_x, rol_p, reponse_index_dotProd);
     }
     if(useCustomSecant && (reponse_index_secant != -1 ) && !model_PME.is_null()) {
+
       if (reponse_index_dotProd == reponse_index_secant)
         bH_sec = bH_dotP;
       else {

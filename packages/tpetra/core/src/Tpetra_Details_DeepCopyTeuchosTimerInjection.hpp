@@ -1,9 +1,9 @@
+/*
 // @HEADER
-//
 // ***********************************************************************
 //
-//        MueLu: A package for multigrid based preconditioning
-//                  Copyright 2012 Sandia Corporation
+//          Tpetra: Templated Linear Algebra Services Package
+//                 Copyright (2008) Sandia Corporation
 //
 // Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 // the U.S. Government retains certain rights in this software.
@@ -35,29 +35,29 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-// Questions? Contact
-//                    Jonathan Hu       (jhu@sandia.gov)
-//                    Andrey Prokopenko (aprokop@sandia.gov)
-//                    Ray Tuminaro      (rstumin@sandia.gov)
-//
-// ***********************************************************************
-//
+// ************************************************************************
 // @HEADER
-#ifndef MUELU_AGGREGATES_KOKKOS_FWD_HPP
-#define MUELU_AGGREGATES_KOKKOS_FWD_HPP
+*/
+#ifndef TPETRA_DETAILS_DEEP_COPY_TEUCHOS_TIMER_INJECTION_HPP
+#define TPETRA_DETAILS_DEEP_COPY_TEUCHOS_TIMER_INJECTION_HPP
+
+/// \file Tpetra_Details_DeepCopyTeuchosTimerInjection.hpp
+/// \brief Declaration of Tpetra::Details::DeepCopyTeuchosTimerInjection, a class that
+///  uses Kokkos' profiling library to add deep copies between memory spaces to the Teuchos::TimeMonitor
+///  system.  The idea being that you enable this capability and your regular timer  output now prints out 
+///  all of your traffic between memory spaces.  This does have the side effect of making Kokkos::deep_copy()
+///  calls on the host also call Kokkos::fence()
 
 
 
+namespace Tpetra {
+namespace Details {
 
-namespace MueLu {
-  template <class LocalOrdinal, class GlobalOrdinal, class Node>
-  class Aggregates_kokkos;
-}
+  // The force option overrides the environment variable control via TPETRA_TIME_KOKKOS_DEEP_COPY
+  // This is used for unit testing the capability
+  void AddKokkosDeepCopyToTimeMonitor(bool force = false);
 
-#ifndef MUELU_AGGREGATES_KOKKOS_SHORT
-#define MUELU_AGGREGATES_KOKKOS_SHORT
-#endif
+} // namespace Details
+} // namespace Tpetra
 
-
-
-#endif // MUELU_AGGREGATES_KOKKOS_FWD_HPP
+#endif // TPETRA_DETAILS_DEEP_COPY_TEUCHOS_TIMER_INJECTION_HPP

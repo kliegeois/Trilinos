@@ -166,6 +166,26 @@ namespace MueLu {
 
   public:
 
+  private:
+
+    void UnamalgamateAggregates(const Teuchos::RCP<const Map> &nodeMap,
+                                const RCP<LOVector> &procWinnerVec,
+                                const RCP<LOMultiVector> &vertex2AggIdVec,
+                                const GO numAggregates,
+                                Teuchos::ArrayRCP<LocalOrdinal>& aggStart,
+                                Teuchos::ArrayRCP<GlobalOrdinal>& aggToRowMap) const;
+
+    void UnamalgamateAggregatesLO(const Teuchos::RCP<const Map> &nodeMap,
+                                  const RCP<LOVector> &procWinnerVec,
+                                  const RCP<LOMultiVector> &vertex2AggIdVec,
+                                  const GO numAggregates,
+                                  Teuchos::ArrayRCP<LocalOrdinal>& aggStart,
+                                  Teuchos::ArrayRCP<LO>& aggToRowMap) const;
+
+    Teuchos::RCP< Xpetra::Map<LocalOrdinal, GlobalOrdinal, Node> > ComputeUnamalgamatedImportDofMap(const Teuchos::RCP<const Map> &nodeMap) const;
+
+  public:
+
     /*! @brief ComputeGlobalDOF
      *
      * Return global dof id associated with global node id gNodeID and dof index k

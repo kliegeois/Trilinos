@@ -58,7 +58,7 @@ namespace Iotm {
   public:
     explicit TextMesh(const std::string &parameters, int proc_count = 1,
                       int my_proc = 0);
-    TextMesh(int proc_count = 1, int my_proc = 0);
+    explicit TextMesh(int proc_count = 1, int my_proc = 0);
     TextMesh();
     TextMesh(const TextMesh &)            = delete;
     TextMesh &operator=(const TextMesh &) = delete;

@@ -81,21 +81,6 @@ namespace MueLu {
 
   template <class LocalOrdinal, class GlobalOrdinal, class Node>
   void AmalgamationInfo<LocalOrdinal, GlobalOrdinal, Node>::
-  UnamalgamateAggregates(const Aggregates_kokkos& aggregates,
-                         Teuchos::ArrayRCP<LocalOrdinal>& aggStart,
-                         Teuchos::ArrayRCP<GlobalOrdinal>& aggToRowMap) const {
-
-    UnamalgamateAggregates(aggregates.GetMap(),
-                           aggregates.GetProcWinner(),
-                           aggregates.GetVertex2AggId(),
-                           aggregates.GetNumAggregates(),
-                           aggStart,
-                           aggToRowMap);
-
-  } //UnamalgamateAggregates
-
-  template <class LocalOrdinal, class GlobalOrdinal, class Node>
-  void AmalgamationInfo<LocalOrdinal, GlobalOrdinal, Node>::
   UnamalgamateAggregates(const Teuchos::RCP<const Map> &nodeMap,
                          const RCP<LOVector> &procWinnerVec,
                          const RCP<LOMultiVector> &vertex2AggIdVec,
@@ -170,19 +155,6 @@ namespace MueLu {
   template <class LocalOrdinal, class GlobalOrdinal, class Node>
   void AmalgamationInfo<LocalOrdinal, GlobalOrdinal, Node>::
   UnamalgamateAggregatesLO(const Aggregates& aggregates,
-                           Teuchos::ArrayRCP<LO>& aggStart,
-                           Teuchos::ArrayRCP<LO>& aggToRowMap) const {
-    UnamalgamateAggregatesLO(aggregates.GetMap(),
-                             aggregates.GetProcWinner(),
-                             aggregates.GetVertex2AggId(),
-                             aggregates.GetNumAggregates(),
-                             aggStart,
-                             aggToRowMap);
-  }
-
-  template <class LocalOrdinal, class GlobalOrdinal, class Node>
-  void AmalgamationInfo<LocalOrdinal, GlobalOrdinal, Node>::
-  UnamalgamateAggregatesLO(const Aggregates_kokkos& aggregates,
                            Teuchos::ArrayRCP<LO>& aggStart,
                            Teuchos::ArrayRCP<LO>& aggToRowMap) const {
     UnamalgamateAggregatesLO(aggregates.GetMap(),
@@ -297,12 +269,6 @@ namespace MueLu {
   template <class LocalOrdinal, class GlobalOrdinal, class Node>
   RCP<Xpetra::Map<LocalOrdinal, GlobalOrdinal, Node> > AmalgamationInfo<LocalOrdinal, GlobalOrdinal, Node>::
   ComputeUnamalgamatedImportDofMap(const Aggregates& aggregates) const {
-    return ComputeUnamalgamatedImportDofMap(aggregates.GetMap());
-  }
-
-  template <class LocalOrdinal, class GlobalOrdinal, class Node>
-  RCP<Xpetra::Map<LocalOrdinal, GlobalOrdinal, Node> > AmalgamationInfo<LocalOrdinal, GlobalOrdinal, Node>::
-  ComputeUnamalgamatedImportDofMap(const Aggregates_kokkos& aggregates) const {
     return ComputeUnamalgamatedImportDofMap(aggregates.GetMap());
   }
 
