@@ -52,13 +52,11 @@
 #include "Thyra_PhysicallyBlockedLinearOpBase.hpp"
 
 #include "ROL_Types.hpp"
-#include "ROL_HessianScaledThyraVector.hpp"
 
 #ifdef HAVE_PIRO_TEKO
 #include "Teko_InverseLibrary.hpp"
 #include "Teko_PreconditionerFactory.hpp"
 #ifdef HAVE_PIRO_ROL
-#include "ROL_HessianScaledThyraVector.hpp"
 #endif
 #endif
 
