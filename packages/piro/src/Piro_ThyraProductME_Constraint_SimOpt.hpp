@@ -214,8 +214,34 @@ public:
     thyra_model_->evalModel(inArgs, outArgs);
     thyra_jv.zero();
 
-    for(std::size_t i=0; i<p_indices_.size(); ++i) {
-      Thyra::ModelEvaluatorBase::Derivative<Real> dfdp_dv = outArgs.get_DfDp(i);
+    Teuchos::RCP<const  Thyra::ProductVectorBase<Real> > thyra_prodvec_v = 
+      Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_v.getVector());
+    
+    Thyra::ModelEvaluatorBase::Derivative<Real> dfdp_dv = outArgs.get_DfDp(0);
+
+    Teuchos::RCP<Thyra::PhysicallyBlockedLinearOpBase<Real>> dfdp_block_op = 
+      Teuchos::rcp_dynamic_cast<Thyra::PhysicallyBlockedLinearOpBase<Real>>(dfdp_dv.getLinearOp());    
+    if (thyra_prodvec_v != Teuchos::null && dfdp_block_op != Teuchos::null) {
+      for(std::size_t i=0; i<thyra_prodvec_v->productSpace()->numBlocks(); ++i) {
+        auto dfdp_op = dfdp_block_op->getBlock(0, i);
+        if (dfdp_op != Teuchos::null) {
+          auto temp_jv_ptr = Teuchos::rcp_dynamic_cast<ROL::ThyraVector<Real>>(thyra_jv.clone());
+          temp_jv_ptr->zero();
+          dfdp_op->apply(Thyra::NOTRANS,*thyra_prodvec_v->getVectorBlock(i), temp_jv_ptr->getVector().ptr(),1.0, 0.0);
+          thyra_jv.axpy(1.0, *temp_jv_ptr);
+        } else {
+          TEUCHOS_TEST_FOR_EXCEPTION(
+              dfdp_op == Teuchos::null,
+              std::logic_error,
+              std::endl <<
+              "Piro::ThyraProductME_Constraint_SimOpt::applyJacobian_2():  " <<
+              "The code related to df/dp multivector has been commented out because never tested.  " <<
+              std::endl);
+        }
+      }
+    }
+    else {
+      Thyra::ModelEvaluatorBase::Derivative<Real> dfdp_dv = outArgs.get_DfDp(0);
       auto dfdp_op = dfdp_dv.getLinearOp();
       auto dfdp = dfdp_dv.getMultiVector();
 
@@ -516,8 +542,32 @@ public:
 
     thyra_model_->evalModel(inArgs, outArgs);
 
-    for(std::size_t i=0; i<p_indices_.size(); ++i) {
-      Thyra::ModelEvaluatorBase::Derivative<Real> dfdp_dv = outArgs.get_DfDp(i);
+    Teuchos::RCP<Thyra::ProductVectorBase<Real> > thyra_prodvec_ajv = 
+      Teuchos::rcp_dynamic_cast<Thyra::ProductVectorBase<Real>>(thyra_ajv.getVector());
+    
+    Thyra::ModelEvaluatorBase::Derivative<Real> dfdp_dv = outArgs.get_DfDp(0);
+
+    Teuchos::RCP<Thyra::PhysicallyBlockedLinearOpBase<Real>> dfdp_block_op = 
+      Teuchos::rcp_dynamic_cast<Thyra::PhysicallyBlockedLinearOpBase<Real>>(dfdp_dv.getLinearOp());    
+    if (thyra_prodvec_ajv != Teuchos::null && dfdp_block_op != Teuchos::null) {
+      for(std::size_t i=0; i<thyra_prodvec_ajv->productSpace()->numBlocks(); ++i) {
+        auto dfdp_op = dfdp_block_op->getBlock(0, i);
+        if (dfdp_op != Teuchos::null) {
+          dfdp_op->apply(Thyra::TRANS,*thyra_v.getVector(), thyra_prodvec_ajv->getNonconstVectorBlock(i).ptr(),1.0, 0.0);
+          // Thyra::update(1.0,  *tmp, thyra_ajv.getMultiVector().ptr());
+        } else {
+          TEUCHOS_TEST_FOR_EXCEPTION(
+              dfdp_op == Teuchos::null,
+              std::logic_error,
+              std::endl <<
+              "Piro::ThyraProductME_Constraint_SimOpt::applyAdjointJacobian_2():  " <<
+              "The code related to df/dp multivector has been commented out because never tested.  " <<
+              std::endl);
+        }
+      }
+    }
+    else {
+      Thyra::ModelEvaluatorBase::Derivative<Real> dfdp_dv = outArgs.get_DfDp(0);
       auto dfdp_op = dfdp_dv.getLinearOp();      
       if (dfdp_op != Teuchos::null) {
         dfdp_op->apply(Thyra::TRANS,*thyra_v.getVector(), thyra_ajv.getMultiVector().ptr(),1.0, 0.0);
