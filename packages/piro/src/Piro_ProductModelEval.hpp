@@ -342,6 +342,9 @@ ProductModelEvaluator<Real>::evalModelImpl(
     Teuchos::RCP<const Thyra::ProductVectorBase<Real> > prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(inArgs.get_p(0));
     Teuchos::RCP<const Thyra::ProductMultiVectorBase<Real> > prodvec_direction_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductMultiVectorBase<Real>>(inArgs.get_p_direction(0));
 
+
+    internal_inArgs.set_x_direction(inArgs.get_x_direction());
+
     //TEUCHOS_TEST_FOR_EXCEPTION(inArgs.get_p(0).is_null(), std::logic_error,
     //    std::endl <<
     //    "Error!  ProductModelEvaluator<Real>::evalModelImpl() " <<
@@ -411,12 +414,14 @@ ProductModelEvaluator<Real>::evalModelImpl(
         std::vector<Teuchos::RCP< Thyra::MultiVectorBase<Real> > > hv_vec(p_indices_.size());
 
         hv_vec[0] = outArgs.get_hess_vec_prod_g_xp(g_index_,0);
-        for(std::size_t j=1; j<p_indices_.size(); ++j) {
-            hv_vec[j] = hv_vec[0]->clone_mv();
-        }
+        if (!Teuchos::is_null(hv_vec[0])) {
+            for(std::size_t j=1; j<p_indices_.size(); ++j) {
+                hv_vec[j] = hv_vec[0]->clone_mv();
+            }
 
-        for(std::size_t j=0; j<p_indices_.size(); ++j) {
-            internal_outArgs.set_hess_vec_prod_g_xp(g_index_,p_indices_[j], hv_vec[j]);
+            for(std::size_t j=0; j<p_indices_.size(); ++j) {
+                internal_outArgs.set_hess_vec_prod_g_xp(g_index_,p_indices_[j], hv_vec[j]);
+            }
         }
     }
 
@@ -424,10 +429,15 @@ ProductModelEvaluator<Real>::evalModelImpl(
         Teuchos::RCP< Thyra::ProductMultiVectorBase<Real> > prodvec_hv =
             Teuchos::rcp_dynamic_cast<Thyra::ProductMultiVectorBase<Real>>(outArgs.get_hess_vec_prod_g_px(g_index_,0));
 
-        for(std::size_t i=0; i<p_indices_.size(); ++i) {
-            bool supports_deriv_j =   internal_outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_px, g_index_, p_indices_[i]);
-            ROL_TEST_FOR_EXCEPTION( !supports_deriv_j, std::logic_error, "Piro::ThyraProductME_Objective_SimOpt: H_px product vector is not supported");
-            internal_outArgs.set_hess_vec_prod_g_px(g_index_,p_indices_[i], prodvec_hv->getNonconstMultiVectorBlock(i));
+        if (!Teuchos::is_null(prodvec_hv)) {
+            for(std::size_t i=0; i<p_indices_.size(); ++i) {
+                bool supports_deriv_j =   internal_outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_px, g_index_, p_indices_[i]);
+                ROL_TEST_FOR_EXCEPTION( !supports_deriv_j, std::logic_error, "Piro::ThyraProductME_Objective_SimOpt: H_px product vector is not supported");
+                internal_outArgs.set_hess_vec_prod_g_px(g_index_,p_indices_[i], prodvec_hv->getNonconstMultiVectorBlock(i));
+            }
+        }
+        else {
+            ROL_TEST_FOR_EXCEPTION( !Teuchos::is_null(outArgs.get_hess_vec_prod_g_px(g_index_,0)), std::logic_error, "Piro::ThyraProductME_Objective_SimOpt: H_px product vector is not supported");
         }
     }
 
@@ -436,21 +446,26 @@ ProductModelEvaluator<Real>::evalModelImpl(
             Teuchos::rcp_dynamic_cast<Thyra::ProductMultiVectorBase<Real>>(outArgs.get_hess_vec_prod_g_pp(g_index_,0,0));
         std::vector<std::vector<Teuchos::RCP< Thyra::MultiVectorBase<Real> > > > hv_vec(p_indices_.size());
 
-        for(std::size_t i=0; i<p_indices_.size(); ++i) {
-            hv_vec[i].resize(p_indices_.size());
-            hv_vec[i][0] = prodvec_hv->getNonconstMultiVectorBlock(i);
-            for(std::size_t j=1; j<p_indices_.size(); ++j) {
-                hv_vec[i][j] = hv_vec[i][0]->clone_mv();
+        if (!Teuchos::is_null(prodvec_hv)) {
+            for(std::size_t i=0; i<p_indices_.size(); ++i) {
+                hv_vec[i].resize(p_indices_.size());
+                hv_vec[i][0] = prodvec_hv->getNonconstMultiVectorBlock(i);
+                for(std::size_t j=1; j<p_indices_.size(); ++j) {
+                    hv_vec[i][j] = hv_vec[i][0]->clone_mv();
+                }
+            }
+
+            for(std::size_t i=0; i<p_indices_.size(); ++i) {
+                for(std::size_t j=0; j<p_indices_.size(); ++j) {
+                    bool supports_deriv_j =   internal_outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_pp, g_index_, p_indices_[i], p_indices_[j]);
+                    ROL_TEST_FOR_EXCEPTION( !supports_deriv_j, std::logic_error, "Piro::ThyraProductME_Objective_SimOpt: H_pp product vector is not supported");
+
+                    internal_outArgs.set_hess_vec_prod_g_pp(g_index_,p_indices_[i], p_indices_[j], hv_vec[i][j]);
+                }
             }
         }
-
-        for(std::size_t i=0; i<p_indices_.size(); ++i) {
-            for(std::size_t j=0; j<p_indices_.size(); ++j) {
-                bool supports_deriv_j =   internal_outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_pp, g_index_, p_indices_[i], p_indices_[j]);
-                ROL_TEST_FOR_EXCEPTION( !supports_deriv_j, std::logic_error, "Piro::ThyraProductME_Objective_SimOpt: H_pp product vector is not supported");
-
-                internal_outArgs.set_hess_vec_prod_g_pp(g_index_,p_indices_[i], p_indices_[j], hv_vec[i][j]);
-            }
+        else {
+            ROL_TEST_FOR_EXCEPTION( !Teuchos::is_null(outArgs.get_hess_vec_prod_g_pp(g_index_,0,0)), std::logic_error, "Piro::ThyraProductME_Objective_SimOpt: H_px product vector is not supported");
         }
     }
 
@@ -458,25 +473,32 @@ ProductModelEvaluator<Real>::evalModelImpl(
         Teuchos::RCP< Thyra::MultiVectorBase<Real> > thyra_ahwv = outArgs.get_hess_vec_prod_f_xp(0);
         std::vector<Teuchos::RCP< Thyra::MultiVectorBase<Real> > > ahwv_vec(p_indices_.size());
 
-        ahwv_vec[0] = thyra_ahwv;
-        for(std::size_t j=1; j<p_indices_.size(); ++j) {
-            ahwv_vec[j] = thyra_ahwv->clone_mv();
-        }
+        if (!Teuchos::is_null(thyra_ahwv)) {
+            ahwv_vec[0] = thyra_ahwv;
+            for(std::size_t j=1; j<p_indices_.size(); ++j) {
+                ahwv_vec[j] = thyra_ahwv->clone_mv();
+            }
 
-        for(std::size_t j=0; j<p_indices_.size(); ++j) {
-            bool supports_deriv_j =   internal_outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_xp, p_indices_[j]);
-            ROL_TEST_FOR_EXCEPTION( !supports_deriv_j, std::logic_error, "Piro::ThyraProductME_Constraint_SimOpt: H_xp product vector is not supported");
-            internal_outArgs.set_hess_vec_prod_f_xp(p_indices_[j], ahwv_vec[j]);
+            for(std::size_t j=0; j<p_indices_.size(); ++j) {
+                bool supports_deriv_j =   internal_outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_xp, p_indices_[j]);
+                ROL_TEST_FOR_EXCEPTION( !supports_deriv_j, std::logic_error, "Piro::ThyraProductME_Constraint_SimOpt: H_xp product vector is not supported");
+                internal_outArgs.set_hess_vec_prod_f_xp(p_indices_[j], ahwv_vec[j]);
+            }
         }
     }
 
     if (supports_vec_prod_f_px) {
         Teuchos::RCP< Thyra::ProductVectorBase<Real> > prodvec_ahwv =
             Teuchos::rcp_dynamic_cast<Thyra::ProductVectorBase<Real>>(outArgs.get_hess_vec_prod_f_px(0));
-        for(std::size_t i=0; i<p_indices_.size(); ++i) {
-            bool supports_deriv_i =   internal_outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_px, p_indices_[i]);
-            ROL_TEST_FOR_EXCEPTION( !supports_deriv_i, std::logic_error, "Piro::ThyraProductME_Constraint_SimOpt: H_px product vector is not supported");
-            internal_outArgs.set_hess_vec_prod_f_px(p_indices_[i], prodvec_ahwv->getNonconstVectorBlock(i));
+        if (!Teuchos::is_null(prodvec_ahwv)) {
+            for(std::size_t i=0; i<p_indices_.size(); ++i) {
+                bool supports_deriv_i =   internal_outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_px, p_indices_[i]);
+                ROL_TEST_FOR_EXCEPTION( !supports_deriv_i, std::logic_error, "Piro::ThyraProductME_Constraint_SimOpt: H_px product vector is not supported");
+                internal_outArgs.set_hess_vec_prod_f_px(p_indices_[i], prodvec_ahwv->getNonconstVectorBlock(i));
+            }
+        }
+        else {
+            ROL_TEST_FOR_EXCEPTION( !Teuchos::is_null(outArgs.get_hess_vec_prod_f_px(0)), std::logic_error, "Piro::ThyraProductME_Objective_SimOpt: H_px product vector is not supported");
         }
     }
 
@@ -485,22 +507,27 @@ ProductModelEvaluator<Real>::evalModelImpl(
             Teuchos::rcp_dynamic_cast<Thyra::ProductMultiVectorBase<Real>>(outArgs.get_hess_vec_prod_f_pp(0,0));
         std::vector<std::vector<Teuchos::RCP< Thyra::MultiVectorBase<Real> > > > ahwv_vec(p_indices_.size());
 
-        for(std::size_t i=0; i<p_indices_.size(); ++i) {
-            ahwv_vec[i].resize(p_indices_.size());
-            ahwv_vec[i][0] = prodvec_ahwv->getNonconstMultiVectorBlock(i);
-            for(std::size_t j=1; j<p_indices_.size(); ++j) {
-                ahwv_vec[i][j] = ahwv_vec[i][0]->clone_mv();
+        if (!Teuchos::is_null(prodvec_ahwv)) {
+            for(std::size_t i=0; i<p_indices_.size(); ++i) {
+                ahwv_vec[i].resize(p_indices_.size());
+                ahwv_vec[i][0] = prodvec_ahwv->getNonconstMultiVectorBlock(i);
+                for(std::size_t j=1; j<p_indices_.size(); ++j) {
+                    ahwv_vec[i][j] = ahwv_vec[i][0]->clone_mv();
+                }
+            }
+
+            for(std::size_t i=0; i<p_indices_.size(); ++i) {
+                for(std::size_t j=0; j<p_indices_.size(); ++j) {
+                    bool supports_deriv_ij =   internal_outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_pp, p_indices_[i], p_indices_[j]);
+                    ROL_TEST_FOR_EXCEPTION( !supports_deriv_ij, std::logic_error, "Piro::ThyraProductME_Constraint_SimOpt: H_pp product vector is not supported");
+
+                    internal_outArgs.set_hess_vec_prod_f_pp(p_indices_[i], p_indices_[j], ahwv_vec[i][j]);
+                }
             }
         }
-
-        for(std::size_t i=0; i<p_indices_.size(); ++i) {
-            for(std::size_t j=0; j<p_indices_.size(); ++j) {
-                bool supports_deriv_ij =   internal_outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_pp, p_indices_[i], p_indices_[j]);
-                ROL_TEST_FOR_EXCEPTION( !supports_deriv_ij, std::logic_error, "Piro::ThyraProductME_Constraint_SimOpt: H_pp product vector is not supported");
-
-                internal_outArgs.set_hess_vec_prod_f_pp(p_indices_[i], p_indices_[j], ahwv_vec[i][j]);
-            }
-        }        
+        else {
+            ROL_TEST_FOR_EXCEPTION( !Teuchos::is_null(outArgs.get_hess_vec_prod_f_pp(0,0)), std::logic_error, "Piro::ThyraProductME_Objective_SimOpt: H_px product vector is not supported");
+        }
     }
 
     if (supports_dfdp_op) {
@@ -546,30 +573,51 @@ ProductModelEvaluator<Real>::evalModelImpl(
 
     if (supports_vec_prod_g_xp) {
         Teuchos::RCP< Thyra::MultiVectorBase<Real> > hv_vec = internal_outArgs.get_hess_vec_prod_g_xp(g_index_,p_indices_[0]);
-        for(std::size_t j=1; j<p_indices_.size(); ++j)
-            hv_vec->update(1.0, *internal_outArgs.get_hess_vec_prod_g_xp(g_index_,p_indices_[j]));
+        if (!Teuchos::is_null(hv_vec)) {
+            for(std::size_t j=1; j<p_indices_.size(); ++j) {
+                Teuchos::RCP< Thyra::MultiVectorBase<Real> > hv_vec_tmp = internal_outArgs.get_hess_vec_prod_g_xp(g_index_,p_indices_[j]);
+                if (!Teuchos::is_null(hv_vec_tmp)) {
+                    hv_vec->update(1.0, *hv_vec_tmp);
+                }
+            }
+        }
         //outArgs.set_hess_vec_prod_g_xp(g_index_,0,hv_vec);
     }
 
     if (supports_vec_prod_g_pp) {
         for(std::size_t i=0; i<p_indices_.size(); ++i) {
             Teuchos::RCP< Thyra::MultiVectorBase<Real> > hv_vec = internal_outArgs.get_hess_vec_prod_g_pp(g_index_,p_indices_[i],p_indices_[0]);
-            for(std::size_t j=1; j<p_indices_.size(); ++j)
-                hv_vec->update(1.0, *internal_outArgs.get_hess_vec_prod_g_pp(g_index_,p_indices_[i],p_indices_[j]));
+            if (!Teuchos::is_null(hv_vec)) {
+                for(std::size_t j=1; j<p_indices_.size(); ++j) {
+                    Teuchos::RCP< Thyra::MultiVectorBase<Real> > hv_vec_tmp = internal_outArgs.get_hess_vec_prod_g_pp(g_index_,p_indices_[i],p_indices_[j]);
+                    if (!Teuchos::is_null(hv_vec_tmp))
+                        hv_vec->update(1.0, *hv_vec_tmp);
+                }
+            }
         }
     }
 
     if (supports_vec_prod_f_xp) {
         Teuchos::RCP< Thyra::MultiVectorBase<Real> > ahwv_vec = internal_outArgs.get_hess_vec_prod_f_xp(p_indices_[0]);
-        for(std::size_t j=1; j<p_indices_.size(); ++j)
-            ahwv_vec->update(1.0, *internal_outArgs.get_hess_vec_prod_f_xp(p_indices_[j]));    
+        if (!Teuchos::is_null(ahwv_vec)) {
+            for(std::size_t j=1; j<p_indices_.size(); ++j) {
+                Teuchos::RCP< Thyra::MultiVectorBase<Real> > ahwv_vec_tmp = internal_outArgs.get_hess_vec_prod_f_xp(p_indices_[j]);
+                if (!Teuchos::is_null(ahwv_vec_tmp))
+                    ahwv_vec->update(1.0, *ahwv_vec_tmp);
+            }
+        }
     }
 
     if (supports_vec_prod_f_pp) {
         for(std::size_t i=0; i<p_indices_.size(); ++i) {
             Teuchos::RCP< Thyra::MultiVectorBase<Real> > ahwv_vec = internal_outArgs.get_hess_vec_prod_f_pp(p_indices_[i],p_indices_[0]);
-            for(std::size_t j=1; j<p_indices_.size(); ++j)
-                ahwv_vec->update(1.0, *internal_outArgs.get_hess_vec_prod_f_pp(p_indices_[i],p_indices_[j]));
+            if (!Teuchos::is_null(ahwv_vec)) {
+                for(std::size_t j=1; j<p_indices_.size(); ++j) {
+                    Teuchos::RCP< Thyra::MultiVectorBase<Real> > ahwv_vec_tmp = internal_outArgs.get_hess_vec_prod_f_pp(p_indices_[i],p_indices_[j]);
+                    if (!Teuchos::is_null(ahwv_vec_tmp))
+                        ahwv_vec->update(1.0, *ahwv_vec_tmp);
+                }
+            }
         }
     }
 }
@@ -837,6 +885,16 @@ ProductModelEvaluator<Real>::fromInternalOutArgs(const Thyra::ModelEvaluatorBase
         }
     }
     outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_g_pp, g_index_, 0, 0, outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_g_pp, g_index_, p_indices_[0], p_indices_[0]));
+    for (auto g_index = 0; g_index < outArgs1.Ng(); ++g_index) {
+        outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_xx, g_index, outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_xx, g_index));
+        outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_xp, g_index, 0, outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_xp, g_index, p_indices_[0]));
+        outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_px, g_index, 0, outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_px, g_index, p_indices_[0]));
+        outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_pp, g_index, 0, 0, outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_pp, g_index, p_indices_[0], p_indices_[0]));
+    }
+    outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_xx, outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_xx));
+    outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_xp, 0, outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_xp, p_indices_[0]));
+    outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_px, 0, outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_px, p_indices_[0]));
+    outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_pp, 0, 0, outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_pp, p_indices_[0], p_indices_[0]));
 }
 
 template <typename Real>
@@ -853,13 +911,26 @@ ProductModelEvaluator<Real>::toInternalOutArgs(const Thyra::ModelEvaluatorBase::
 
     for (auto g_index = 0; g_index < outArgs1.Ng(); ++g_index) {
         outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDx, g_index, outArgs1.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDx, g_index));
+        outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_xx, g_index, outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_xx, g_index));
         for (auto i = 0; i < p_indices_.size(); ++i) {
             outArgs2.setSupports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDp, g_index, p_indices_[i], outArgs1.supports(Thyra::ModelEvaluator<Real>::OUT_ARG_DgDp, g_index, 0));
+            outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_xp, g_index, p_indices_[i], outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_xp, g_index, 0));
+            outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_px, g_index, p_indices_[i], outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_px, g_index, 0));
+            for (auto j = 0; j < p_indices_.size(); ++j) {
+                outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_pp, g_index, p_indices_[i], p_indices_[j], outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_pp, g_index, 0, 0));
+            }
         }
     }
 
+    outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_xx, outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_xx));
+
     for (auto i = 0; i < p_indices_.size(); ++i) {
         outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_DfDp, p_indices_[i], DfDp_op_support_[i]);
+        outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_xp, p_indices_[i], outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_xp, 0));
+        outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_px, p_indices_[i], outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_px, 0));
+        for (auto j = 0; j < p_indices_.size(); ++j) {
+            outArgs2.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_pp, p_indices_[i], p_indices_[j], outArgs1.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_pp, 0, 0));
+        }
     }
 
     for (auto i = 0; i < thyra_model_->Ng(); ++i) {
