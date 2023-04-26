@@ -43,6 +43,8 @@
 #include "MockModelEval_B_Tpetra.hpp"
 #include "Thyra_LinearOpWithSolveBase_decl.hpp"
 
+#include "Thyra_ProductVectorBase.hpp"
+#include "Thyra_DefaultProductVectorSpace.hpp"
 
 #include <iostream>
 
@@ -300,8 +302,19 @@ void MockModelEval_B_Tpetra::evalModelImpl(
           Teuchos::null;
 
   const Teuchos::RCP<const Thyra::VectorBase<double>> p_in = inArgs.get_p(0);
-  if (Teuchos::nonnull(p_in))
-    p_vec->assign(*ConverterT::getConstTpetraVector(p_in));
+  if (Teuchos::nonnull(p_in)) {
+    Teuchos::RCP<const Thyra::ProductVectorBase<double>> p_prod_in =
+      Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<double>>(p_in);
+    if(Teuchos::nonnull(p_prod_in)) {
+      if(p_prod_in->productSpace()->numBlocks() == 1) {
+        p_vec->assign(*ConverterT::getConstTpetraVector(p_prod_in->getVectorBlock(0)));
+      } else {
+        std::cerr << "ERROR: MockModelEval_B_Tpetra has a parameter with " << p_prod_in->productSpace()->numBlocks() << " blocks \n";
+      }
+    } else {
+      p_vec->assign(*ConverterT::getConstTpetraVector(p_in));
+    }
+  }
 
   int myVecLength = x_in->getLocalLength();
 
