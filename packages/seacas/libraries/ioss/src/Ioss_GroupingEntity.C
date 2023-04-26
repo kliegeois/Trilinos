@@ -1,4 +1,4 @@
-// Copyright(C) 1999-2022 National Technology & Engineering Solutions
+// Copyright(C) 1999-2023 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
 //
@@ -173,28 +173,31 @@ bool Ioss::GroupingEntity::check_for_duplicate(const Ioss::Field &new_field) con
 {
   // See if a field with the same name exists...
   if (field_exists(new_field.get_name())) {
-    // Get the existing field so we can compare with `new_field`
-    const Ioss::Field &field = fields.getref(new_field.get_name());
-    if (field != new_field) {
-      bool allow_duplicate = false;
-      Utils::check_set_bool_property(get_database()->get_property_manager(),
-                                     "IGNORE_DUPLICATE_FIELD_NAMES", allow_duplicate);
-      std::string        warn_err = allow_duplicate ? "WARNING" : "ERROR";
-      std::ostringstream errmsg;
-      fmt::print(errmsg,
-                 "{}: Duplicate incompatible fields named '{}' on {} {}:\n"
-                 "\tExisting  field: {} {} of size {} bytes with role '{}' and storage '{}',\n"
-                 "\tDuplicate field: {} {} of size {} bytes with role '{}' and storage '{}'.",
-                 warn_err, new_field.get_name(), type_string(), name(), field.raw_count(),
-                 field.type_string(), field.get_size(), field.role_string(),
-                 field.raw_storage()->name(), new_field.raw_count(), new_field.type_string(),
-                 new_field.get_size(), new_field.role_string(), new_field.raw_storage()->name());
-      if (!allow_duplicate) {
-        IOSS_ERROR(errmsg);
-      }
-      else {
-        fmt::print(Ioss::WarnOut(), "{}\n", errmsg.str());
-        return true;
+    auto behavior = get_database()->get_duplicate_field_behavior();
+    if (behavior != DuplicateFieldBehavior::IGNORE_) {
+      // Get the existing field so we can compare with `new_field`
+      const Ioss::Field &field = fields.getref(new_field.get_name());
+      if (field != new_field) {
+        std::string        warn_err = behavior == DuplicateFieldBehavior::WARNING_ ? "" : "ERROR: ";
+        std::ostringstream errmsg;
+        fmt::print(errmsg,
+                   "{}Duplicate incompatible fields named '{}' on {} {}:\n"
+                   "\tExisting  field: {} {} of size {} bytes with role '{}' and storage '{}',\n"
+                   "\tDuplicate field: {} {} of size {} bytes with role '{}' and storage '{}'.",
+                   warn_err, new_field.get_name(), type_string(), name(), field.raw_count(),
+                   field.type_string(), field.get_size(), field.role_string(),
+                   field.raw_storage()->name(), new_field.raw_count(), new_field.type_string(),
+                   new_field.get_size(), new_field.role_string(), new_field.raw_storage()->name());
+        if (behavior == DuplicateFieldBehavior::WARNING_) {
+          auto util = get_database()->util();
+          if (util.parallel_rank() == 0) {
+            fmt::print(Ioss::WarnOut(), "{}\n", errmsg.str());
+          }
+          return true;
+        }
+        else {
+          IOSS_ERROR(errmsg);
+        }
       }
     }
   }
@@ -264,6 +267,47 @@ int64_t Ioss::GroupingEntity::get_field_data(const std::string &field_name, void
   }
 
   return retval;
+}
+
+/** Zero-copy API.  *IF* a field is zero-copyable, then this function will set the `data`
+ * pointer to point to a chunk of memory of size `data_size` bytes containing the field
+ * data for the specified field.  If the field is not zero-copyable, then the  `data`
+ * pointer will point to `nullptr` and `data_size` will be 0 and `retval` will be -2.
+ * TODO: Verify that returning `-2` on error makes sense or helps at all...
+ */
+int64_t Ioss::GroupingEntity::get_field_data(const std::string &field_name, void **data,
+                                             size_t *data_size) const
+{
+  verify_field_exists(field_name, "input");
+
+  int64_t     retval = -1;
+  Ioss::Field field  = get_field(field_name);
+  if (field.zero_copy_enabled()) {
+    retval = internal_get_zc_field_data(field, data, data_size);
+  }
+  else {
+    retval     = -2;
+    *data      = nullptr;
+    *data_size = 0;
+  }
+  return retval;
+}
+
+int64_t Ioss::GroupingEntity::internal_get_zc_field_data(const Ioss::Field &field, void ** /*data*/,
+                                                         size_t * /*data_size*/) const
+{
+  // Dummy version to avoid putting empty virtual functions in all databases that don't support
+  // zero-copy;
+  std::ostringstream errmsg;
+  fmt::print(
+      errmsg,
+      "\nINTERNAL ERROR: Something is wrong on a database.  The field '{}' indicates that it"
+      " is zero-copyable, but the database containing that field does not implement the zero-copy"
+      " `get_field_internal()` function.\n\n",
+      field.get_name(), name());
+  IOSS_ERROR(errmsg);
+
+  return -2;
 }
 
 /** \brief Write field data from memory into the database file using a pointer.

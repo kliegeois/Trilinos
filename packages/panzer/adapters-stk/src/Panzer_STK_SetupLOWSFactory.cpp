@@ -54,7 +54,6 @@
 #include "Epetra_MpiComm.h"
 #include "Epetra_Vector.h"
 #include "EpetraExt_VectorOut.h"
-#include "ml_rbm.h"
 #endif // PANZER_HAVE_EPETRA_STACK
 
 #include "Tpetra_Map.hpp"
@@ -69,11 +68,6 @@
 //#include "MatrixMarket_Tpetra.hpp"
 #include "Xpetra_MapFactory.hpp"
 #include "Xpetra_MultiVectorFactory.hpp"
-#endif
-
-#ifdef PANZER_HAVE_IFPACK2
-#include <Thyra_Ifpack2PreconditionerFactory.hpp>
-#include "Tpetra_CrsMatrix_decl.hpp"
 #endif
 
 namespace panzer_stk {
@@ -188,15 +182,6 @@ namespace {
       #endif
     }
     #endif // MUELU
-    #ifdef PANZER_HAVE_IFPACK2
-    {
-      typedef Thyra::PreconditionerFactoryBase<double> Base;
-      typedef Thyra::Ifpack2PreconditionerFactory<Tpetra::CrsMatrix<double, int, panzer::GlobalOrdinal,panzer::TpetraNodeType> > Impl;
-
-      linearSolverBuilder.setPreconditioningStrategyFactory(Teuchos::abstractFactoryStd<Base, Impl>(), "Ifpack2");
-    }
-    #endif // MUELU
-
 
     #ifdef PANZER_HAVE_TEKO
     RCP<Teko::RequestHandler> reqHandler_local = reqHandler;

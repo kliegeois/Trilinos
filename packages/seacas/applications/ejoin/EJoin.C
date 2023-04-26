@@ -1,4 +1,4 @@
-// Copyright(C) 1999-2022 National Technology & Engineering Solutions
+// Copyright(C) 1999-2023 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
 //
@@ -257,6 +257,11 @@ int main(int argc, char *argv[])
     add_to_log(argv[0], time);
 
 #ifdef SEACAS_HAVE_MPI
+    MPI_Comm parent_comm;
+    MPI_Comm_get_parent(&parent_comm);
+    if (parent_comm != MPI_COMM_NULL) {
+      MPI_Barrier(parent_comm);
+    }
     MPI_Finalize();
 #endif
 
@@ -1431,7 +1436,7 @@ namespace {
       return false;
     }
 
-    for (auto &var : variable_list) {
+    for (const auto &var : variable_list) {
       if (var.first == variable) {
         if (id == 0 || id == var.second || var.second == 0) {
           return true;

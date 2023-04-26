@@ -1,5 +1,5 @@
 /*
- * Copyright(C) 1999-2022 National Technology & Engineering Solutions
+ * Copyright(C) 1999-2023 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
  *
@@ -36,7 +36,7 @@
 #endif
 
 namespace Ioss {
-  const std::vector<std::string> &valid_decomp_methods();
+  IOSS_EXPORT const std::vector<std::string> &valid_decomp_methods();
 
   class IOSS_EXPORT BlockDecompositionData
   {
@@ -134,6 +134,10 @@ namespace Ioss {
   {
   public:
     Decomposition(const Ioss::PropertyManager &props, Ioss_MPI_Comm comm);
+    Decomposition(Decomposition const&) = default;
+    Decomposition(Decomposition&&) = default;
+    Decomposition& operator=(Decomposition const&) = default;
+    Decomposition& operator=(Decomposition&&) = default;
 
     size_t global_node_count() const { return m_globalNodeCount; }
     size_t global_elem_count() const { return m_globalElementCount; }
