@@ -932,6 +932,9 @@ Piro::PerformTROLAnalysis(
   Piro::ThyraProductME_TempusFinalObjective<double> obj(integrator, g_index, p_indices, piroParams, analysisVerbosityLevel, observer);
   Piro::ThyraProductME_TempusDynamicConstraint<double> constr(integrator, p_indices, piroParams, analysisVerbosityLevel, observer);
 
+  //SerialObjective
+  //SerialStationaryControlsObjective
+
   constr.setSolveParameters(rolParams.sublist("ROL Options"));
   constr.setNumResponses(piroTSolver->num_g());
 
@@ -1053,12 +1056,12 @@ Piro::PerformTROLAnalysis(
     if(boundConstrained) {
       *out << "Piro::PerformTROLAnalysis: Solving Reduced Space Bound Constrained Optimization Problem" << std::endl;
       auto algo = ROL::TypeB::AlgorithmFactory<double>(rolParams.sublist("ROL Options"));
-      algo->run(rol_p_primal_transient, reduced_obj, *boundConstraint, *rolOutput); 
+      algo->run(rol_p_primal, reduced_obj, *boundConstraint, *rolOutput); 
       return_status = algo->getState()->statusFlag;
     }  else {
       *out << "Piro::PerformTROLAnalysis: Solving Reduced Space Unconstrained Optimization Problem" << std::endl;
       auto algo = ROL::TypeU::AlgorithmFactory<double>(rolParams.sublist("ROL Options"));
-      algo->run(rol_p_primal_transient, reduced_obj, *rolOutput);
+      algo->run(rol_p_primal, reduced_obj, *rolOutput);
       return_status = algo->getState()->statusFlag;
     }
 */
