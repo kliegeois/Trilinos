@@ -142,7 +142,6 @@ int main(int argc, char *argv[]) {
         RCP<Thyra::ModelEvaluator<double>> model, adjointModel(Teuchos::null);
 
         int num_parameters = piroParams->sublist("Analysis").sublist("ROL").get<int>("Number Of Parameters", 1);
-        int g_index = piroParams->sublist("Analysis").sublist("ROL").get<int>("Response Vector Index", 0);  
         std::vector<int> p_indices(num_parameters);
 
         for(int i=0; i<num_parameters; ++i) {
@@ -228,8 +227,8 @@ int main(int argc, char *argv[]) {
             p_exact[1] = 4;
           }
           if (mockModel=="MockModelEval_B_Tpetra_2_parameters") {
-            p_exact[0] = 6;
-            p_exact[1] = 4;
+            p_exact[0] = 4;
+            p_exact[1] = 6;
           }
           double tol = 1e-5;
 
