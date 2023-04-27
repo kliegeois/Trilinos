@@ -852,12 +852,40 @@ Piro::PerformTROLAnalysis(
   Teuchos::RCP<Thyra::ModelEvaluatorDefaultBase<double>> model, adjointModel;
   Teuchos::RCP<Piro::TransientSolver<double>> piroTSolver;
 
+  auto rolParams = analysisParams.sublist("ROL");  
+  int num_parameters = rolParams.get<int>("Number Of Parameters", 1);
+
 #ifdef HAVE_PIRO_TEMPUS
   auto piroTempusSolver = Teuchos::rcp_dynamic_cast<Piro::TempusSolver<double>>(Teuchos::rcpFromRef(piroModel));
   if(Teuchos::nonnull(piroTempusSolver)) {
     piroTSolver = Teuchos::rcp_dynamic_cast<Piro::TransientSolver<double>>(piroTempusSolver);
-    model = Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(piroTempusSolver->getSubModel());
-    adjointModel = Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(piroTempusSolver->getAdjointSubModel());
+
+    std::vector<int> p_indices(num_parameters);
+
+    for(int i=0; i<num_parameters; ++i) {
+      std::ostringstream ss; ss << "Parameter Vector Index " << i;
+      p_indices[i] = rolParams.get<int>(ss.str(), i);
+    }
+
+
+    Teuchos::RCP<const Thyra::ProductVectorBase<double> > prodvec_p 
+      = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<double>>(piroTempusSolver->getSubModel()->getNominalValues().get_p(0));
+
+    if ( prodvec_p.is_null()) {
+      model = Teuchos::rcp(new Piro::ProductModelEvaluator<double>(
+        Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(piroTempusSolver->getSubModel()),
+        p_indices));
+
+      if (!piroTempusSolver->getAdjointSubModel().is_null()) {
+        adjointModel = Teuchos::rcp(new Piro::ProductModelEvaluator<double>(
+          Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(piroTempusSolver->getAdjointSubModel()),
+          p_indices));
+      }
+    }
+    else {
+      model = Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(piroTempusSolver->getSubModel());
+      adjointModel = Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(piroTempusSolver->getAdjointSubModel());
+    }
   } else
 #endif
   {
@@ -866,19 +894,14 @@ Piro::PerformTROLAnalysis(
         "only Piro::TempusSolver is currently supported for piroModel"<<std::endl);
   }
 
-
-  auto rolParams = analysisParams.sublist("ROL");  
-  int num_parameters = rolParams.get<int>("Number Of Parameters", 1);
   rolParams.validateParameters(*Piro::getValidPiroAnalysisROLParameters(num_parameters),0);
 
   int g_index = rolParams.get<int>("Response Vector Index", 0);  
-  std::vector<int> p_indices(num_parameters);
   std::vector<std::string> p_names;
 
   for(int i=0; i<num_parameters; ++i) {
     std::ostringstream ss; ss << "Parameter Vector Index " << i;
-    p_indices[i] = rolParams.get<int>(ss.str(), i);
-    const auto names_array = *piroTSolver->getModel().get_p_names(p_indices[i]);
+    const auto names_array = *piroTSolver->getModel().get_p_names(0);
     for (int k=0; k<names_array.size(); k++) {
       p_names.push_back(names_array[k]);
     }
@@ -887,24 +910,13 @@ Piro::PerformTROLAnalysis(
   //set names of parameters in the "Optimization Status" sublist
   piroParams.sublist("Optimization Status").set("Parameter Names", Teuchos::rcpFromRef(p_names));
 
-  Teuchos::Array<Teuchos::RCP<Thyra::VectorSpaceBase<double> const>> p_spaces(num_parameters);
-  Teuchos::Array<Teuchos::RCP<Thyra::VectorBase<double>>> p_vecs(num_parameters);
-  for (auto i = 0; i < num_parameters; ++i) {
-    p_spaces[i] = model->get_p_space(p_indices[i]);
-    p_vecs[i] = Thyra::createMember(p_spaces[i]);
-  }
-  Teuchos::RCP<Thyra::DefaultProductVectorSpace<double> const> p_space = Thyra::productVectorSpace<double>(p_spaces);
-  Teuchos::RCP<Thyra::DefaultProductVector<double>> p_prod = Thyra::defaultProductVector<double>(p_space, p_vecs());
-  p = p_prod;
+  if(rolParams.isParameter("Objective Recovery Value"))
+    piroParams.sublist("Optimization Status").set("Objective Recovery Value", rolParams.get<double>("Objective Recovery Value"));
 
-  //  p = Thyra::createMember(piroModel.get_p_space(p_index));
+  Teuchos::RCP<Thyra::VectorSpaceBase<double> const> p_space = model->get_p_space(0);
+  p = model->getNominalValues().get_p(0)->clone_v();
 
-  for (auto i = 0; i < num_parameters; ++i) {
-    RCP<const Thyra::VectorBase<double> > p_init = model->getNominalValues().get_p(p_indices[i]);
-    Thyra::copy(*p_init, p_prod->getNonconstVectorBlock(i).ptr());
-  }
-
-  ROL::ThyraVector<double> rol_p(p_prod);
+  ROL::ThyraVector<double> rol_p(p);
   //Teuchos::RCP<Thyra::VectorSpaceBase<double> const> p_space;
   Teuchos::RCP<Thyra::VectorSpaceBase<double> const> x_space = model->get_x_space();
 
@@ -929,8 +941,8 @@ Piro::PerformTROLAnalysis(
   Teuchos::RCP<Piro::TempusIntegrator<double> > integrator 
     = Teuchos::rcp(new Piro::TempusIntegrator<double>(tempus_params, model, sens_method));
 
-  Piro::ThyraProductME_TempusFinalObjective<double> obj(integrator, g_index, p_indices, piroParams, analysisVerbosityLevel, observer);
-  Piro::ThyraProductME_TempusDynamicConstraint<double> constr(integrator, p_indices, piroParams, analysisVerbosityLevel, observer);
+  Piro::ThyraProductME_TempusFinalObjective<double> obj(integrator, g_index, piroParams, analysisVerbosityLevel, observer);
+  Piro::ThyraProductME_TempusDynamicConstraint<double> constr(integrator, piroParams, analysisVerbosityLevel, observer);
 
   //SerialObjective
   //SerialStationaryControlsObjective
@@ -974,18 +986,8 @@ Piro::PerformTROLAnalysis(
   bool boundConstrained = rolParams.get<bool>("Bound Constrained", false);
 
   if(boundConstrained) {
-    Teuchos::Array<Teuchos::RCP<const Thyra::VectorBase<double>>> p_lo_vecs(num_parameters);
-    Teuchos::Array<Teuchos::RCP<const Thyra::VectorBase<double>>> p_up_vecs(num_parameters);
-    //double eps_bound = rolParams.get<double>("epsilon bound", 1e-6);
-    for (auto i = 0; i < num_parameters; ++i) {
-      p_lo_vecs[i] = piroModel.getLowerBounds().get_p(p_indices[i]);
-      p_up_vecs[i] = piroModel.getUpperBounds().get_p(p_indices[i]);
-      TEUCHOS_TEST_FOR_EXCEPTION((p_lo_vecs[i] == Teuchos::null) || (p_up_vecs[i] == Teuchos::null), Teuchos::Exceptions::InvalidParameter,
-          std::endl << "Piro::PerformSSROLAnalysis, ERROR: " <<
-          "Lower and/or Upper bounds pointers are null, cannot perform bound constrained optimization"<<std::endl);
-    }
-    Teuchos::RCP<Thyra::VectorBase<double>> p_lo = Thyra::defaultProductVector<double>(p_space, p_lo_vecs());
-    Teuchos::RCP<Thyra::VectorBase<double>> p_up = Thyra::defaultProductVector<double>(p_space, p_up_vecs());
+    Teuchos::RCP<Thyra::VectorBase<double>> p_lo = model->getLowerBounds().get_p(0)->clone_v();
+    Teuchos::RCP<Thyra::VectorBase<double>> p_up = model->getUpperBounds().get_p(0)->clone_v();
 
     //ROL::Thyra_BoundConstraint<double> boundConstraint(p_lo->clone_v(), p_up->clone_v(), eps_bound);
     boundConstraint = rcp( new ROL::Bounds<double>(ROL::makePtr<ROL::ThyraVector<double> >(p_lo), ROL::makePtr<ROL::ThyraVector<double> >(p_up)));
@@ -1051,6 +1053,13 @@ Piro::PerformTROLAnalysis(
     double tol = 1e-5;
     auto val = reduced_obj.value(*rol_p_primal_transient, tol);
     *out << "Piro::PerformTROLAnalysis: After reduced_obj.value" << std::endl;
+
+    ROL::Ptr<ROL::ReducedDynamicObjective<double> > reduced_obj_ptr = ROL::makePtrFromRef(reduced_obj);
+    ROL::ReducedDynamicStationaryControlsObjective<double> reduced_stationarycontrols_obj(reduced_obj_ptr, rol_p_ptr, nt);
+
+    *out << "Piro::PerformTROLAnalysis: Before reduced_stationarycontrols_obj.value" << std::endl;
+    auto val_2 = reduced_stationarycontrols_obj.value(rol_p_primal, tol);
+    *out << "Piro::PerformTROLAnalysis: After reduced_stationarycontrols_obj.value" << std::endl;
 
 /*
     if(boundConstrained) {

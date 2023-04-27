@@ -64,7 +64,6 @@ template<class Real>
 class ThyraProductME_TempusDynamicConstraint : public ROL::DynamicConstraint<Real> {
 private:
   Teuchos::RCP<Piro::TempusIntegrator<Real>> integrator_;
-  const std::vector<int> p_indices_;
   int num_responses_;
   Teuchos::ParameterList& optParams_;
   Teuchos::RCP<Teuchos::FancyOStream> out_;
@@ -91,7 +90,6 @@ private:
 public:
 
   ThyraProductME_TempusDynamicConstraint(const Teuchos::RCP<Piro::TempusIntegrator<Real>> & integrator,
-    const std::vector<int>& p_indices,
     Teuchos::ParameterList& piroParams,
     Teuchos::EVerbosityLevel verbLevel= Teuchos::VERB_HIGH,
     Teuchos::RCP<ROL_ObserverBase<Real>> observer = Teuchos::null);
@@ -179,12 +177,10 @@ public:
 template<class Real>
 ThyraProductME_TempusDynamicConstraint<Real>::ThyraProductME_TempusDynamicConstraint(
   const Teuchos::RCP<Piro::TempusIntegrator<Real>>& integrator,
-  const std::vector<int>& p_indices,
   Teuchos::ParameterList& piroParams,
   Teuchos::EVerbosityLevel verbLevel,
   Teuchos::RCP<ROL_ObserverBase<Real>> observer) :
   integrator_(integrator),
-  p_indices_(p_indices),
   optParams_(piroParams.sublist("Optimization Status")),
   out_(Teuchos::VerboseObjectBase::getDefaultOStream()),
   verbosityLevel_(verbLevel),

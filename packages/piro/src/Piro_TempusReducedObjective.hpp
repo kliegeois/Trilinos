@@ -78,7 +78,6 @@ public:
   ThyraProductME_TempusFinalObjective(
     const Teuchos::RCP<Piro::TempusIntegrator<Real> >& integrator,
     int g_index,
-    const std::vector<int>& p_indices,
     Teuchos::ParameterList& piroParams,
     Teuchos::EVerbosityLevel verbLevel= Teuchos::VERB_HIGH,
     Teuchos::RCP<ROL_ObserverBase<Real>> observer = Teuchos::null);
@@ -107,7 +106,6 @@ private:
   const Teuchos::RCP<Piro::TempusIntegrator<Real> > integrator_;
   const Teuchos::RCP<Thyra::ModelEvaluator<Real>> thyra_model_;
   const int g_index_;
-  const std::vector<int> p_indices_;
   Real objectiveRecoveryValue_;
   bool useObjectiveRecoveryValue_;
   ROL::UpdateType updateType_;
@@ -128,14 +126,12 @@ ThyraProductME_TempusFinalObjective<Real>::
 ThyraProductME_TempusFinalObjective(
   const Teuchos::RCP<Piro::TempusIntegrator<Real> >& integrator,
   int g_index,
-  const std::vector<int>& p_indices,
   Teuchos::ParameterList& piroParams,
   Teuchos::EVerbosityLevel verbLevel,
   Teuchos::RCP<ROL_ObserverBase<Real>> observer) :
   integrator_(integrator),
   thyra_model_(integrator->getModel()),
   g_index_(g_index),
-  p_indices_(p_indices),
   optParams_(piroParams.sublist("Optimization Status")),
   out_(Teuchos::VerboseObjectBase::getDefaultOStream()),
   verbosityLevel_(verbLevel),
@@ -164,10 +160,7 @@ value( const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new,
   MEB::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
   const ROL::ThyraVector<Real>& thyra_p =
     Teuchos::dyn_cast<const ROL::ThyraVector<Real> >(p);
-  Teuchos::RCP<const Thyra::ProductVectorBase<Real> > thyra_prodvec_p =
-    Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
-  for(std::size_t i=0; i<p_indices_.size(); ++i)
-    inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
+  inArgs.set_p(0, thyra_p.getVector());
   RCP<Thyra::VectorBase<Real> > g =
     Thyra::createMember<Real>(thyra_model_->get_g_space(g_index_));
   outArgs.set_g(g_index_, g);
@@ -191,24 +184,7 @@ template <typename Real>
 Teuchos::RCP<ROL::Vector<Real> >
 ThyraProductME_TempusFinalObjective<Real>::
 create_design_vector() const {
-
-  typedef Thyra::ModelEvaluatorBase MEB;
-
-  Teuchos::Array<Teuchos::RCP<Thyra::VectorSpaceBase<Real> const>> p_spaces(p_indices_.size());
-  Teuchos::Array<Teuchos::RCP<Thyra::VectorBase<Real>>> p_vecs(p_indices_.size());
-  MEB::InArgs<Real> nominalValues = thyra_model_->getNominalValues();
-  for (auto i = 0; i < p_indices_.size(); ++i) {
-    p_spaces[i] = thyra_model_->get_p_space(p_indices_[i]);
-    p_vecs[i] = Thyra::createMember(p_spaces[i]);
-    if (nominalValues.get_p(p_indices_[i]) != Teuchos::null)
-      Thyra::assign(p_vecs[i].ptr(), *(nominalValues.get_p(p_indices_[i])));
-    else
-      Thyra::assign(p_vecs[i].ptr(), Teuchos::ScalarTraits<Real>::zero());
-  }
-  Teuchos::RCP<Thyra::DefaultProductVectorSpace<Real> const> p_space = Thyra::productVectorSpace<double>(p_spaces);
-  Teuchos::RCP<Thyra::DefaultProductVector<Real>> p_prod = Thyra::defaultProductVector<double>(p_space, p_vecs());
-
-  return Teuchos::rcp(new ROL::ThyraVector<Real>(p_prod));
+  return Teuchos::rcp(new ROL::ThyraVector<Real>(thyra_model_->getNominalValues().get_p(0)));
 }
 
 template <typename Real>
@@ -234,8 +210,7 @@ run_tempus(ROL::Vector<Real>& r, const ROL::Vector<Real>& p) const
     Teuchos::dyn_cast<const ROL::ThyraVector<Real> >(p);
   Teuchos::RCP<const Thyra::ProductVectorBase<Real> > thyra_prodvec_p =
     Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
-  for(std::size_t i=0; i<p_indices_.size(); ++i)
-    inArgs.set_p(p_indices_[i], thyra_prodvec_p->getVectorBlock(i));
+  inArgs.set_p(0, thyra_p.getVector());
   ROL::ThyraVector<Real>& thyra_r =
     Teuchos::dyn_cast<ROL::ThyraVector<Real> >(r);
   outArgs.set_g(g_index_, thyra_r.getVector());
