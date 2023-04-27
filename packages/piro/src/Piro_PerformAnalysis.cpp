@@ -936,10 +936,10 @@ Piro::PerformTROLAnalysis(
     default: analysisVerbosityLevel= Teuchos::VERB_NONE;
   }
 
-  SENS_METHOD sens_method = Piro::NONE; 
+  SENS_METHOD sens_method = Piro::ADJOINT; 
   auto tempus_params = Teuchos::rcp<Teuchos::ParameterList>(new Teuchos::ParameterList(piroParams.sublist("Tempus")));
   Teuchos::RCP<Piro::TempusIntegrator<double> > integrator 
-    = Teuchos::rcp(new Piro::TempusIntegrator<double>(tempus_params, model, sens_method));
+    = Teuchos::rcp(new Piro::TempusIntegrator<double>(tempus_params, model, adjointModel, sens_method));
 
   Piro::ThyraProductME_TempusFinalObjective<double> obj(integrator, g_index, piroParams, analysisVerbosityLevel, observer);
   Piro::ThyraProductME_TempusDynamicConstraint<double> constr(integrator, piroParams, analysisVerbosityLevel, observer);
@@ -1052,14 +1052,19 @@ Piro::PerformTROLAnalysis(
     *out << "Piro::PerformTROLAnalysis: Before reduced_obj.value" << std::endl;
     double tol = 1e-5;
     auto val = reduced_obj.value(*rol_p_primal_transient, tol);
-    *out << "Piro::PerformTROLAnalysis: After reduced_obj.value" << std::endl;
+    *out << "Piro::PerformTROLAnalysis: After reduced_obj.value value = " << val << std::endl;
 
     ROL::Ptr<ROL::ReducedDynamicObjective<double> > reduced_obj_ptr = ROL::makePtrFromRef(reduced_obj);
     ROL::ReducedDynamicStationaryControlsObjective<double> reduced_stationarycontrols_obj(reduced_obj_ptr, rol_p_ptr, nt);
 
     *out << "Piro::PerformTROLAnalysis: Before reduced_stationarycontrols_obj.value" << std::endl;
     auto val_2 = reduced_stationarycontrols_obj.value(rol_p_primal, tol);
-    *out << "Piro::PerformTROLAnalysis: After reduced_stationarycontrols_obj.value" << std::endl;
+    *out << "Piro::PerformTROLAnalysis: After reduced_stationarycontrols_obj.value value = " << val_2 << std::endl;
+
+    *out << "Piro::PerformTROLAnalysis: Solving Reduced Space Unconstrained Optimization Problem" << std::endl;
+    auto algo = ROL::TypeU::AlgorithmFactory<double>(rolParams.sublist("ROL Options"));
+    algo->run(rol_p_primal, reduced_stationarycontrols_obj, *rolOutput);
+    return_status = algo->getState()->statusFlag;
 
 /*
     if(boundConstrained) {

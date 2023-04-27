@@ -77,21 +77,23 @@
 
 const Teuchos::RCP<Piro::TempusSolver<double> > solverNew(
     const Teuchos::RCP<Thyra::ModelEvaluatorDefaultBase<double> > &thyraModel,
+    const Teuchos::RCP<Thyra::ModelEvaluatorDefaultBase<double> > &thyraAdjointModel,
     double finalTime, 
     const std::string sens_method_string)
 {
+ #if 0 
   const Teuchos::RCP<Teuchos::ParameterList> tempusPL(new Teuchos::ParameterList("Tempus"));
-  tempusPL->set("Integrator Name", "Demo Integrator");
-  tempusPL->sublist("Demo Integrator").set("Integrator Type", "Integrator Basic");
-  tempusPL->sublist("Demo Integrator").set("Stepper Name", "Demo Stepper");
-  tempusPL->sublist("Demo Integrator").sublist("Solution History").set("Storage Type", "Unlimited");
-  tempusPL->sublist("Demo Integrator").sublist("Solution History").set("Storage Limit", 20);
-  tempusPL->sublist("Demo Integrator").sublist("Time Step Control").set("Initial Time", 0.0);
-  tempusPL->sublist("Demo Integrator").sublist("Time Step Control").set("Final Time", finalTime);
-  tempusPL->sublist("Demo Stepper").set("Stepper Type", "Backward Euler");
-  tempusPL->sublist("Demo Stepper").set("Zero Initial Guess", false);
-  tempusPL->sublist("Demo Stepper").set("Solver Name", "Demo Solver");
-  tempusPL->sublist("Demo Stepper").sublist("Demo Solver").sublist("NOX").sublist("Direction").set("Method","Newton");
+  analysisPL->sublist("Tempus").set("Integrator Name", "Demo Integrator");
+  analysisPL->sublist("Tempus").sublist("Demo Integrator").set("Integrator Type", "Integrator Basic");
+  analysisPL->sublist("Tempus").sublist("Demo Integrator").set("Stepper Name", "Demo Stepper");
+  analysisPL->sublist("Tempus").sublist("Demo Integrator").sublist("Solution History").set("Storage Type", "Unlimited");
+  analysisPL->sublist("Tempus").sublist("Demo Integrator").sublist("Solution History").set("Storage Limit", 20);
+  analysisPL->sublist("Tempus").sublist("Demo Integrator").sublist("Time Step Control").set("Initial Time", 0.0);
+  analysisPL->sublist("Tempus").sublist("Demo Integrator").sublist("Time Step Control").set("Final Time", finalTime);
+  analysisPL->sublist("Tempus").sublist("Demo Stepper").set("Stepper Type", "Backward Euler");
+  analysisPL->sublist("Tempus").sublist("Demo Stepper").set("Zero Initial Guess", false);
+  analysisPL->sublist("Tempus").sublist("Demo Stepper").set("Solver Name", "Demo Solver");
+  analysisPL->sublist("Tempus").sublist("Demo Stepper").sublist("Demo Solver").sublist("NOX").sublist("Direction").set("Method","Newton");
   Piro::SENS_METHOD sens_method; 
   if (sens_method_string == "None") sens_method = Piro::NONE; 
   else if (sens_method_string == "Forward") sens_method = Piro::FORWARD; 
@@ -100,11 +102,48 @@ const Teuchos::RCP<Piro::TempusSolver<double> > solverNew(
       = Teuchos::rcp(new Piro::TempusIntegrator<double>(tempusPL, thyraModel, sens_method));
   const Teuchos::RCP<Thyra::NonlinearSolverBase<double> > stepSolver = Teuchos::null;
 
-  Teuchos::RCP<Teuchos::ParameterList> stepperPL = Teuchos::rcp(&(tempusPL->sublist("Demo Stepper")), false);
+  Teuchos::RCP<Teuchos::ParameterList> stepperPL = Teuchos::rcp(&(analysisPL->sublist("Tempus").sublist("Demo Stepper")), false);
 
   Teuchos::RCP<Tempus::StepperFactory<double> > sf = Teuchos::rcp(new Tempus::StepperFactory<double>());
   const Teuchos::RCP<Tempus::Stepper<double> > stepper = sf->createStepper(stepperPL, thyraModel);
   return Teuchos::rcp(new Piro::TempusSolver<double>(integrator, stepper, stepSolver, thyraModel, finalTime, sens_method_string));
+#else
+  Teuchos::RCP<Teuchos::ParameterList> analysisPL =
+    Teuchos::rcp(new Teuchos::ParameterList("Analysis"));
+  auto tempusPL = analysisPL->sublist("Tempus");
+  analysisPL->sublist("Tempus").sublist("Tempus", false, "");
+  /*
+  analysisPL->sublist("Tempus").sublist("Albany Time Step Control Options", false, "");
+  analysisPL->sublist("Tempus").sublist("Albany Time Step Control Options", false, "").set<double>("Initial Time", 0.0, "");
+  analysisPL->sublist("Tempus").sublist("Albany Time Step Control Options", false, "").set<double>("Initial Time Step", 0.1, "");
+  analysisPL->sublist("Tempus").sublist("Albany Time Step Control Options", false, "").set<double>("Minimum Time Step", 0.1, "");
+  analysisPL->sublist("Tempus").sublist("Albany Time Step Control Options", false, "").set<double>("Maximum Time Step", 0.1, "");
+  analysisPL->sublist("Tempus").sublist("Albany Time Step Control Options", false, "").set<double>("Final Time", 1.0, "");
+  analysisPL->sublist("Tempus").sublist("Albany Time Step Control Options", false, "").set<double>("Reduction Factor", 1.0, "");
+  analysisPL->sublist("Tempus").sublist("Albany Time Step Control Options", false, "").set<double>("Amplification Factor", 1.0, "");
+  */
+  analysisPL->sublist("Tempus").sublist("Stratimikos", false, "");
+  analysisPL->sublist("Tempus").sublist("NonLinear Solver", false, "");
+  //analysisPL->sublist("Tempus").set<std::string>("Verbosity Level", "", "");
+  analysisPL->sublist("Tempus").set<bool>("Lump Mass Matrix", false, "Boolean to tell code whether to lump mass matrix");
+  analysisPL->sublist("Tempus").set<bool>("Invert Mass Matrix", true, "Boolean to tell code whether or not to invert mass matrix");
+  analysisPL->sublist("Tempus").set<bool>("Constant Mass Matrix", false, "Boolean to tell code if mass matrix is constant in time");
+  analysisPL->sublist("Tempus").set<bool>("Abort on Failure", true, "");
+  analysisPL->sublist("Tempus").set("Integrator Name", "Tempus Integrator");
+  analysisPL->sublist("Tempus").sublist("Tempus Integrator").set("Integrator Type", "Integrator Basic");
+  analysisPL->sublist("Tempus").sublist("Tempus Integrator").set("Stepper Name", "Tempus Stepper");
+  analysisPL->sublist("Tempus").sublist("Tempus Integrator").sublist("Solution History").set("Storage Type", "Unlimited");
+  analysisPL->sublist("Tempus").sublist("Tempus Integrator").sublist("Solution History").set("Storage Limit", 20);
+  analysisPL->sublist("Tempus").sublist("Tempus Integrator").sublist("Time Step Control").set("Initial Time", 0.0);
+  analysisPL->sublist("Tempus").sublist("Tempus Integrator").sublist("Time Step Control").set("Final Time", finalTime);
+  analysisPL->sublist("Tempus").sublist("Tempus Stepper").set("Stepper Type", "Backward Euler");
+  analysisPL->sublist("Tempus").sublist("Tempus Stepper").set("Zero Initial Guess", false);
+  analysisPL->sublist("Tempus").sublist("Tempus Stepper").set("Solver Name", "Demo Solver");
+  analysisPL->sublist("Tempus").sublist("Tempus Stepper").sublist("Demo Solver").sublist("NOX").sublist("Direction").set("Method","Newton");
+  analysisPL->sublist("Tempus").sublist("Sensitivities", false, "");
+
+  return Teuchos::rcp(new Piro::TempusSolver<double>(analysisPL, thyraModel, thyraAdjointModel));
+#endif
 }
 
 
@@ -231,7 +270,7 @@ int main(int argc, char *argv[]) {
         if(Teuchos::nonnull(adjointModel))
           adjointModelWithSolve= rcp(new Thyra::DefaultModelEvaluatorWithSolveFactory<double>(adjointModel, lowsFactory));
 
-        const RCP<Thyra::ModelEvaluatorDefaultBase<double>> piro = solverNew(Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(modelWithSolve), 10., "None");
+        const RCP<Thyra::ModelEvaluatorDefaultBase<double>> piro = solverNew(Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(modelWithSolve), Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDefaultBase<double>>(adjointModelWithSolve), 10., "Adjoint");
 
         // Call the analysis routine
         RCP<Thyra::VectorBase<double>> p;

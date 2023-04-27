@@ -97,8 +97,8 @@ public:
   // The convention is that the adjoint model provides the application of
   // the adjoint Jacobian and its inverse.  All other operations are
   // provided by the forward model.
-  //ThyraProductME_TempusDynamicConstraint(const ROL::Ptr<Tempus::Integrator<Real>> & forward_integrator,
-  //                        const ROL::Ptr<Tempus::Integrator<Real>> & adjoint_integrator);
+  ThyraProductME_TempusDynamicConstraint(const ROL::Ptr<Tempus::Integrator<Real>> & forward_integrator,
+                          const ROL::Ptr<Tempus::Integrator<Real>> & adjoint_integrator);
 
   virtual ~ThyraProductME_TempusDynamicConstraint() {}
 
@@ -191,16 +191,16 @@ ThyraProductME_TempusDynamicConstraint<Real>::ThyraProductME_TempusDynamicConstr
   Ju_op_   = model_->create_W_op();
   Jz_op_   = model_->create_DfDp_op(0);
   // Set all other member variables to null.
-  modelAdjoint_   = ROL::nullPtr;
-  stepperAdjoint_ = ROL::nullPtr;
-  adjointJu_      = ROL::nullPtr;
-  adjointJu_op_   = ROL::nullPtr;
+  modelAdjoint_   = integrator->getAdjointModel();
+  stepperAdjoint_ = ROL::dynamicPtrCast<Tempus::StepperOptimizationInterface<Real>>(integrator->getStepper());
+  adjointJu_      = modelAdjoint_->create_W();
+  adjointJu_op_   = modelAdjoint_->create_W_op();
   // Set adjoint flag to false.
-  usingAdjoint_ = false;
+  usingAdjoint_ = true;
   num_responses_ = -1;
 }
 
-/*
+
 //----------------------------------------------------------------------------
 // Constructor with forward and adjoint models.
 
@@ -220,7 +220,6 @@ ThyraProductME_TempusDynamicConstraint<Real>::ThyraProductME_TempusDynamicConstr
   // Set adjoint flag to true.
   usingAdjoint_ = true;
 }
-*/
 
 //----------------------------------------------------------------------------
 // Value
