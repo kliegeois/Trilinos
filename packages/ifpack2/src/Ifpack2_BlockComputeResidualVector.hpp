@@ -94,7 +94,7 @@ namespace Ifpack2 {
       // rows in R associated with that tridiag. In contrast, the term tridiag is
       // used to refer specifically to tridiag data, such as the pointer into the
       // tridiag data array.
-      //   Local (lcl) row arge the LIDs. lclrow lists the LIDs belonging to each
+      //   Local (lcl) row are the LIDs. lclrow lists the LIDs belonging to each
       // tridiag, and partptr points to the beginning of each tridiag. This is the
       // LID space.
       //   Row index (idx) is the ordinal in the tridiag ordering. lclrow is indexed
@@ -107,6 +107,8 @@ namespace Ifpack2 {
       local_ordinal_type_1d_view lclrow;
       // partptr_ is the pointer array into lclrow_.
       local_ordinal_type_1d_view partptr; // np+1
+      local_ordinal_type_1d_view partptr_sub;
+      local_ordinal_type_1d_view partptr_schur;
       // packptr_(i), for i the pack index, indexes partptr_. partptr_(packptr_(i))
       // is the start of the i'th pack.
       local_ordinal_type_1d_view packptr; // npack+1

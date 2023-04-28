@@ -852,6 +852,13 @@ namespace Ifpack2 {
       const bool jacobi = partitions.size() == 0;
       const local_ordinal_type A_n_lclrows = A->getLocalNumRows();
       const local_ordinal_type nparts = jacobi ? A_n_lclrows : partitions.size();
+      const local_ordinal_type n_subparts_per_part_ = 2;
+
+      // Total number of sub lines:
+      const local_ordinal_type n_sub_parts = nparts * n_subparts_per_part_;
+      // Total number of sub lines + the Schur complement blocks.
+      // For a given live 2 sub lines implies one Schur complement, 3 sub lines implies two Schur complements etc.
+      const local_ordinal_type n_sub_parts_and_schur = n_sub_parts + nparts * (n_subparts_per_part_-1);
 
 #if defined(BLOCKTRIDISCHURCONTAINER_DEBUG)
       local_ordinal_type nrows = 0;
@@ -894,8 +901,12 @@ namespace Ifpack2 {
       interf.part2packrowidx0 = local_ordinal_type_1d_view(do_not_initialize_tag("part2packrowidx0"), nparts + 1);
       interf.rowidx2part = local_ordinal_type_1d_view(do_not_initialize_tag("rowidx2part"), A_n_lclrows);
 
+      interf.partptr_sub = local_ordinal_type_1d_view(do_not_initialize_tag("partptr"), n_sub_parts_and_schur + 1);
+
       // mirror to host and compute on host execution space
       const auto partptr = Kokkos::create_mirror_view(interf.partptr);
+      const auto partptr_sub = Kokkos::create_mirror_view(interf.partptr_sub);
+      
       const auto lclrow = Kokkos::create_mirror_view(interf.lclrow);
       const auto part2rowidx0 = Kokkos::create_mirror_view(interf.part2rowidx0);
       const auto part2packrowidx0 = Kokkos::create_mirror_view(interf.part2packrowidx0);
@@ -908,65 +919,84 @@ namespace Ifpack2 {
       part2packrowidx0(0) = 0;
       local_ordinal_type pack_nrows = 0;
       if (jacobi) {
-	for (local_ordinal_type ip=0;ip<nparts;++ip) {
-	  const local_ordinal_type ipnrows = 1;
-	  TEUCHOS_TEST_FOR_EXCEPT_MSG(ipnrows == 0,
-				      BlockHelperDetails::get_msg_prefix(comm)
-				      << "partition " << p[ip]
-				      << " is empty, which is not allowed.");
-	  //assume No overlap.
-	  part2rowidx0(ip+1) = part2rowidx0(ip) + ipnrows;
-	  // Since parts are ordered in nonincreasing size, the size of the first
-	  // part in a pack is the size for all parts in the pack.
-	  if (ip % vector_length == 0) pack_nrows = ipnrows;
-	  part2packrowidx0(ip+1) = part2packrowidx0(ip) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows : 0);
-	  const local_ordinal_type os = partptr(ip);
-	  for (local_ordinal_type i=0;i<ipnrows;++i) {
-	    const auto lcl_row = ip;
-	    TEUCHOS_TEST_FOR_EXCEPT_MSG(lcl_row < 0 || lcl_row >= A_n_lclrows,
-					BlockHelperDetails::get_msg_prefix(comm)
-					<< "partitions[" << p[ip] << "]["
-					<< i << "] = " << lcl_row
-					<< " but input matrix implies limits of [0, " << A_n_lclrows-1
-					<< "].");
-	    lclrow(os+i) = lcl_row;
-	    rowidx2part(os+i) = ip;
-	    if (interf.row_contiguous && os+i > 0 && lclrow((os+i)-1) + 1 != lcl_row)
-	      interf.row_contiguous = false;
-	  }
-	  partptr(ip+1) = os + ipnrows;
-	}
+        for (local_ordinal_type ip=0;ip<nparts;++ip) {
+          const local_ordinal_type ipnrows = 1;
+          TEUCHOS_TEST_FOR_EXCEPT_MSG(ipnrows == 0,
+                    BlockHelperDetails::get_msg_prefix(comm)
+                    << "partition " << p[ip]
+                    << " is empty, which is not allowed.");
+          //assume No overlap.
+          part2rowidx0(ip+1) = part2rowidx0(ip) + ipnrows;
+          // Since parts are ordered in nonincreasing size, the size of the first
+          // part in a pack is the size for all parts in the pack.
+          if (ip % vector_length == 0) pack_nrows = ipnrows;
+          part2packrowidx0(ip+1) = part2packrowidx0(ip) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows : 0);
+          const local_ordinal_type os = partptr(ip);
+          for (local_ordinal_type i=0;i<ipnrows;++i) {
+            const auto lcl_row = ip;
+            TEUCHOS_TEST_FOR_EXCEPT_MSG(lcl_row < 0 || lcl_row >= A_n_lclrows,
+                BlockHelperDetails::get_msg_prefix(comm)
+                << "partitions[" << p[ip] << "]["
+                << i << "] = " << lcl_row
+                << " but input matrix implies limits of [0, " << A_n_lclrows-1
+                << "].");
+            lclrow(os+i) = lcl_row;
+            rowidx2part(os+i) = ip;
+            if (interf.row_contiguous && os+i > 0 && lclrow((os+i)-1) + 1 != lcl_row)
+              interf.row_contiguous = false;
+          }
+          partptr(ip+1) = os + ipnrows;
+        }
       } else {
-	for (local_ordinal_type ip=0;ip<nparts;++ip) {
-	  const auto* part = &partitions[p[ip]];
-	  const local_ordinal_type ipnrows = part->size();
-	  TEUCHOS_ASSERT(ip == 0 || (ipnrows <= static_cast<local_ordinal_type>(partitions[p[ip-1]].size())));
-	  TEUCHOS_TEST_FOR_EXCEPT_MSG(ipnrows == 0,
-				      BlockHelperDetails::get_msg_prefix(comm)
-				      << "partition " << p[ip]
-				      << " is empty, which is not allowed.");
-	  //assume No overlap.
-	  part2rowidx0(ip+1) = part2rowidx0(ip) + ipnrows;
-	  // Since parts are ordered in nonincreasing size, the size of the first
-	  // part in a pack is the size for all parts in the pack.
-	  if (ip % vector_length == 0) pack_nrows = ipnrows;
-	  part2packrowidx0(ip+1) = part2packrowidx0(ip) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows : 0);
-	  const local_ordinal_type os = partptr(ip);
-	  for (local_ordinal_type i=0;i<ipnrows;++i) {
-	    const auto lcl_row = (*part)[i];
-	    TEUCHOS_TEST_FOR_EXCEPT_MSG(lcl_row < 0 || lcl_row >= A_n_lclrows,
-					BlockHelperDetails::get_msg_prefix(comm)
-					<< "partitions[" << p[ip] << "]["
-					<< i << "] = " << lcl_row
-					<< " but input matrix implies limits of [0, " << A_n_lclrows-1
-					<< "].");
-	    lclrow(os+i) = lcl_row;
-	    rowidx2part(os+i) = ip;
-	    if (interf.row_contiguous && os+i > 0 && lclrow((os+i)-1) + 1 != lcl_row)
-	      interf.row_contiguous = false;
-	  }
-	  partptr(ip+1) = os + ipnrows;
-	}
+        printf("Not use Jacobi\n");
+        for (local_ordinal_type ip=0;ip<nparts;++ip) {
+          const auto* part = &partitions[p[ip]];
+          const local_ordinal_type ipnrows = part->size();
+          TEUCHOS_ASSERT(ip == 0 || (ipnrows <= static_cast<local_ordinal_type>(partitions[p[ip-1]].size())));
+          TEUCHOS_TEST_FOR_EXCEPT_MSG(ipnrows == 0,
+                    BlockHelperDetails::get_msg_prefix(comm)
+                    << "partition " << p[ip]
+                    << " is empty, which is not allowed.");
+          //assume No overlap.
+          part2rowidx0(ip+1) = part2rowidx0(ip) + ipnrows;
+          // Since parts are ordered in nonincreasing size, the size of the first
+          // part in a pack is the size for all parts in the pack.
+          if (ip % vector_length == 0) pack_nrows = ipnrows;
+          part2packrowidx0(ip+1) = part2packrowidx0(ip) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows : 0);
+          const local_ordinal_type os = partptr(ip);
+          for (local_ordinal_type i=0;i<ipnrows;++i) {
+            const auto lcl_row = (*part)[i];
+            TEUCHOS_TEST_FOR_EXCEPT_MSG(lcl_row < 0 || lcl_row >= A_n_lclrows,
+                BlockHelperDetails::get_msg_prefix(comm)
+                << "partitions[" << p[ip] << "]["
+                << i << "] = " << lcl_row
+                << " but input matrix implies limits of [0, " << A_n_lclrows-1
+                << "].");
+            lclrow(os+i) = lcl_row;
+            rowidx2part(os+i) = ip;
+            if (interf.row_contiguous && os+i > 0 && lclrow((os+i)-1) + 1 != lcl_row)
+              interf.row_contiguous = false;
+          }
+          partptr(ip+1) = os + ipnrows;
+
+          printf("ip = %d, os = %d, ipnrows = %d;\n", ip, os, ipnrows);
+        }
+
+        partptr_sub(0) = 0;
+        for (local_ordinal_type ip=0;ip<nparts;++ip) {
+          const local_ordinal_type first_sub_part_index = ip * (2*n_subparts_per_part_ - 1);
+          const local_ordinal_type full_line_length = partptr(ip+1) - partptr(ip);
+
+          const local_ordinal_type sub_line_length = ( full_line_length % 2 == 0 ) ? (full_line_length-2)/2 : (full_line_length-1)/2;
+          const local_ordinal_type schur_length = ( full_line_length % 2 == 0 ) ? 2 : 1;
+
+          for (local_ordinal_type sub_ip=0;sub_ip<n_subparts_per_part_;++sub_ip) {
+            partptr_sub(first_sub_part_index + sub_ip + 1) = partptr_sub(first_sub_part_index + sub_ip) + sub_line_length;
+            if (sub_ip != n_subparts_per_part_-1) {
+              partptr_sub(first_sub_part_index + sub_ip + 2) = partptr_sub(first_sub_part_index + sub_ip + 1) + schur_length;
+            }
+          }
+        }
       }
 #if defined(BLOCKTRIDISCHURCONTAINER_DEBUG)
       TEUCHOS_ASSERT(partptr(nparts) == nrows);
@@ -975,6 +1005,8 @@ namespace Ifpack2 {
 
       Kokkos::deep_copy(interf.partptr, partptr);
       Kokkos::deep_copy(interf.lclrow, lclrow);
+
+      Kokkos::deep_copy(interf.partptr_sub, partptr_sub);
 
       //assume No overlap. Thus:
       interf.part2rowidx0 = interf.partptr;
@@ -1678,7 +1710,7 @@ namespace Ifpack2 {
 
     private:
       // part interface
-      const ConstUnmanaged<local_ordinal_type_1d_view> partptr, lclrow, packptr;
+      const ConstUnmanaged<local_ordinal_type_1d_view> partptr, partptr_sub, lclrow, packptr;
       const local_ordinal_type max_partsz;
       // block crs matrix (it could be Kokkos::UVMSpace::size_type, which is int)
       using size_type_1d_view_tpetra = Kokkos::View<size_t*,typename impl_type::node_device_type>;
@@ -1703,6 +1735,7 @@ namespace Ifpack2 {
                                   const magnitude_type& tiny_) :
         // interface
         partptr(interf_.partptr),
+        partptr_sub(interf_.partptr_sub),
         lclrow(interf_.lclrow),
         packptr(interf_.packptr),
         max_partsz(interf_.max_partsz),
@@ -1924,11 +1957,14 @@ namespace Ifpack2 {
 
         const local_ordinal_type partidx = packptr(packidx);
         const local_ordinal_type npacks = packptr(packidx+1) - partidx;
-        const local_ordinal_type i0 = pack_td_ptr(partidx);
+        const local_ordinal_type i0 = pack_td_ptr(partidx); // <--- this needs to be changed !!!
         const local_ordinal_type nrows = partptr(partidx+1) - partptr(partidx);
 
         internal_vector_scratch_type_3d_view
           WW(member.team_scratch(0), blocksize, blocksize, vector_loop_size);
+        
+        printf("i0 = %d, npacks = %d, nrows = %d, packidx = %d, partidx = %d;\n", i0, npacks, nrows, packidx, partidx);
+
         if (vector_loop_size == 1) {
           extract(partidx, npacks);
           factorize_subline(member, i0, nrows, 0, internal_vector_values, WW);

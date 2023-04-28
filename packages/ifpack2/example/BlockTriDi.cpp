@@ -439,7 +439,7 @@ main (int argc, char* argv[])
     Ablock->apply(*X,*temp);
   }
 
-  if(true) {
+  if(false) {
     // Create Ifpack2 preconditioner.
     if(rank0) std::cout<<"Creating preconditioner..."<<std::endl;
     RCP<BTDC> precond;
