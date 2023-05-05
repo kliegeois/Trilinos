@@ -270,7 +270,7 @@ EXECUTE_PROCESS(COMMAND ${PYTHON_EXECUTABLE} -c
 
 #
 # Define the PyTrilinos swig setup
-SET(CMAKE_SWIG_FLAGS "")
+SET(CMAKE_SWIG_FLAGS "-w202")
 IF(${SWIG_VERSION} VERSION_LESS 4.0)
   GET_FILENAME_COMPONENT(PYTRILINOS_DOXDIR
     ${CMAKE_CURRENT_BINARY_DIR}/../doc/Doxygen ABSOLUTE
@@ -281,9 +281,6 @@ ELSE()
   LIST(APPEND CMAKE_SWIG_FLAGS -doxygen)
 ENDIF()
 LIST(APPEND CMAKE_SWIG_FLAGS -relativeimport)
-IF(NOT ${PYTHON_VERSION} VERSION_LESS 3.0)
-  LIST(APPEND CMAKE_SWIG_FLAGS -py3)
-ENDIF()
 
 #
 # Determine the install directory
@@ -341,16 +338,8 @@ SET_PROPERTY(TARGET ${TEUCHOS_RCP_TARGET} PROPERTY NO_SONAME 1)
 SWIG_LINK_LIBRARIES(${TEUCHOS_RCP_TARGET} ${Trilinos_LIBRARIES})
 SET_TARGET_PROPERTIES(${TEUCHOS_RCP_TARGET} PROPERTIES
   LINK_FLAGS "${EXTRA_LINK_ARGS}"
+  SWIG_USE_TARGET_INCLUDE_DIRECTORIES ON
   )
-ADD_CUSTOM_COMMAND(TARGET ${TEUCHOS_RCP_TARGET} POST_BUILD
-  COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/Teuchos/RCP.py', 'PyTrilinos/Teuchos/RCP.pyc')"
-  COMMENT "Byte compiling Teuchos/RCP.py"
-  VERBATIM)
-LIST(APPEND ADDITIONAL_CLEAN_FILES ${CMAKE_CURRENT_BINARY_DIR}/${TEUCHOS_RCP})
-INSTALL(FILES
-  ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/Teuchos/RCP.py
-  ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/Teuchos/RCP.pyc
-  DESTINATION ${PyTrilinos_INSTALL_DIR}/Teuchos)
 INSTALL(TARGETS ${TEUCHOS_RCP_TARGET}
   DESTINATION ${PyTrilinos_INSTALL_DIR}/Teuchos)
 
@@ -385,7 +374,9 @@ FOREACH(MODULE ${PyTrilinos_MODULES})
   ENDIF("${MODULE_NAME}" MATCHES "Teuchos")
   SET_PROPERTY(TARGET ${PyTrilinos_TARGET_NAME} PROPERTY NO_SONAME 1)
   SWIG_LINK_LIBRARIES(${PyTrilinos_TARGET_NAME} pytrilinos ${DOMI_LIB})
-
+  SET_TARGET_PROPERTIES(${PyTrilinos_TARGET_NAME} PROPERTIES
+    SWIG_USE_TARGET_INCLUDE_DIRECTORIES ON
+  )
   # Add the header file to the list of additional "make clean" files
   LIST(APPEND ADDITIONAL_CLEAN_FILES "${MODULE}PYTHON_wrap.h")
 
@@ -398,182 +389,84 @@ FOREACH(MODULE ${PyTrilinos_MODULES})
   # PyTrilinos/Teuchos/__init__.py, which violates the pattern.  This
   # causes other packages to "import Teuchos" properly.
   IF("${MODULE_OUTDIR}" MATCHES "PyTrilinos/Teuchos")
-    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
-      COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/Teuchos/${MODULE_NAME}.py', 'PyTrilinos/Teuchos/${MODULE_NAME}.pyc')"
-      COMMENT "Byte compiling Teuchos/${MODULE_NAME}.py"
-      VERBATIM)
-    INSTALL(FILES
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/Teuchos/${MODULE_NAME}.py
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/Teuchos/${MODULE_NAME}.pyc
-      DESTINATION ${PyTrilinos_INSTALL_DIR}/Teuchos)
     INSTALL(TARGETS ${PyTrilinos_TARGET_NAME}
       DESTINATION ${PyTrilinos_INSTALL_DIR}/Teuchos)
-    LIST(APPEND ADDITIONAL_CLEAN_FILES "PyTrilinos/Teuchos/${MODULE_NAME}.pyc")
 
   # PyTrilinos.NOX.Epetra
   ELSEIF("${MODULE_OUTDIR}" MATCHES "PyTrilinos/NOX/Epetra")
     SET(TRILINOS_LIBS ${NOXEPETRA_LIBRARIES})
-    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
-      COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/NOX/Epetra/${MODULE_NAME}.py', 'PyTrilinos/NOX/Epetra/${MODULE_NAME}.pyc')"
-      COMMENT "Byte compiling NOX/Epetra/${MODULE_NAME}.py"
-      VERBATIM)
-    INSTALL(FILES
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/NOX/Epetra/${MODULE_NAME}.py
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/NOX/Epetra/${MODULE_NAME}.pyc
-      DESTINATION ${PyTrilinos_INSTALL_DIR}/NOX/Epetra)
     INSTALL(TARGETS ${PyTrilinos_TARGET_NAME}
       DESTINATION ${PyTrilinos_INSTALL_DIR}/NOX/Epetra)
-    LIST(APPEND ADDITIONAL_CLEAN_FILES "PyTrilinos/NOX/Epetra/${MODULE_NAME}.pyc")
 
   #
   # PyTrilinos.NOX.PETSc
   ELSEIF("${MODULE_OUTDIR}" MATCHES "PyTrilinos/NOX/PETSc")
     SET(TRILINOS_LIBS ${NOXPETSC_LIBRARIES})
-    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
-      COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/NOX/PETSc/${MODULE_NAME}.py', 'PyTrilinos/NOX/PETSc/${MODULE_NAME}.pyc')"
-      COMMENT "Byte compiling NOX/PETSc/${MODULE_NAME}.py"
-      VERBATIM)
-    INSTALL(FILES
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/NOX/PETSc/${MODULE_NAME}.py
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/NOX/PETSc/${MODULE_NAME}.pyc
-      DESTINATION ${PyTrilinos_INSTALL_DIR}/NOX/PETSc)
     INSTALL(TARGETS ${PyTrilinos_TARGET_NAME}
       DESTINATION ${PyTrilinos_INSTALL_DIR}/NOX/PETSc)
-    LIST(APPEND ADDITIONAL_CLEAN_FILES "PyTrilinos/NOX/PETSc/${MODULE_NAME}.pyc")
 
   #
   # PyTrilinos.NOX
   ELSEIF("${MODULE_OUTDIR}" MATCHES "PyTrilinos/NOX")
     SET(TRILINOS_LIBS ${NOX_LIBRARIES})
-    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
-      COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/NOX/${MODULE_NAME}.py', 'PyTrilinos/NOX/${MODULE_NAME}.pyc')"
-      COMMENT "Byte compiling NOX/${MODULE_NAME}.py"
-      VERBATIM)
-    INSTALL(FILES
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/NOX/${MODULE_NAME}.py
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/NOX/${MODULE_NAME}.pyc
-      DESTINATION ${PyTrilinos_INSTALL_DIR}/NOX)
     INSTALL(TARGETS ${PyTrilinos_TARGET_NAME}
       DESTINATION ${PyTrilinos_INSTALL_DIR}/NOX)
-    LIST(APPEND ADDITIONAL_CLEAN_FILES "PyTrilinos/NOX/${MODULE_NAME}.pyc")
 
   #
   # PyTrilinos.LOCA.Hopf
   ELSEIF("${MODULE_OUTDIR}" MATCHES "PyTrilinos/LOCA/Hopf")
     SET(TRILINOS_LIBS ${LOCAEPETRA_LIBRARIES})
-    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
-      COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/LOCA/Hopf/${MODULE_NAME}.py', 'PyTrilinos/LOCA/Hopf/${MODULE_NAME}.pyc')"
-      COMMENT "Byte compiling LOCA/Hopf/${MODULE_NAME}.py"
-      VERBATIM)
-    INSTALL(FILES
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/LOCA/Hopf/${MODULE_NAME}.py
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/LOCA/Hopf/${MODULE_NAME}.pyc
-      DESTINATION ${PyTrilinos_INSTALL_DIR}/LOCA/Hopf)
     INSTALL(TARGETS ${PyTrilinos_TARGET_NAME}
       DESTINATION ${PyTrilinos_INSTALL_DIR}/LOCA/Hopf)
-    LIST(APPEND ADDITIONAL_CLEAN_FILES "PyTrilinos/LOCA/Hopf/${MODULE_NAME}.pyc")
 
   #
   # PyTrilinos.LOCA.Pitchfork
   ELSEIF("${MODULE_OUTDIR}" MATCHES "PyTrilinos/LOCA/Pitchfork")
     SET(TRILINOS_LIBS ${LOCAEPETRA_LIBRARIES})
-    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
-      COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/LOCA/Pitchfork/${MODULE_NAME}.py', 'PyTrilinos/LOCA/Pitchfork/${MODULE_NAME}.pyc')"
-      COMMENT "Byte compiling LOCA/Pitchfork/${MODULE_NAME}.py"
-      VERBATIM)
-    INSTALL(FILES
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/LOCA/Pitchfork/${MODULE_NAME}.py
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/LOCA/Pitchfork/${MODULE_NAME}.pyc
-      DESTINATION ${PyTrilinos_INSTALL_DIR}/LOCA/Pitchfork)
     INSTALL(TARGETS ${PyTrilinos_TARGET_NAME}
       DESTINATION ${PyTrilinos_INSTALL_DIR}/LOCA/Pitchfork)
-    LIST(APPEND ADDITIONAL_CLEAN_FILES "PyTrilinos/LOCA/Pitchfork/${MODULE_NAME}.pyc")
 
   #
   # PyTrilinos.LOCA.TurningPoint
   ELSEIF("${MODULE_OUTDIR}" MATCHES "PyTrilinos/LOCA/TurningPoint")
     SET(TRILINOS_LIBS ${LOCAEPETRA_LIBRARIES})
-    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
-      COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/LOCA/TurningPoint/${MODULE_NAME}.py', 'PyTrilinos/LOCA/TurningPoint/${MODULE_NAME}.pyc')"
-      COMMENT "Byte compiling LOCA/TurningPoint/${MODULE_NAME}.py"
-      VERBATIM)
-    INSTALL(FILES
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/LOCA/TurningPoint/${MODULE_NAME}.py
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/LOCA/TurningPoint/${MODULE_NAME}.pyc
-      DESTINATION ${PyTrilinos_INSTALL_DIR}/LOCA/TurningPoint)
     INSTALL(TARGETS ${PyTrilinos_TARGET_NAME}
       DESTINATION ${PyTrilinos_INSTALL_DIR}/LOCA/TurningPoint)
-    LIST(APPEND ADDITIONAL_CLEAN_FILES "PyTrilinos/LOCA/TurningPoint/${MODULE_NAME}.pyc")
 
   #
   # PyTrilinos.LOCA.Epetra
   ELSEIF("${MODULE_OUTDIR}" MATCHES "PyTrilinos/LOCA/Epetra")
     SET(TRILINOS_LIBS ${LOCAEPETRA_LIBRARIES})
-    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
-      COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/LOCA/Epetra/${MODULE_NAME}.py', 'PyTrilinos/LOCA/Epetra/${MODULE_NAME}.pyc')"
-      COMMENT "Byte compiling LOCA/Epetra/${MODULE_NAME}.py"
-      VERBATIM)
-    INSTALL(FILES
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/LOCA/Epetra/${MODULE_NAME}.py
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/LOCA/Epetra/${MODULE_NAME}.pyc
-      DESTINATION ${PyTrilinos_INSTALL_DIR}/LOCA/Epetra)
     INSTALL(TARGETS ${PyTrilinos_TARGET_NAME}
       DESTINATION ${PyTrilinos_INSTALL_DIR}/LOCA/Epetra)
-    LIST(APPEND ADDITIONAL_CLEAN_FILES "PyTrilinos/LOCA/Epetra/${MODULE_NAME}.pyc")
 
   #
   # PyTrilinos.LOCA
   ELSEIF("${MODULE_OUTDIR}" MATCHES "PyTrilinos/LOCA")
     SET(TRILINOS_LIBS ${LOCA_LIBRARIES})
-    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
-      COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/LOCA/${MODULE_NAME}.py', 'PyTrilinos/LOCA/${MODULE_NAME}.pyc')"
-      COMMENT "Byte compiling LOCA/${MODULE_NAME}.py"
-      VERBATIM)
-    INSTALL(FILES
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/LOCA/${MODULE_NAME}.py
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/LOCA/${MODULE_NAME}.pyc
-      DESTINATION ${PyTrilinos_INSTALL_DIR}/LOCA)
     INSTALL(TARGETS ${PyTrilinos_TARGET_NAME}
       DESTINATION ${PyTrilinos_INSTALL_DIR}/LOCA)
-    LIST(APPEND ADDITIONAL_CLEAN_FILES "PyTrilinos/LOCA/${MODULE_NAME}.pyc")
 
   #
   # PyTrilinos.Isorropia
   ELSEIF("${MODULE_OUTDIR}" MATCHES "PyTrilinos/Isorropia")
     SET(TRILINOS_LIBS ${ISORROPIA_LIBRARIES})
-    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
-      COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/Isorropia/${MODULE_NAME}.py', 'PyTrilinos/Isorropia/${MODULE_NAME}.pyc')"
-      COMMENT "Byte compiling Isorropia/${MODULE_NAME}.py"
-      VERBATIM)
-    INSTALL(FILES
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/Isorropia/${MODULE_NAME}.py
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/Isorropia/${MODULE_NAME}.pyc
-      DESTINATION ${PyTrilinos_INSTALL_DIR}/Isorropia)
     INSTALL(TARGETS ${PyTrilinos_TARGET_NAME}
       DESTINATION ${PyTrilinos_INSTALL_DIR}/Isorropia)
-    LIST(APPEND ADDITIONAL_CLEAN_FILES "PyTrilinos/Isorropia/${MODULE_NAME}.pyc")
 
   #
   # PyTrilinos
   ELSE()
     SET(TRILINOS_LIBS ${${MODULE_UPPER}_LIBRARIES})
-    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
-      COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/${MODULE}.py', 'PyTrilinos/${MODULE}.pyc')"
-      COMMENT "Byte compiling ${MODULE}.py"
-      VERBATIM)
-    INSTALL(FILES
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/${MODULE_NAME}.py
-      ${CMAKE_CURRENT_BINARY_DIR}/PyTrilinos/${MODULE_NAME}.pyc
-      DESTINATION ${PyTrilinos_INSTALL_DIR})
     INSTALL(TARGETS ${PyTrilinos_TARGET_NAME}
       DESTINATION ${PyTrilinos_INSTALL_DIR})
-    LIST(APPEND ADDITIONAL_CLEAN_FILES "PyTrilinos/${MODULE}.pyc")
   ENDIF()
 
   #
   SWIG_LINK_LIBRARIES(${PyTrilinos_TARGET_NAME} ${TRILINOS_LIBS})
   SET_TARGET_PROPERTIES(${PyTrilinos_TARGET_NAME} PROPERTIES
     LINK_FLAGS "${EXTRA_LINK_ARGS}"
+    SWIG_USE_TARGET_INCLUDE_DIRECTORIES ON
     )
 ENDFOREACH(MODULE)
 
