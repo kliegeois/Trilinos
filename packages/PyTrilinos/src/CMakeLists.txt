@@ -341,6 +341,10 @@ SET_TARGET_PROPERTIES(${TEUCHOS_RCP_TARGET} PROPERTIES
   SWIG_USE_TARGET_INCLUDE_DIRECTORIES ON
   )
 ADD_CUSTOM_COMMAND(TARGET ${TEUCHOS_RCP_TARGET} POST_BUILD
+  COMMAND cp RCP.py PyTrilinos/Teuchos/RCP.py
+  COMMENT "Copy RCP.py to PyTrilinos/Teuchos/RCP.py"
+  VERBATIM)
+ADD_CUSTOM_COMMAND(TARGET ${TEUCHOS_RCP_TARGET} POST_BUILD
   COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/Teuchos/RCP.py', 'PyTrilinos/Teuchos/RCP.pyc')"
   COMMENT "Byte compiling Teuchos/RCP.py"
   VERBATIM)
@@ -401,6 +405,10 @@ FOREACH(MODULE ${PyTrilinos_MODULES})
   # causes other packages to "import Teuchos" properly.
   IF("${MODULE_OUTDIR}" MATCHES "PyTrilinos/Teuchos")
     ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
+      COMMAND cp ${MODULE_NAME}.py PyTrilinos/Teuchos/${MODULE_NAME}.py
+      COMMENT "Copy ${MODULE_NAME}.py to PyTrilinos/Teuchos/${MODULE_NAME}.py"
+      VERBATIM)
+    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
       COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/Teuchos/${MODULE_NAME}.py', 'PyTrilinos/Teuchos/${MODULE_NAME}.pyc')"
       COMMENT "Byte compiling Teuchos/${MODULE_NAME}.py"
       VERBATIM)
@@ -415,6 +423,10 @@ FOREACH(MODULE ${PyTrilinos_MODULES})
   # PyTrilinos.NOX.Epetra
   ELSEIF("${MODULE_OUTDIR}" MATCHES "PyTrilinos/NOX/Epetra")
     SET(TRILINOS_LIBS ${NOXEPETRA_LIBRARIES})
+    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
+      COMMAND cp ${MODULE_NAME}.py PyTrilinos/NOX/Epetra/${MODULE_NAME}.py
+      COMMENT "Copy ${MODULE_NAME}.py to PyTrilinos/NOX/Epetra/${MODULE_NAME}.py"
+      VERBATIM)
     ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
       COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/NOX/Epetra/${MODULE_NAME}.py', 'PyTrilinos/NOX/Epetra/${MODULE_NAME}.pyc')"
       COMMENT "Byte compiling NOX/Epetra/${MODULE_NAME}.py"
@@ -432,6 +444,10 @@ FOREACH(MODULE ${PyTrilinos_MODULES})
   ELSEIF("${MODULE_OUTDIR}" MATCHES "PyTrilinos/NOX/PETSc")
     SET(TRILINOS_LIBS ${NOXPETSC_LIBRARIES})
     ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
+      COMMAND cp ${MODULE_NAME}.py PyTrilinos/NOX/PETSc/${MODULE_NAME}.py
+      COMMENT "Copy ${MODULE_NAME}.py to PyTrilinos/NOX/PETSc/${MODULE_NAME}.py"
+      VERBATIM)
+    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
       COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/NOX/PETSc/${MODULE_NAME}.py', 'PyTrilinos/NOX/PETSc/${MODULE_NAME}.pyc')"
       COMMENT "Byte compiling NOX/PETSc/${MODULE_NAME}.py"
       VERBATIM)
@@ -447,6 +463,10 @@ FOREACH(MODULE ${PyTrilinos_MODULES})
   # PyTrilinos.NOX
   ELSEIF("${MODULE_OUTDIR}" MATCHES "PyTrilinos/NOX")
     SET(TRILINOS_LIBS ${NOX_LIBRARIES})
+    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
+      COMMAND cp ${MODULE_NAME}.py PyTrilinos/NOX/${MODULE_NAME}.py
+      COMMENT "Copy ${MODULE_NAME}.py to PyTrilinos/NOX/${MODULE_NAME}.py"
+      VERBATIM)
     ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
       COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/NOX/${MODULE_NAME}.py', 'PyTrilinos/NOX/${MODULE_NAME}.pyc')"
       COMMENT "Byte compiling NOX/${MODULE_NAME}.py"
@@ -464,6 +484,10 @@ FOREACH(MODULE ${PyTrilinos_MODULES})
   ELSEIF("${MODULE_OUTDIR}" MATCHES "PyTrilinos/LOCA/Hopf")
     SET(TRILINOS_LIBS ${LOCAEPETRA_LIBRARIES})
     ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
+      COMMAND cp ${MODULE_NAME}.py PyTrilinos/LOCA/Hopf/${MODULE_NAME}.py
+      COMMENT "Copy ${MODULE_NAME}.py to PyTrilinos/LOCA/Hopf/${MODULE_NAME}.py"
+      VERBATIM)
+    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
       COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/LOCA/Hopf/${MODULE_NAME}.py', 'PyTrilinos/LOCA/Hopf/${MODULE_NAME}.pyc')"
       COMMENT "Byte compiling LOCA/Hopf/${MODULE_NAME}.py"
       VERBATIM)
@@ -479,6 +503,10 @@ FOREACH(MODULE ${PyTrilinos_MODULES})
   # PyTrilinos.LOCA.Pitchfork
   ELSEIF("${MODULE_OUTDIR}" MATCHES "PyTrilinos/LOCA/Pitchfork")
     SET(TRILINOS_LIBS ${LOCAEPETRA_LIBRARIES})
+    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
+      COMMAND cp ${MODULE_NAME}.py PyTrilinos/LOCA/Pitchfork/${MODULE_NAME}.py
+      COMMENT "Copy ${MODULE_NAME}.py to PyTrilinos/LOCA/Pitchfork/${MODULE_NAME}.py"
+      VERBATIM)
     ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
       COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/LOCA/Pitchfork/${MODULE_NAME}.py', 'PyTrilinos/LOCA/Pitchfork/${MODULE_NAME}.pyc')"
       COMMENT "Byte compiling LOCA/Pitchfork/${MODULE_NAME}.py"
@@ -496,6 +524,10 @@ FOREACH(MODULE ${PyTrilinos_MODULES})
   ELSEIF("${MODULE_OUTDIR}" MATCHES "PyTrilinos/LOCA/TurningPoint")
     SET(TRILINOS_LIBS ${LOCAEPETRA_LIBRARIES})
     ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
+      COMMAND cp ${MODULE_NAME}.py PyTrilinos/LOCA/TurningPoint/${MODULE_NAME}.py
+      COMMENT "Copy ${MODULE_NAME}.py to PyTrilinos/LOCA/TurningPoint/${MODULE_NAME}.py"
+      VERBATIM)
+    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
       COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/LOCA/TurningPoint/${MODULE_NAME}.py', 'PyTrilinos/LOCA/TurningPoint/${MODULE_NAME}.pyc')"
       COMMENT "Byte compiling LOCA/TurningPoint/${MODULE_NAME}.py"
       VERBATIM)
@@ -511,6 +543,10 @@ FOREACH(MODULE ${PyTrilinos_MODULES})
   # PyTrilinos.LOCA.Epetra
   ELSEIF("${MODULE_OUTDIR}" MATCHES "PyTrilinos/LOCA/Epetra")
     SET(TRILINOS_LIBS ${LOCAEPETRA_LIBRARIES})
+    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
+      COMMAND cp ${MODULE_NAME}.py PyTrilinos/LOCA/Epetra/${MODULE_NAME}.py
+      COMMENT "Copy ${MODULE_NAME}.py to PyTrilinos/LOCA/Epetra/${MODULE_NAME}.py"
+      VERBATIM)
     ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
       COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/LOCA/Epetra/${MODULE_NAME}.py', 'PyTrilinos/LOCA/Epetra/${MODULE_NAME}.pyc')"
       COMMENT "Byte compiling LOCA/Epetra/${MODULE_NAME}.py"
@@ -528,6 +564,10 @@ FOREACH(MODULE ${PyTrilinos_MODULES})
   ELSEIF("${MODULE_OUTDIR}" MATCHES "PyTrilinos/LOCA")
     SET(TRILINOS_LIBS ${LOCA_LIBRARIES})
     ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
+      COMMAND cp ${MODULE_NAME}.py PyTrilinos/LOCA/${MODULE_NAME}.py
+      COMMENT "Copy ${MODULE_NAME}.py to PyTrilinos/LOCA/${MODULE_NAME}.py"
+      VERBATIM)
+    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
       COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/LOCA/${MODULE_NAME}.py', 'PyTrilinos/LOCA/${MODULE_NAME}.pyc')"
       COMMENT "Byte compiling LOCA/${MODULE_NAME}.py"
       VERBATIM)
@@ -544,6 +584,10 @@ FOREACH(MODULE ${PyTrilinos_MODULES})
   ELSEIF("${MODULE_OUTDIR}" MATCHES "PyTrilinos/Isorropia")
     SET(TRILINOS_LIBS ${ISORROPIA_LIBRARIES})
     ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
+      COMMAND cp ${MODULE_NAME}.py PyTrilinos/Isorropia/${MODULE_NAME}.py
+      COMMENT "Copy ${MODULE_NAME}.py to PyTrilinos/Isorropia/${MODULE_NAME}.py"
+      VERBATIM)
+    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
       COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/Isorropia/${MODULE_NAME}.py', 'PyTrilinos/Isorropia/${MODULE_NAME}.pyc')"
       COMMENT "Byte compiling Isorropia/${MODULE_NAME}.py"
       VERBATIM)
@@ -559,6 +603,10 @@ FOREACH(MODULE ${PyTrilinos_MODULES})
   # PyTrilinos
   ELSE()
     SET(TRILINOS_LIBS ${${MODULE_UPPER}_LIBRARIES})
+    ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
+      COMMAND cp ${MODULE_NAME}.py PyTrilinos/${MODULE}.py
+      COMMENT "Copy ${MODULE_NAME}.py to PyTrilinos/${MODULE}.py"
+      VERBATIM)
     ADD_CUSTOM_COMMAND(TARGET ${PyTrilinos_TARGET_NAME} POST_BUILD
       COMMAND ${PYTHON_EXECUTABLE} -c "import py_compile; py_compile.compile('PyTrilinos/${MODULE}.py', 'PyTrilinos/${MODULE}.pyc')"
       COMMENT "Byte compiling ${MODULE}.py"
