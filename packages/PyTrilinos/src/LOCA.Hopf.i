@@ -44,7 +44,7 @@
 
 %define %loca_hopf_base_importcode
 "
-from . import _Base
+
 import PyTrilinos.Teuchos.Base
 import PyTrilinos.NOX.Abstract
 import PyTrilinos.Epetra

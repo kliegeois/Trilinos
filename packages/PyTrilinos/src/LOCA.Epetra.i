@@ -44,7 +44,6 @@
 
 %define %loca_epetra_base_importcode
 "
-from . import _Base
 import PyTrilinos.Teuchos.Base
 import PyTrilinos.Epetra
 import PyTrilinos.NOX.Abstract

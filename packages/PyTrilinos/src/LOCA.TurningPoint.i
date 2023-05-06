@@ -44,7 +44,7 @@
 
 %define %loca_turningpoint_base_importcode
 "
-from . import _Base
+
 "
 %enddef
 

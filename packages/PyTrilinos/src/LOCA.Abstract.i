@@ -64,7 +64,6 @@ the following classes:
 
 %define %loca_abstract_importcode
 "
-from . import _Abstract
 import PyTrilinos.Teuchos.Base
 import PyTrilinos.NOX.Abstract
 import PyTrilinos.Epetra

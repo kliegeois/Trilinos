@@ -46,7 +46,6 @@
 "
 if not __package__:
     __package__ = 'PyTrilinos.Isorropia'
-from . import _Base
 "
 %enddef
 

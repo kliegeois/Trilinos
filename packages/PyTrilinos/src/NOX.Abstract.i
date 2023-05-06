@@ -64,7 +64,7 @@ NOX.Abstract provides the following user-level classes:
 
 %define %nox_abstract_codeimport
 "
-from . import _Abstract
+
 import PyTrilinos.Teuchos.Base
 import PyTrilinos.Epetra
 "

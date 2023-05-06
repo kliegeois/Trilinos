@@ -44,7 +44,7 @@
 
 %define %nox_epetra_base_importcode
 "
-from . import _Base
+
 import PyTrilinos.Teuchos.Base
 from PyTrilinos.NOX import Abstract
 from . import Interface
