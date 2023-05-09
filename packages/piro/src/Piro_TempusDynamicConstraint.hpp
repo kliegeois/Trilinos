@@ -97,8 +97,11 @@ public:
   // The convention is that the adjoint model provides the application of
   // the adjoint Jacobian and its inverse.  All other operations are
   // provided by the forward model.
-  ThyraProductME_TempusDynamicConstraint(const ROL::Ptr<Tempus::Integrator<Real>> & forward_integrator,
-                          const ROL::Ptr<Tempus::Integrator<Real>> & adjoint_integrator);
+  ThyraProductME_TempusDynamicConstraint(const Teuchos::RCP<Piro::TempusIntegrator<Real>> & forward_integrator,
+    const Teuchos::RCP<Piro::TempusIntegrator<Real>> & adjoint_integrator,
+    Teuchos::ParameterList& piroParams,
+    Teuchos::EVerbosityLevel verbLevel= Teuchos::VERB_HIGH,
+    Teuchos::RCP<ROL_ObserverBase<Real>> observer = Teuchos::null);
 
   virtual ~ThyraProductME_TempusDynamicConstraint() {}
 
@@ -196,7 +199,7 @@ ThyraProductME_TempusDynamicConstraint<Real>::ThyraProductME_TempusDynamicConstr
   adjointJu_      = modelAdjoint_->create_W();
   adjointJu_op_   = modelAdjoint_->create_W_op();
   // Set adjoint flag to false.
-  usingAdjoint_ = true;
+  usingAdjoint_ = false;
   num_responses_ = -1;
 }
 
@@ -206,8 +209,15 @@ ThyraProductME_TempusDynamicConstraint<Real>::ThyraProductME_TempusDynamicConstr
 
 template<class Real>
 ThyraProductME_TempusDynamicConstraint<Real>::ThyraProductME_TempusDynamicConstraint(
-  const ROL::Ptr<Tempus::Integrator<Real>> & forward_integrator,
-  const ROL::Ptr<Tempus::Integrator<Real>> & adjoint_integrator) {
+  const Teuchos::RCP<Piro::TempusIntegrator<Real>>& forward_integrator,
+  const Teuchos::RCP<Piro::TempusIntegrator<Real>>& adjoint_integrator,
+  Teuchos::ParameterList& piroParams,
+  Teuchos::EVerbosityLevel verbLevel,
+  Teuchos::RCP<ROL_ObserverBase<Real>> observer) :
+  optParams_(piroParams.sublist("Optimization Status")),
+  out_(Teuchos::VerboseObjectBase::getDefaultOStream()),
+  verbosityLevel_(verbLevel),
+  observer_(observer) {
   model_          = forward_integrator->getStepper()->getModel();
   modelAdjoint_   = adjoint_integrator->getStepper()->getModel();
   stepper_        = ROL::dynamicPtrCast<Tempus::StepperOptimizationInterface<Real>>(forward_integrator->getStepper());
@@ -345,8 +355,11 @@ void ThyraProductME_TempusDynamicConstraint<Real>::applyAdjointJacobian_uo(ROL::
   else {
     int deriv_index = 1; // 1 = old state
     stepperAdjoint_->computeStepJacobian(*adjointJu_op_, x, t, *(rtv_z.getVector()), 0, deriv_index);
-    Ju_op_->apply(Thyra::TRANS, *(rtv_v.getVector()), rtv_jv.getVector().ptr(), 1.0, 0.0);
-    //adjointJu_op_->apply(Thyra::NOTRANS, *(rtv_v.getVector()), rtv_jv.getVector().ptr(), 1.0, 0.0);
+    typedef Teuchos::ScalarTraits<typename Thyra::ModelEvaluator<Real>::ScalarMag> SMT;
+    if (SMT::isnaninf(rtv_jv.getVector()->norm_2()))
+      rtv_jv.getVector()->assign(0.0);
+    //Ju_op_->apply(Thyra::TRANS, *(rtv_v.getVector()), rtv_jv.getVector().ptr(), 1.0, 0.0);
+    adjointJu_op_->apply(Thyra::NOTRANS, *(rtv_v.getVector()), rtv_jv.getVector().ptr(), 1.0, 0.0);
   }
 } // applyAdjointJacobian_uo
 
@@ -376,6 +389,9 @@ void ThyraProductME_TempusDynamicConstraint<Real>::applyAdjointJacobian_un(ROL::
   else {
     int deriv_index = 0; // 0 = new state
     stepperAdjoint_->computeStepJacobian(*adjointJu_op_, x, t, *(rtv_z.getVector()), 0, deriv_index);
+    typedef Teuchos::ScalarTraits<typename Thyra::ModelEvaluator<Real>::ScalarMag> SMT;
+    if (SMT::isnaninf(rtv_jv.getVector()->norm_2()))
+      rtv_jv.getVector()->assign(0.0);
     adjointJu_op_->apply(Thyra::NOTRANS, *(rtv_v.getVector()), rtv_jv.getVector().ptr(), 1.0, 0.0);
   }
 } // applyAdjointJacobian_un
@@ -454,6 +470,9 @@ void ThyraProductME_TempusDynamicConstraint<Real>::applyInverseAdjointJacobian_u
   }
   else {
     stepperAdjoint_->computeStepSolver(*adjointJu_, x, t, *(rtv_z.getVector()), 0);
+    typedef Teuchos::ScalarTraits<typename Thyra::ModelEvaluator<Real>::ScalarMag> SMT;
+    if (SMT::isnaninf(rtv_jv.getVector()->norm_2()))
+      rtv_jv.getVector()->assign(0.0);
     adjointJu_->solve(Thyra::NOTRANS, *(rtv_v.getVector()), rtv_jv.getVector().ptr(), solveCriteria);
   }
 } // applyInverseAdjointJacobian_un

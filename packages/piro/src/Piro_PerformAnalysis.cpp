@@ -938,11 +938,13 @@ Piro::PerformTROLAnalysis(
 
   SENS_METHOD sens_method = Piro::ADJOINT; 
   auto tempus_params = Teuchos::rcp<Teuchos::ParameterList>(new Teuchos::ParameterList(piroParams.sublist("Tempus")));
-  Teuchos::RCP<Piro::TempusIntegrator<double> > integrator 
+  Teuchos::RCP<Piro::TempusIntegrator<double> > forward_integrator 
+    = Teuchos::rcp(new Piro::TempusIntegrator<double>(tempus_params, model, sens_method));
+  Teuchos::RCP<Piro::TempusIntegrator<double> > adjoint_integrator 
     = Teuchos::rcp(new Piro::TempusIntegrator<double>(tempus_params, model, adjointModel, sens_method));
 
-  Piro::ThyraProductME_TempusFinalObjective<double> obj(integrator, g_index, piroParams, analysisVerbosityLevel, observer);
-  Piro::ThyraProductME_TempusDynamicConstraint<double> constr(integrator, piroParams, analysisVerbosityLevel, observer);
+  Piro::ThyraProductME_TempusFinalObjective<double> obj(forward_integrator, g_index, piroParams, analysisVerbosityLevel, observer);
+  Piro::ThyraProductME_TempusDynamicConstraint<double> constr(forward_integrator, adjoint_integrator, piroParams, analysisVerbosityLevel, observer);
 
   //SerialObjective
   //SerialStationaryControlsObjective
@@ -1065,7 +1067,7 @@ Piro::PerformTROLAnalysis(
     auto algo = ROL::TypeU::AlgorithmFactory<double>(rolParams.sublist("ROL Options"));
     algo->run(rol_p_primal, reduced_stationarycontrols_obj, *rolOutput);
     return_status = algo->getState()->statusFlag;
-
+    if (return_status == ROL::EExitStatus::EXITSTATUS_STEPTOL) return_status = 0;
 /*
     if(boundConstrained) {
       *out << "Piro::PerformTROLAnalysis: Solving Reduced Space Bound Constrained Optimization Problem" << std::endl;

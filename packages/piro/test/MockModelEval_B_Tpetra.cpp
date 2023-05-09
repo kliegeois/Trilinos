@@ -445,8 +445,7 @@ void MockModelEval_B_Tpetra::evalModelImpl(
     double diag=1.0;
     for (int i=0; i<myVecLength; i++)
       W_out_crs->replaceLocalValues(i, 1, &diag, &i);
-    if(!Teuchos::nonnull(x_dot_in))
-      W_out_crs->fillComplete();
+    W_out_crs->fillComplete();
   }
 
   auto hess_g_pp = outArgs.supports(Thyra::ModelEvaluator<double>::OUT_ARG_hess_g_pp,0,0,0) ? outArgs.get_hess_g_pp(0,0,0) : Teuchos::null; 
@@ -563,6 +562,7 @@ void MockModelEval_B_Tpetra::evalModelImpl(
       // W(x, x_dot) = beta * W(x) - alpha * Id
       const Teuchos::RCP<Tpetra_CrsMatrix> W_out_crs =
         Teuchos::rcp_dynamic_cast<Tpetra_CrsMatrix>(W_out, true);
+      W_out_crs->resumeFill();
       W_out_crs->scale(beta);
 
       const double diag = -alpha;
