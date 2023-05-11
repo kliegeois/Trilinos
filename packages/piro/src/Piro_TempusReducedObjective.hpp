@@ -88,6 +88,16 @@ public:
   Real value( const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new, 
               const ROL::Vector<Real> &z, const ROL::TimeStamp<Real> &timeStamp ) const;
 
+  void gradient_uo( ROL::Vector<Real> &g, const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new, 
+                    const ROL::Vector<Real> &z, const ROL::TimeStamp<Real> &timeStamp ) const;
+
+  void gradient_un( ROL::Vector<Real> &g, const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new, 
+                    const ROL::Vector<Real> &z, const ROL::TimeStamp<Real> &timeStamp ) const;
+
+  void gradient_z( ROL::Vector<Real> &g, const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new, 
+                    const ROL::Vector<Real> &z, const ROL::TimeStamp<Real> &timeStamp ) const;
+
+  /*
   //! Compute gradient of objective
   void gradient( ROL::Vector<Real> &g, const ROL::Vector<Real> &x, Real &tol );
 
@@ -96,6 +106,7 @@ public:
 
   //! Helper function to create a response vector
   Teuchos::RCP<ROL::Vector<Real> > create_response_vector() const;
+  */
 
   //! Helper function to run tempus, computing responses and derivatives
   void run_tempus(ROL::Vector<Real>& r, const ROL::Vector<Real>& p) const;
@@ -138,7 +149,7 @@ ThyraProductME_TempusFinalObjective(
   observer_(observer),
   tempus_params_(Teuchos::rcp<Teuchos::ParameterList>(new Teuchos::ParameterList(piroParams.sublist("Tempus")))),
   use_fd_gradient_(true),
-  time_final_(piroParams.get<Real>("Time final", 0.))
+  time_final_(piroParams.get<Real>("Time final", 1.))
 {
   
 }
@@ -151,6 +162,12 @@ value( const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new,
 {
   using Teuchos::RCP;
   typedef Thyra::ModelEvaluatorBase MEB;
+
+  if(timeStamp.t[timeStamp.t.size()-1] < time_final_) {
+    *out_ << "Piro::ThyraProductME_TempusFinalObjective::value final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is not the final time "<< time_final_ << std::endl;
+    return 0;
+  }
+  *out_ << "Piro::ThyraProductME_TempusFinalObjective::value final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is the final time "<< time_final_ << std::endl;
 
   if(verbosityLevel_ >= Teuchos::VERB_MEDIUM)
     *out_ << "Piro::ThyraProductME_TempusFinalObjective::value" << std::endl;
@@ -169,6 +186,138 @@ value( const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new,
   return ::Thyra::get_ele(*g,0);
 }
 
+template <typename Real>
+void
+ThyraProductME_TempusFinalObjective<Real>::
+gradient_uo( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new, 
+              const ROL::Vector<Real> &p, const ROL::TimeStamp<Real> &timeStamp ) const
+{
+  *out_ << "Piro::ThyraProductME_TempusFinalObjective::gradient_uo" << std::endl;
+  Thyra::assign(Teuchos::dyn_cast<ROL::ThyraVector<Real> >(grad).getVector().ptr(), Teuchos::ScalarTraits<Real>::zero());
+}
+
+template <typename Real>
+void
+ThyraProductME_TempusFinalObjective<Real>::
+gradient_un( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new, 
+              const ROL::Vector<Real> &p, const ROL::TimeStamp<Real> &timeStamp ) const
+{
+  *out_ << "Piro::ThyraProductME_TempusFinalObjective::gradient_un" << std::endl;
+
+  if(timeStamp.t[timeStamp.t.size()-1] < time_final_) {
+    *out_ << "Piro::ThyraProductME_TempusFinalObjective::gradient_un final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is not the final time "<< time_final_ << std::endl;
+    Thyra::assign(Teuchos::dyn_cast<ROL::ThyraVector<Real> >(grad).getVector().ptr(), Teuchos::ScalarTraits<Real>::zero());
+  }
+  *out_ << "Piro::ThyraProductME_TempusFinalObjective::gradient_un final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is the final time "<< time_final_ << std::endl;
+
+  using Teuchos::RCP;
+  typedef Thyra::ModelEvaluatorBase MEB;
+
+  // Run tempus and compute response gradient for specified parameter values
+  const int num_p = thyra_model_->get_p_space(0)->dim();
+  const int num_g = thyra_model_->get_g_space(g_index_)->dim();
+  MEB::InArgs<Real> inArgs = thyra_model_->getNominalValues();
+  MEB::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
+  const ROL::ThyraVector<Real>& thyra_p =
+    Teuchos::dyn_cast<const ROL::ThyraVector<Real> >(p);
+  inArgs.set_p(0, thyra_p.getVector());
+  RCP<Thyra::VectorBase<Real> > g =
+    Thyra::createMember<Real>(thyra_model_->get_g_space(g_index_));
+
+  ROL::ThyraVector<Real>  & thyra_dgdx = dynamic_cast<ROL::ThyraVector<Real>&>(grad);
+
+  const Thyra::ModelEvaluatorBase::DerivativeSupport dgdx_support =
+      outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDx, g_index_);
+  Thyra::ModelEvaluatorBase::EDerivativeMultiVectorOrientation dgdx_orient;
+  if (dgdx_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM))
+    dgdx_orient = Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM;
+  else if(dgdx_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM))
+    dgdx_orient = Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM;
+  else {
+    ROL_TEST_FOR_EXCEPTION(true, std::logic_error,
+        "Piro::ThyraProductME_Objective: DgDx does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
+  }
+
+  outArgs.set_DgDx(g_index_, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(thyra_dgdx.getVector(), dgdx_orient));
+
+  outArgs.set_g(g_index_, g);
+  run_tempus(inArgs, outArgs);
+}
+
+template <typename Real>
+void
+ThyraProductME_TempusFinalObjective<Real>::
+gradient_z( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new, 
+              const ROL::Vector<Real> &p, const ROL::TimeStamp<Real> &timeStamp ) const
+{
+  *out_ << "Piro::ThyraProductME_TempusFinalObjective::gradient_z" << std::endl;
+
+  if(timeStamp.t[timeStamp.t.size()-1] < time_final_) {
+    *out_ << "Piro::ThyraProductME_TempusFinalObjective::gradient_z final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is not the final time "<< time_final_ << std::endl;
+    Thyra::assign(Teuchos::dyn_cast<ROL::ThyraVector<Real> >(grad).getVector().ptr(), Teuchos::ScalarTraits<Real>::zero());
+  }
+  *out_ << "Piro::ThyraProductME_TempusFinalObjective::gradient_z final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is the final time "<< time_final_ << std::endl;
+
+  using Teuchos::RCP;
+  typedef Thyra::ModelEvaluatorBase MEB;
+
+  // Run tempus and compute response gradient for specified parameter values
+  const int num_p = thyra_model_->get_p_space(0)->dim();
+  const int num_g = thyra_model_->get_g_space(g_index_)->dim();
+  MEB::InArgs<Real> inArgs = thyra_model_->getNominalValues();
+  MEB::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
+  const ROL::ThyraVector<Real>& thyra_p =
+    Teuchos::dyn_cast<const ROL::ThyraVector<Real> >(p);
+  inArgs.set_p(0, thyra_p.getVector());
+  RCP<Thyra::VectorBase<Real> > g =
+    Thyra::createMember<Real>(thyra_model_->get_g_space(g_index_));
+
+  ROL::ThyraVector<Real>  & thyra_dgdp = dynamic_cast<ROL::ThyraVector<Real>&>(grad);
+  Teuchos::RCP<Thyra::ProductMultiVectorBase<Real> > prodvec_dgdp =
+      Teuchos::rcp_dynamic_cast<Thyra::ProductMultiVectorBase<Real>>(thyra_dgdp.getVector());
+  if ( !thyra_dgdp.getVector().is_null()) {
+    if ( !prodvec_dgdp.is_null()) {
+      Teuchos::RCP<const Piro::ProductModelEvaluator<Real>> model_PME = 
+        Teuchos::rcp_dynamic_cast<const Piro::ProductModelEvaluator<Real>>(thyra_model_);
+      if (model_PME.is_null()) {
+        Teuchos::RCP<const Thyra::ModelEvaluatorDelegatorBase<Real>> model_MEDB =
+          Teuchos::rcp_dynamic_cast<const Thyra::ModelEvaluatorDelegatorBase<Real>>(thyra_model_);
+        if (!model_MEDB.is_null()) {
+          model_PME = Teuchos::rcp_dynamic_cast<const Piro::ProductModelEvaluator<Real>>(model_MEDB->getUnderlyingModel());
+        }
+      }
+
+      if ( !model_PME.is_null()) {
+        Teko::BlockedLinearOp dgdp_op =
+            Teuchos::rcp_dynamic_cast<Thyra::PhysicallyBlockedLinearOpBase<Real>>(model_PME->create_DgDp_op(g_index_, 0, prodvec_dgdp));
+        Thyra::ModelEvaluatorBase::Derivative<Real> dgdp_der(Teuchos::rcp_dynamic_cast<Thyra::LinearOpBase<Real>>(dgdp_op));
+        outArgs.set_DgDp(g_index_, 0, dgdp_der);
+      }
+      else {
+        ROL_TEST_FOR_EXCEPTION( true, std::logic_error, "Piro::ThyraProductME_Objective: dgdp is not supported for the used ModelEvaluator.");
+      }
+    }
+    else {
+      const Thyra::ModelEvaluatorBase::DerivativeSupport dgdp_support =
+          outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp, g_index_, 0);
+      Thyra::ModelEvaluatorBase::EDerivativeMultiVectorOrientation dgdp_orient;
+      if (dgdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM))
+        dgdp_orient = Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM;
+      else if(dgdp_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM))
+        dgdp_orient = Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM;
+      else {
+        ROL_TEST_FOR_EXCEPTION(true, std::logic_error,
+            "Piro::ThyraProductME_Objective: DgDp does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
+      }
+      outArgs.set_DgDp(g_index_, 0, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(thyra_dgdp.getVector(), dgdp_orient));
+    }
+  }
+
+  outArgs.set_g(g_index_, g);
+  run_tempus(inArgs, outArgs);
+}
+
+/*
 template <typename Real>
 void
 ThyraProductME_TempusFinalObjective<Real>::
@@ -196,6 +345,7 @@ create_response_vector() const {
   Thyra::assign(g.ptr(), Teuchos::ScalarTraits<Real>::zero());
   return Teuchos::rcp(new ROL::ThyraVector<Real>(g));
 }
+*/
 
 template <typename Real>
 void
