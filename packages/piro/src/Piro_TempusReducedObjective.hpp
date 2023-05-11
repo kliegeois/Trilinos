@@ -97,17 +97,6 @@ public:
   void gradient_z( ROL::Vector<Real> &g, const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new, 
                     const ROL::Vector<Real> &z, const ROL::TimeStamp<Real> &timeStamp ) const;
 
-  /*
-  //! Compute gradient of objective
-  void gradient( ROL::Vector<Real> &g, const ROL::Vector<Real> &x, Real &tol );
-
-  //! Helper function to create optimization vector
-  Teuchos::RCP<ROL::Vector<Real> > create_design_vector() const;
-
-  //! Helper function to create a response vector
-  Teuchos::RCP<ROL::Vector<Real> > create_response_vector() const;
-  */
-
   //! Helper function to run tempus, computing responses and derivatives
   void run_tempus(ROL::Vector<Real>& r, const ROL::Vector<Real>& p) const;
   void run_tempus(const Thyra::ModelEvaluatorBase::InArgs<Real>&  inArgs,
@@ -235,7 +224,7 @@ gradient_un( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL:
     dgdx_orient = Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM;
   else {
     ROL_TEST_FOR_EXCEPTION(true, std::logic_error,
-        "Piro::ThyraProductME_Objective: DgDx does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
+        "Piro::ThyraProductME_TempusFinalObjective::gradient_un: DgDx does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
   }
 
   outArgs.set_DgDx(g_index_, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(thyra_dgdx.getVector(), dgdx_orient));
@@ -294,7 +283,7 @@ gradient_z( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL::
         outArgs.set_DgDp(g_index_, 0, dgdp_der);
       }
       else {
-        ROL_TEST_FOR_EXCEPTION( true, std::logic_error, "Piro::ThyraProductME_Objective: dgdp is not supported for the used ModelEvaluator.");
+        ROL_TEST_FOR_EXCEPTION( true, std::logic_error, "Piro::ThyraProductME_TempusFinalObjective::gradient_z: dgdp is not supported for the used ModelEvaluator.");
       }
     }
     else {
@@ -307,7 +296,7 @@ gradient_z( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL::
         dgdp_orient = Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM;
       else {
         ROL_TEST_FOR_EXCEPTION(true, std::logic_error,
-            "Piro::ThyraProductME_Objective: DgDp does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
+            "Piro::ThyraProductME_TempusFinalObjective::gradient_z: DgDp does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
       }
       outArgs.set_DgDp(g_index_, 0, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(thyra_dgdp.getVector(), dgdp_orient));
     }
@@ -316,36 +305,6 @@ gradient_z( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL::
   outArgs.set_g(g_index_, g);
   run_tempus(inArgs, outArgs);
 }
-
-/*
-template <typename Real>
-void
-ThyraProductME_TempusFinalObjective<Real>::
-gradient(ROL::Vector<Real> &grad, const ROL::Vector<Real> &p, Real &tol)
-{
-  if (use_fd_gradient_) {
-    ROL::Objective<Real>::gradient(grad, p, tol);
-    return;
-  }
-}
-
-template <typename Real>
-Teuchos::RCP<ROL::Vector<Real> >
-ThyraProductME_TempusFinalObjective<Real>::
-create_design_vector() const {
-  return Teuchos::rcp(new ROL::ThyraVector<Real>(thyra_model_->getNominalValues().get_p(0)));
-}
-
-template <typename Real>
-Teuchos::RCP<ROL::Vector<Real> >
-ThyraProductME_TempusFinalObjective<Real>::
-create_response_vector() const {
-  Teuchos::RCP<Thyra::VectorBase<Real> > g =
-    Thyra::createMember<Real>(thyra_model_->get_g_space(g_index_));
-  Thyra::assign(g.ptr(), Teuchos::ScalarTraits<Real>::zero());
-  return Teuchos::rcp(new ROL::ThyraVector<Real>(g));
-}
-*/
 
 template <typename Real>
 void
