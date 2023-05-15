@@ -936,14 +936,21 @@ Piro::PerformTROLAnalysis(
     default: analysisVerbosityLevel= Teuchos::VERB_NONE;
   }
 
-  SENS_METHOD sens_method = Piro::ADJOINT; 
   auto tempus_params = Teuchos::rcp<Teuchos::ParameterList>(new Teuchos::ParameterList(piroParams.sublist("Tempus")));
+
+  std::string integratorName = tempus_params->get<std::string>("Integrator Name");
+  double t_0 = tempus_params->sublist(integratorName).sublist("Time Step Control").get<double>("Initial Time");
+  double t_f = tempus_params->sublist(integratorName).sublist("Time Step Control").get<double>("Final Time");
+  int nt = tempus_params->sublist(integratorName).sublist("Time Step Control").get<int>("Number of Time Steps", 10);
+  auto timeStamps = ROL::TimeStamp<double>::make_uniform(t_0,t_f,{0.0,1.0},nt);
+
+  SENS_METHOD sens_method = Piro::ADJOINT; 
   Teuchos::RCP<Piro::TempusIntegrator<double> > forward_integrator 
     = Teuchos::rcp(new Piro::TempusIntegrator<double>(tempus_params, model, sens_method));
   Teuchos::RCP<Piro::TempusIntegrator<double> > adjoint_integrator 
     = Teuchos::rcp(new Piro::TempusIntegrator<double>(tempus_params, model, adjointModel, sens_method));
 
-  Piro::ThyraProductME_TempusFinalObjective<double> obj(forward_integrator, g_index, piroParams, analysisVerbosityLevel, observer);
+  Piro::ThyraProductME_TempusFinalObjective<double> obj(forward_integrator, g_index, piroParams, nt, analysisVerbosityLevel, observer);
   Piro::ThyraProductME_TempusDynamicConstraint<double> constr(forward_integrator, adjoint_integrator, piroParams, analysisVerbosityLevel, observer);
 
   //SerialObjective
@@ -1041,12 +1048,6 @@ Piro::PerformTROLAnalysis(
     */
   }
   else {
-    int nt = 10;
-    std::string integratorName = tempus_params->get<std::string>("Integrator Name");
-    double t_0 = tempus_params->sublist(integratorName).sublist("Time Step Control").get<double>("Initial Time");
-    double t_f = tempus_params->sublist(integratorName).sublist("Time Step Control").get<double>("Final Time");
-    auto timeStamps = ROL::TimeStamp<double>::make_uniform(t_0,t_f,{0.0,1.0},nt);
-
     ROL::ReducedDynamicObjective<double> reduced_obj(obj_ptr,constr_ptr,rol_x_ptr,rol_p_ptr,rol_lambda_ptr, *timeStamps, piroParams);
 
     ROL::Ptr<ROL::PartitionedVector<double>>  rol_p_primal_transient = ROL::PartitionedVector<double>::create(rol_p_primal, nt);
