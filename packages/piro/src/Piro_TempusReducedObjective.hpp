@@ -105,7 +105,8 @@ public:
   
   void update( const ROL::Vector<Real> &x, ROL::UpdateType type, int iter = -1 ) {
     (void) x;
-    (void) ts;
+    (void) type;
+    (void) iter;
   }
 
   // Update old state
