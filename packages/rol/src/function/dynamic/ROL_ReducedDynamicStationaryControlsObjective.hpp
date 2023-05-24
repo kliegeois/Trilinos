@@ -94,6 +94,14 @@ public:
   virtual ~ReducedDynamicStationaryControlsObjective() {}
 
   void
+  update( const Vector<Real> &x, UpdateType type, int iter = -1 ) override
+  {
+    for (size_type i = 0; i < Nt_; ++i)
+      (*x_dyn_)[i].set(x);
+    red_dyn_obj_->update(*x_dyn_, true, iter);
+  }  
+
+  void
   update(const Vector<Real> &x, bool flag = true, int iter = -1) override
   {
     for (size_type i = 0; i < Nt_; ++i)

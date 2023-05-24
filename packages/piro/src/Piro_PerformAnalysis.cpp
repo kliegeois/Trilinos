@@ -941,7 +941,7 @@ Piro::PerformTROLAnalysis(
   std::string integratorName = tempus_params->get<std::string>("Integrator Name");
   double t_0 = tempus_params->sublist(integratorName).sublist("Time Step Control").get<double>("Initial Time");
   double t_f = tempus_params->sublist(integratorName).sublist("Time Step Control").get<double>("Final Time");
-  int nt = tempus_params->sublist(integratorName).sublist("Time Step Control").get<int>("Number of Time Steps", 10);
+  int nt = tempus_params->sublist(integratorName).sublist("Time Step Control").get<int>("Number of Time Steps", 2);
   auto timeStamps = ROL::TimeStamp<double>::make_uniform(t_0,t_f,{0.0,1.0},nt);
 
   SENS_METHOD sens_method = Piro::ADJOINT; 
@@ -1146,7 +1146,8 @@ Piro::PerformTROLAnalysis(
 
         *out << "Piro::PerformTROLAnalysis: Checking Reduced Gradient Accuracy" << std::endl;
         ROL::Ptr<ROL::PartitionedVector<double>>  rol_p_direction1_transient = ROL::PartitionedVector<double>::create(rol_p_direction1, nt);
-        reduced_obj.checkGradient(*rol_p_primal_transient, *rol_p_direction1_transient, true, *out);
+
+        reduced_stationarycontrols_obj.checkGradient(rol_p_primal, rol_p_primal.dual(), rol_p_direction1, true, *out, ROL_NUM_CHECKDERIV_STEPS, 1);
       }
     }
   }

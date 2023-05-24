@@ -102,6 +102,29 @@ public:
   void run_tempus(ROL::Vector<Real>& r, const ROL::Vector<Real>& p) const;
   void run_tempus(const Thyra::ModelEvaluatorBase::InArgs<Real>&  inArgs,
                   const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs) const;
+  
+  void update( const ROL::Vector<Real> &x, ROL::UpdateType type, int iter = -1 ) {
+    (void) x;
+    (void) ts;
+  }
+
+  // Update old state
+  void update_uo( const ROL::Vector<Real> &x, const ROL::TimeStamp<Real> &ts ) {
+    (void) x;
+    (void) ts;
+  }
+
+  // Update new state
+  void update_un( const ROL::Vector<Real> &x, const ROL::TimeStamp<Real> &ts ) {
+    (void) x;
+    (void) ts;
+  }
+
+  // Update control
+  void update_z( const ROL::Vector<Real> &x, const ROL::TimeStamp<Real> &ts ) {
+    (void) x;
+    (void) ts;
+  }
 
 private:
   const Teuchos::RCP<Piro::TempusIntegrator<Real> > integrator_;
