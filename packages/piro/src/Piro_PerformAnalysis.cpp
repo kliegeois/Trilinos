@@ -676,6 +676,8 @@ Piro::PerformSSROLAnalysis(
   }
 
 #else
+  (void)reponse_index_dotProd;
+  (void)reponse_index_secant;
   TEUCHOS_TEST_FOR_EXCEPTION(useCustomDotProduct||useCustomSecant, Teuchos::Exceptions::InvalidParameter,
       std::endl << "Piro::PerformSSROLAnalysis, ERROR: " <<
       "Teko is required for computing custom dot product or secant"<<std::endl);
