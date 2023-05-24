@@ -1082,6 +1082,73 @@ Piro::PerformTROLAnalysis(
       return_status = algo->getState()->statusFlag;
     }
 */
+    //! check correctness of Gradient prvided by Model Evaluator
+    if(rolParams.get<bool>("Check Derivatives", false)) {
+      Teuchos::RCP<Thyra::VectorBase<double> > p_rand_vec1 = p->clone_v();
+      Teuchos::RCP<Thyra::VectorBase<double> > x_rand_vec1 = x->clone_v();
+      Teuchos::RCP<Thyra::VectorBase<double> > p_rand_vec2 = p->clone_v();
+      Teuchos::RCP<Thyra::VectorBase<double> > x_rand_vec2 = x->clone_v();
+
+      ::Thyra::seed_randomize<double>( seed );
+
+      auto rol_x_zero = rol_x.clone(); rol_x_zero->zero();
+      auto rol_p_zero = rol_p.clone(); rol_p_zero->zero();
+
+      int num_checks = rolParams.sublist("Derivative Checks").get<int>("Number Of Derivative Checks", 1);
+      double norm_p = rol_p.norm();
+      double norm_x = rol_x.norm();
+
+      ROL::Vector_SimOpt<double> sopt_vec(ROL::makePtrFromRef(rol_x),ROL::makePtrFromRef(rol_p));
+
+      for(int i=0; i< num_checks; i++) {
+
+        *out << "\nPiro::PerformTROLAnalysis: Performing gradient check " << i+1 << " of " << num_checks << ", at parameter initial guess" << std::endl;
+
+        // compute direction 1
+        ::Thyra::randomize<double>( -1.0, 1.0, p_rand_vec1.ptr());
+        ::Thyra::randomize<double>( -1.0, 1.0, x_rand_vec1.ptr());
+
+        ROL::ThyraVector<double> rol_p_direction1(p_rand_vec1);
+        ROL::ThyraVector<double> rol_x_direction1(x_rand_vec1);
+
+        double norm_d = rol_p_direction1.norm();
+        if(norm_d*norm_p > 0.0)
+          rol_p_direction1.scale(norm_p/norm_d);
+        norm_d = rol_x_direction1.norm();
+        if(norm_d*norm_x > 0.0)
+          rol_x_direction1.scale(norm_x/norm_d);
+
+        ROL::Vector_SimOpt<double> sopt_vec_direction1(ROL::makePtrFromRef(rol_x_direction1),ROL::makePtrFromRef(rol_p_direction1));
+        ROL::Vector_SimOpt<double> sopt_vec_direction1_x(ROL::makePtrFromRef(rol_x_direction1),rol_p_zero);
+        ROL::Vector_SimOpt<double> sopt_vec_direction1_p(rol_x_zero,ROL::makePtrFromRef(rol_p_direction1));
+
+        // compute direction 2
+        ::Thyra::randomize<double>( -1.0, 1.0, p_rand_vec2.ptr());
+        ::Thyra::randomize<double>( -1.0, 1.0, x_rand_vec2.ptr());
+
+        ROL::ThyraVector<double> rol_p_direction2(p_rand_vec2);
+        ROL::ThyraVector<double> rol_x_direction2(x_rand_vec2);
+
+        norm_d = rol_p_direction2.norm();
+        if(norm_d*norm_p > 0.0)
+          rol_p_direction2.scale(norm_p/norm_d);
+        norm_d = rol_x_direction2.norm();
+        if(norm_d*norm_x > 0.0)
+          rol_x_direction2.scale(norm_x/norm_d);
+
+        ROL::Vector_SimOpt<double> sopt_vec_direction2(ROL::makePtrFromRef(rol_x_direction2),ROL::makePtrFromRef(rol_p_direction2));
+        ROL::Vector_SimOpt<double> sopt_vec_direction2_x(ROL::makePtrFromRef(rol_x_direction2),rol_p_zero);
+        ROL::Vector_SimOpt<double> sopt_vec_direction2_p(rol_x_zero,ROL::makePtrFromRef(rol_p_direction2));
+
+
+        int num_steps = 10;
+        int order = 2;
+
+        *out << "Piro::PerformTROLAnalysis: Checking Reduced Gradient Accuracy" << std::endl;
+        ROL::Ptr<ROL::PartitionedVector<double>>  rol_p_direction1_transient = ROL::PartitionedVector<double>::create(rol_p_direction1, nt);
+        reduced_obj.checkGradient(*rol_p_primal_transient, *rol_p_direction1_transient, true, *out);
+      }
+    }
   }
 
   return return_status;
