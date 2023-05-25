@@ -180,7 +180,7 @@ value( const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new,
   using Teuchos::RCP;
   typedef Thyra::ModelEvaluatorBase MEB;
 
-  if(timeStamp.k != Nt_-1) {
+  if((int) timeStamp.k != Nt_-1) {
     *out_ << "Piro::ThyraProductME_TempusFinalObjective::value final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is not the final time "<< time_final_ << std::endl;
     return 0;
   }
@@ -221,7 +221,7 @@ gradient_un( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL:
 {
   *out_ << "Piro::ThyraProductME_TempusFinalObjective::gradient_un" << std::endl;
 
-  if(timeStamp.k != Nt_-1) {
+  if((int) timeStamp.k != Nt_-1) {
     *out_ << "Piro::ThyraProductME_TempusFinalObjective::gradient_un final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is not the final time "<< time_final_ << std::endl;
     Thyra::assign(Teuchos::dyn_cast<ROL::ThyraVector<Real> >(grad).getVector().ptr(), Teuchos::ScalarTraits<Real>::zero());
   }
@@ -231,8 +231,6 @@ gradient_un( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL:
   typedef Thyra::ModelEvaluatorBase MEB;
 
   // Run tempus and compute response gradient for specified parameter values
-  const int num_p = thyra_model_->get_p_space(0)->dim();
-  const int num_g = thyra_model_->get_g_space(g_index_)->dim();
   MEB::InArgs<Real> inArgs = thyra_model_->getNominalValues();
   MEB::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
   const ROL::ThyraVector<Real>& thyra_p =
@@ -269,7 +267,7 @@ gradient_z( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL::
 {
   *out_ << "Piro::ThyraProductME_TempusFinalObjective::gradient_z" << std::endl;
 
-  if(timeStamp.k != Nt_-1) {
+  if((int) timeStamp.k != Nt_-1) {
     *out_ << "Piro::ThyraProductME_TempusFinalObjective::gradient_z final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is not the final time "<< time_final_ << std::endl;
     Thyra::assign(Teuchos::dyn_cast<ROL::ThyraVector<Real> >(grad).getVector().ptr(), Teuchos::ScalarTraits<Real>::zero());
   }
@@ -279,8 +277,6 @@ gradient_z( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL::
   typedef Thyra::ModelEvaluatorBase MEB;
 
   // Run tempus and compute response gradient for specified parameter values
-  const int num_p = thyra_model_->get_p_space(0)->dim();
-  const int num_g = thyra_model_->get_g_space(g_index_)->dim();
   MEB::InArgs<Real> inArgs = thyra_model_->getNominalValues();
   MEB::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
   const ROL::ThyraVector<Real>& thyra_p =
@@ -389,17 +385,12 @@ run_tempus(const Thyra::ModelEvaluatorBase::InArgs<Real>&  inArgs,
 
 
   // Evaluate response at final state
-  const int num_g = thyra_model_->get_g_space(g_index_)->dim();
   MEB::InArgs<Real> modelInArgs   = inArgs;
   MEB::OutArgs<Real> modelOutArgs = outArgs;
   modelInArgs.set_x(x);
   if (modelInArgs.supports(MEB::IN_ARG_x_dot)) modelInArgs.set_x_dot(x_dot);
   if (modelInArgs.supports(MEB::IN_ARG_t)) modelInArgs.set_t(t);
   RCP<Thyra::MultiVectorBase<Real> > dgdx, dgdxdot;
-  MEB::EDerivativeMultiVectorOrientation dgdx_orientation =
-    MEB::DERIV_MV_JACOBIAN_FORM;
-  MEB::EDerivativeMultiVectorOrientation dgdxdot_orientation =
-    MEB::DERIV_MV_JACOBIAN_FORM;
 
   thyra_model_->evalModel(modelInArgs, modelOutArgs);
 }

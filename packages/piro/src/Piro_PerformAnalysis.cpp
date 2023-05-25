@@ -1142,10 +1142,6 @@ Piro::PerformTROLAnalysis(
         ROL::Vector_SimOpt<double> sopt_vec_direction2_x(ROL::makePtrFromRef(rol_x_direction2),rol_p_zero);
         ROL::Vector_SimOpt<double> sopt_vec_direction2_p(rol_x_zero,ROL::makePtrFromRef(rol_p_direction2));
 
-
-        int num_steps = 10;
-        int order = 2;
-
         *out << "Piro::PerformTROLAnalysis: Checking Reduced Gradient Accuracy" << std::endl;
         ROL::Ptr<ROL::PartitionedVector<double>>  rol_p_direction1_transient = ROL::PartitionedVector<double>::create(rol_p_direction1, nt);
 

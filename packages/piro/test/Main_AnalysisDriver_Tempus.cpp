@@ -168,7 +168,7 @@ int main(int argc, char *argv[]) {
   bool doAll = (argc==1);
   if (argc>1) doAll = !strcmp(argv[1],"-v");
 
-  Piro::SolverFactory solverFactory;
+  //Piro::SolverFactory solverFactory;
 
   for (int iTest=0; iTest<1; iTest++) {
 
