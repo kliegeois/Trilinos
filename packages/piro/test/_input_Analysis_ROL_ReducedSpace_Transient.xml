@@ -11,6 +11,7 @@
         </ParameterList>
         <ParameterList name="Time Step Control">
           <Parameter name="Initial Time" type="double" value="0." />
+          <Parameter name="Initial Time Step" type="double" value="0.5" />
           <Parameter name="Final Time" type="double" value="1." />
         </ParameterList>
       </ParameterList>

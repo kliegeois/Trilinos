@@ -943,7 +943,8 @@ Piro::PerformTROLAnalysis(
   std::string integratorName = tempus_params->get<std::string>("Integrator Name");
   double t_0 = tempus_params->sublist(integratorName).sublist("Time Step Control").get<double>("Initial Time");
   double t_f = tempus_params->sublist(integratorName).sublist("Time Step Control").get<double>("Final Time");
-  int nt = tempus_params->sublist(integratorName).sublist("Time Step Control").get<int>("Number of Time Steps", 2);
+  double dt = tempus_params->sublist(integratorName).sublist("Time Step Control").get<double>("Initial Time Step");
+  int nt = (t_f-t_0)/dt;
   auto timeStamps = ROL::TimeStamp<double>::make_uniform(t_0,t_f,{0.0,1.0},nt);
 
   SENS_METHOD sens_method = Piro::ADJOINT; 
@@ -1056,6 +1057,7 @@ Piro::PerformTROLAnalysis(
 
     *out << "Piro::PerformTROLAnalysis: Before reduced_obj.value" << std::endl;
     double tol = 1e-5;
+    reduced_obj.update(*rol_p_primal_transient);
     auto val = reduced_obj.value(*rol_p_primal_transient, tol);
     *out << "Piro::PerformTROLAnalysis: After reduced_obj.value value = " << val << std::endl;
 
