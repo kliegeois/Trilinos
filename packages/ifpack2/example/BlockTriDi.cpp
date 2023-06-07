@@ -572,9 +572,53 @@ main (int argc, char* argv[])
     if(rank0) std::cout<<"Creating preconditioner..."<<std::endl;
     RCP<BTDC> precond;
 
-  {
-    Teuchos::TimeMonitor precSetupTimeMon (*precSetupTime);
-    precond = rcp(new BTDC(Ablock,parts,args.overlapCommAndComp));
+    {
+      Teuchos::TimeMonitor precSetupTimeMon (*precSetupTime);
+      precond = rcp(new BTDC(Ablock,parts,args.overlapCommAndComp));
+
+        if(args.overlapCommAndComp) {
+          if(rank0) std::cout<<"With overlapCommAndComp..."<<std::endl;
+        }
+        else {
+          if(rank0) std::cout<<"Without overlapCommAndComp..."<<std::endl;
+        }
+
+      if(rank0) std::cout<<"Computing preconditioner..."<<std::endl;
+      precond->compute ();
+      Kokkos::DefaultExecutionSpace().fence();
+    }
+
+    // Solver Parameters
+    auto ap                 = precond->createDefaultApplyParameters();
+    ap.zeroStartingSolution = true;
+    ap.tolerance            = args.tol;
+    ap.maxNumSweeps         = args.numIters;
+    ap.checkToleranceEvery  = 10;
+ 
+
+    // Solve
+    if(rank0) std::cout<<"Running solve..."<<std::endl;
+    int nits;
+    {
+      Teuchos::TimeMonitor solveTimeMon (*solveTime);
+      nits = precond->applyInverseJacobi(*B,*X,ap); 
+    }
+
+    auto norm0 = precond->getNorms0();
+    auto normF = precond->getNormsFinal();
+
+    if(rank0) {
+      std::cout<<"Solver run for "<<nits<<" iterations (asked for "<<args.numIters<<") with residual reduction "<<normF/norm0<<std::endl;
+      std::cout<<"  Norm0 = "<<norm0<<" NormF = "<<normF<<std::endl;
+    }
+  } else {
+    // Create Ifpack2 preconditioner.
+    if(rank0) std::cout<<"Creating preconditioner..."<<std::endl;
+    RCP<BJC> precond;
+
+    {
+      Teuchos::TimeMonitor precSetupTimeMon (*precSetupTime);
+      precond = rcp(new BJC(Ablock,parts,args.overlapCommAndComp));
 
       if(args.overlapCommAndComp) {
         if(rank0) std::cout<<"With overlapCommAndComp..."<<std::endl;
@@ -583,36 +627,37 @@ main (int argc, char* argv[])
         if(rank0) std::cout<<"Without overlapCommAndComp..."<<std::endl;
       }
 
-    if(rank0) std::cout<<"Computing preconditioner..."<<std::endl;
-    precond->compute ();
-    Kokkos::DefaultExecutionSpace().fence();
+      if(rank0) std::cout<<"Initializing preconditioner..."<<std::endl;
+      precond->initialize ();
+
+      if(rank0) std::cout<<"Computing preconditioner..."<<std::endl;
+      precond->compute ();
+    }
+
+    // Solver Parameters
+    auto ap                 = precond->createDefaultApplyParameters();
+    ap.zeroStartingSolution = true;
+    ap.tolerance            = args.tol;
+    ap.maxNumSweeps         = args.numIters;
+    ap.checkToleranceEvery  = 1;
+  
+
+    // Solve
+    if(rank0) std::cout<<"Running solve..."<<std::endl;
+    int nits;
+    {
+      Teuchos::TimeMonitor solveTimeMon (*solveTime);
+      nits = precond->applyInverseJacobi(*B,*X,ap); 
+    }
+
+    auto norm0 = precond->getNorms0();
+    auto normF = precond->getNormsFinal();
+
+    if(rank0) {
+      std::cout<<"Solver run for "<<nits<<" iterations (asked for "<<args.numIters<<") with residual reduction "<<normF/norm0<<std::endl;
+      std::cout<<"  Norm0 = "<<norm0<<" NormF = "<<normF<<std::endl;
+    }
   }
-
-  // Solver Parameters
-  auto ap                 = precond->createDefaultApplyParameters();
-  ap.zeroStartingSolution = true;
-  ap.tolerance            = args.tol;
-  ap.maxNumSweeps         = args.numIters;
-  ap.checkToleranceEvery  = 10;
- 
-
-  // Solve
-  if(rank0) std::cout<<"Running solve..."<<std::endl;
-  int nits;
-  {
-    Teuchos::TimeMonitor solveTimeMon (*solveTime);
-    nits = precond->applyInverseJacobi(*B,*X,ap); 
-    Kokkos::DefaultExecutionSpace().fence(); 
-  }
-
-  auto norm0 = precond->getNorms0();
-  auto normF = precond->getNormsFinal();
-
-  if(rank0) {
-    std::cout<<"Solver run for "<<nits<<" iterations (asked for "<<args.numIters<<") with residual reduction "<<normF/norm0<<std::endl;
-    std::cout<<"  Norm0 = "<<norm0<<" NormF = "<<normF<<std::endl;
-  }
-
 
   X->norm2(normx);
   B->norm2(normb);

@@ -355,7 +355,7 @@ namespace Ifpack2 {
       const auto tgt = Teuchos::rcp(new tpetra_map_type(tpetra_mv_type::makePointMap(*g.getColMap()   , blocksize)));
 
       auto blockCrsTpetraImporter = Teuchos::rcp(new tpetra_import_type(src, tgt));
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(typename ImplType<MatrixType>::execution_space)
+      IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
 
       return blockCrsTpetraImporter;
     }
@@ -1667,7 +1667,7 @@ namespace Ifpack2 {
                                
         }
       }
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(typename ImplType<MatrixType>::execution_space)
+      IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
     }
 
 
@@ -2124,7 +2124,7 @@ namespace Ifpack2 {
       IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::NumericPhase");
       ExtractAndFactorizeTridiags<MatrixType> function(btdm, interf, A, tiny);
       function.run();
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(typename ImplType<MatrixType>::execution_space)
+      IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
     }
 
     ///
@@ -2974,7 +2974,7 @@ namespace Ifpack2 {
     template<typename MatrixType>
     struct ComputeResidualVector {
     public:
-      using impl_type = ImplType<MatrixType>;
+      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using node_device_type = typename impl_type::node_device_type;
       using execution_space = typename impl_type::execution_space;
       using memory_space = typename impl_type::memory_space;
@@ -3033,10 +3033,10 @@ namespace Ifpack2 {
 
     public:
       template<typename LocalCrsGraphType>
-      ComputeResidualVector(const AmD<MatrixType> &amd,
+      ComputeResidualVector(const BlockHelperDetails::AmD<MatrixType> &amd,
                             const LocalCrsGraphType &graph,
                             const local_ordinal_type &blocksize_requested_,
-                            const PartInterface<MatrixType> &interf,
+                            const BlockHelperDetails::PartInterface<MatrixType> &interf,
                             const local_ordinal_type_1d_view &dm2cm_)
         : rowptr(amd.rowptr), rowptr_remote(amd.rowptr_remote),
           colindsub(amd.A_colindsub), colindsub_remote(amd.A_colindsub_remote),
@@ -3059,7 +3059,7 @@ namespace Ifpack2 {
                  const impl_scalar_type * const KOKKOS_RESTRICT AA,
                  const impl_scalar_type * const KOKKOS_RESTRICT xx,
                  /* */ impl_scalar_type * KOKKOS_RESTRICT yy) const {
-        using tlb = TpetraLittleBlock<Tpetra::Impl::BlockCrsMatrixLittleBlockArrayLayout>;
+        using tlb = BlockHelperDetails::TpetraLittleBlock<Tpetra::Impl::BlockCrsMatrixLittleBlockArrayLayout>;
         for (local_ordinal_type k0=0;k0<blocksize;++k0) {
           impl_scalar_type val = 0;
 #if defined(KOKKOS_ENABLE_PRAGMA_IVDEP)
@@ -3633,12 +3633,12 @@ namespace Ifpack2 {
     };
 
     template<typename MatrixType>
-    void reduceVector(const ConstUnmanaged<typename ImplType<MatrixType>::impl_scalar_type_1d_view> zz,
-                      /* */ typename ImplType<MatrixType>::magnitude_type *vals) {
+    void reduceVector(const ConstUnmanaged<typename BlockHelperDetails::ImplType<MatrixType>::impl_scalar_type_1d_view> zz,
+                      /* */ typename BlockHelperDetails::ImplType<MatrixType>::magnitude_type *vals) {
       IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_BEGIN;
       IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::ReduceVector");
 
-      using impl_type = ImplType<MatrixType>;
+      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using local_ordinal_type = typename impl_type::local_ordinal_type;
       using impl_scalar_type = typename impl_type::impl_scalar_type;
 #if 0
@@ -3655,7 +3655,7 @@ namespace Ifpack2 {
       vals[0] = Kokkos::ArithTraits<impl_scalar_type>::abs(norm2);
 
       IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_END;
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(typename ImplType<MatrixType>::execution_space)
+      IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
     }
 
     ///
@@ -3664,7 +3664,7 @@ namespace Ifpack2 {
     template<typename MatrixType>
     struct NormManager {
     public:
-      using impl_type = ImplType<MatrixType>;
+      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using host_execution_space = typename impl_type::host_execution_space;
       using magnitude_type = typename impl_type::magnitude_type;
 
