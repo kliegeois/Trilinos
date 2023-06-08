@@ -2426,7 +2426,6 @@ namespace Ifpack2 {
         const local_ordinal_type pri0 = part2packrowidx0(partidx);
         const local_ordinal_type i0 = pack_td_ptr(partidx);
         const local_ordinal_type r0 = part2packrowidx0(partidx);
-        const local_ordinal_type nrows = partptr(partidx+1) - partptr(partidx);
         const local_ordinal_type blocksize = (B == 0 ? D_internal_vector_values.extent(1) : B);
         const local_ordinal_type num_vectors = 1;
         internal_vector_scratch_type_3d_view
@@ -2451,7 +2450,6 @@ namespace Ifpack2 {
         const local_ordinal_type pri0 = part2packrowidx0(partidx);
         const local_ordinal_type i0 = pack_td_ptr(partidx);
         const local_ordinal_type r0 = part2packrowidx0(partidx);
-        const local_ordinal_type nrows = partptr(partidx+1) - partptr(partidx);
         const local_ordinal_type blocksize = (B == 0 ? D_internal_vector_values.extent(1) : B);
         const local_ordinal_type num_vectors = X_internal_vector_values.extent(2);
 
