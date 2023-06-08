@@ -78,6 +78,9 @@
 
 #include <memory>
 
+#include "Ifpack2_BlockHelper.hpp"
+#include "Ifpack2_BlockComputeResidualVector.hpp"
+
 // need to interface this into cmake variable (or only use this flag when it is necessary)
 //#define IFPACK2_BLOCKTRIDICONTAINER_ENABLE_PROFILE
 //#undef  IFPACK2_BLOCKTRIDICONTAINER_ENABLE_PROFILE
@@ -158,19 +161,6 @@ namespace Ifpack2 {
                                  typename ViewType::array_layout,
                                  typename ViewType::execution_space::scratch_memory_space,
                                  MemoryTraits<typename ViewType::memory_traits, Kokkos::Unmanaged> >;
-
-    /// 
-    /// tpetra little block index
-    ///
-    template<typename LayoutType> struct TpetraLittleBlock;
-    template<> struct TpetraLittleBlock<Kokkos::LayoutLeft> {
-      template<typename T> KOKKOS_INLINE_FUNCTION
-      static T getFlatIndex(const T i, const T j, const T blksize) { return i+j*blksize; }
-    };
-    template<> struct TpetraLittleBlock<Kokkos::LayoutRight> {
-      template<typename T> KOKKOS_INLINE_FUNCTION
-      static T getFlatIndex(const T i, const T j, const T blksize) { return i*blksize+j; }
-    };
 
     ///
     /// block tridiag scalar type
@@ -348,105 +338,13 @@ namespace Ifpack2 {
 #endif
 
     ///
-    /// implementation typedefs
-    ///
-    template <typename MatrixType>
-    struct ImplType {
-      ///
-      /// matrix type derived types
-      ///
-      typedef size_t size_type;
-      typedef typename MatrixType::scalar_type scalar_type;
-      typedef typename MatrixType::local_ordinal_type local_ordinal_type;
-      typedef typename MatrixType::global_ordinal_type global_ordinal_type;
-      typedef typename MatrixType::node_type node_type;
-
-      ///
-      /// kokkos arithmetic traits of scalar_type
-      ///
-      typedef typename Kokkos::Details::ArithTraits<scalar_type>::val_type impl_scalar_type;
-      typedef typename Kokkos::ArithTraits<impl_scalar_type>::mag_type magnitude_type;
-
-      typedef typename BlockTridiagScalarType<impl_scalar_type>::type btdm_scalar_type;
-      typedef typename Kokkos::ArithTraits<btdm_scalar_type>::mag_type btdm_magnitude_type;
-
-      ///
-      /// default host execution space
-      ///
-      typedef Kokkos::DefaultHostExecutionSpace host_execution_space;
-
-      ///
-      /// tpetra types
-      ///
-      typedef typename node_type::device_type node_device_type;
-      typedef typename node_device_type::execution_space node_execution_space;
-      typedef typename node_device_type::memory_space node_memory_space;
-
-#if defined(KOKKOS_ENABLE_CUDA) && defined(IFPACK2_BLOCKTRIDICONTAINER_USE_CUDA_SPACE)
-      /// force to use cuda space instead uvm space
-      typedef node_execution_space execution_space;
-      typedef typename std::conditional<std::is_same<node_memory_space,Kokkos::CudaUVMSpace>::value,
-                                        Kokkos::CudaSpace,
-                                        node_memory_space>::type memory_space;
-      typedef Kokkos::Device<execution_space,memory_space> device_type;
-#else
-      typedef node_device_type device_type;
-      typedef node_execution_space execution_space;
-      typedef node_memory_space memory_space;
-#endif
-
-      typedef Tpetra::MultiVector<scalar_type,local_ordinal_type,global_ordinal_type,node_type> tpetra_multivector_type;
-      typedef Tpetra::Map<local_ordinal_type,global_ordinal_type,node_type> tpetra_map_type;
-      typedef Tpetra::Import<local_ordinal_type,global_ordinal_type,node_type> tpetra_import_type;
-      typedef Tpetra::RowMatrix<scalar_type,local_ordinal_type,global_ordinal_type,node_type> tpetra_row_matrix_type;
-      typedef Tpetra::BlockCrsMatrix<scalar_type,local_ordinal_type,global_ordinal_type,node_type> tpetra_block_crs_matrix_type;
-      typedef typename tpetra_block_crs_matrix_type::little_block_type tpetra_block_access_view_type;
-      typedef Tpetra::BlockMultiVector<scalar_type,local_ordinal_type,global_ordinal_type,node_type> tpetra_block_multivector_type;
-      typedef typename tpetra_block_crs_matrix_type::crs_graph_type::local_graph_device_type local_crs_graph_type;
-
-      ///
-      /// simd vectorization
-      ///
-      template<typename T, int l> using Vector = KB::Vector<T,l>;
-      template<typename T> using SIMD = KB::SIMD<T>;
-      template<typename T, typename M> using DefaultVectorLength = KB::DefaultVectorLength<T,M>;
-      template<typename T, typename M> using DefaultInternalVectorLength = KB::DefaultInternalVectorLength<T,M>;
-
-      static constexpr int vector_length = DefaultVectorLength<btdm_scalar_type,memory_space>::value;
-      static constexpr int internal_vector_length = DefaultInternalVectorLength<btdm_scalar_type,memory_space>::value;
-      typedef Vector<SIMD<btdm_scalar_type>,vector_length> vector_type;
-      typedef Vector<SIMD<btdm_scalar_type>,internal_vector_length> internal_vector_type;
-
-      ///
-      /// commonly used view types
-      ///
-      typedef Kokkos::View<size_type*,device_type> size_type_1d_view;
-      typedef Kokkos::View<local_ordinal_type*,device_type> local_ordinal_type_1d_view;
-      // tpetra block crs values
-      typedef Kokkos::View<impl_scalar_type*,device_type> impl_scalar_type_1d_view;
-      typedef Kokkos::View<impl_scalar_type*,node_device_type> impl_scalar_type_1d_view_tpetra;
-
-      // tpetra multivector values (layout left): may need to change the typename more explicitly
-      typedef Kokkos::View<impl_scalar_type**,Kokkos::LayoutLeft,device_type> impl_scalar_type_2d_view;
-      typedef Kokkos::View<impl_scalar_type**,Kokkos::LayoutLeft,node_device_type> impl_scalar_type_2d_view_tpetra;
-
-      // packed data always use layout right
-      typedef Kokkos::View<vector_type*,device_type> vector_type_1d_view;
-      typedef Kokkos::View<vector_type***,Kokkos::LayoutRight,device_type> vector_type_3d_view;
-      typedef Kokkos::View<internal_vector_type***,Kokkos::LayoutRight,device_type> internal_vector_type_3d_view;
-      typedef Kokkos::View<internal_vector_type****,Kokkos::LayoutRight,device_type> internal_vector_type_4d_view;
-      typedef Kokkos::View<btdm_scalar_type***,Kokkos::LayoutRight,device_type> btdm_scalar_type_3d_view;
-      typedef Kokkos::View<btdm_scalar_type****,Kokkos::LayoutRight,device_type> btdm_scalar_type_4d_view;
-    };
-
-    ///
     /// setup sequential importer
     ///
     template<typename MatrixType>
-    typename Teuchos::RCP<const typename ImplType<MatrixType>::tpetra_import_type>
-    createBlockCrsTpetraImporter(const Teuchos::RCP<const typename ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A) {
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::CreateBlockCrsTpetraImporter");
-      using impl_type = ImplType<MatrixType>;
+    typename Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_import_type>
+    createBlockCrsTpetraImporter(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A) {
+      IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::CreateBlockCrsTpetraImporter");
+      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using tpetra_map_type = typename impl_type::tpetra_map_type;
       using tpetra_mv_type = typename impl_type::tpetra_block_multivector_type;
       using tpetra_import_type = typename impl_type::tpetra_import_type;
@@ -457,7 +355,7 @@ namespace Ifpack2 {
       const auto tgt = Teuchos::rcp(new tpetra_map_type(tpetra_mv_type::makePointMap(*g.getColMap()   , blocksize)));
 
       auto blockCrsTpetraImporter = Teuchos::rcp(new tpetra_import_type(src, tgt));
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(typename ImplType<MatrixType>::execution_space)
+      IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
 
       return blockCrsTpetraImporter;
     }
@@ -470,7 +368,7 @@ namespace Ifpack2 {
     template<typename MatrixType>
     struct AsyncableImport {
     public:
-      using impl_type = ImplType<MatrixType>;
+      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
 
     private:
       ///
@@ -794,7 +692,7 @@ namespace Ifpack2 {
       }
 
       void asyncSendRecvVar1(const impl_scalar_type_2d_view_tpetra &mv) {
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::AsyncableImport::AsyncSendRecv");
+        IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::AsyncableImport::AsyncSendRecv");
 
 #ifdef HAVE_IFPACK2_MPI
         // constants and reallocate data buffers if necessary
@@ -849,7 +747,7 @@ namespace Ifpack2 {
       }
 
       void syncRecvVar1() {
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::AsyncableImport::SyncRecv");
+        IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::AsyncableImport::SyncRecv");
 #ifdef HAVE_IFPACK2_MPI
         // 0. wait for receive async.
         for (local_ordinal_type i=0;i<static_cast<local_ordinal_type>(pids.recv.extent(0));++i) {
@@ -891,7 +789,7 @@ namespace Ifpack2 {
         const local_ordinal_type mv_blocksize = blocksize_*num_vectors;
         const local_ordinal_type idiff = iend_ - ibeg_;
         const auto abase = buffer_.data() + mv_blocksize*ibeg_;
-        if constexpr (is_device<execution_space>::value) {
+        if constexpr (BlockHelperDetails::is_device<execution_space>::value) {
           using team_policy_type = Kokkos::TeamPolicy<execution_space>;
           local_ordinal_type vector_size(0);
           if      (blocksize_ <=  4) vector_size =  4;
@@ -940,7 +838,7 @@ namespace Ifpack2 {
       /// standard comm
       ///
       void asyncSendRecvVar0(const impl_scalar_type_2d_view_tpetra &mv) {
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::AsyncableImport::AsyncSendRecv");
+        IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::AsyncableImport::AsyncSendRecv");
 
 #ifdef HAVE_IFPACK2_MPI
         // constants and reallocate data buffers if necessary
@@ -982,7 +880,7 @@ namespace Ifpack2 {
       }
 
       void syncRecvVar0() {
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::AsyncableImport::SyncRecv");
+        IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::AsyncableImport::SyncRecv");
 #ifdef HAVE_IFPACK2_MPI
         // receive async.
         for (local_ordinal_type i=0,iend=pids.recv.extent(0);i<iend;++i) {
@@ -1023,7 +921,7 @@ namespace Ifpack2 {
       }
 
       void syncExchange(const impl_scalar_type_2d_view_tpetra &mv) {
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::AsyncableImport::SyncExchange");
+        IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::AsyncableImport::SyncExchange");
         asyncSendRecv(mv);
         syncRecv();
         IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(execution_space)
@@ -1037,8 +935,8 @@ namespace Ifpack2 {
     ///
     template<typename MatrixType>
     Teuchos::RCP<AsyncableImport<MatrixType> >
-    createBlockCrsAsyncImporter(const Teuchos::RCP<const typename ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A) {
-      using impl_type = ImplType<MatrixType>;
+    createBlockCrsAsyncImporter(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A) {
+      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using tpetra_map_type = typename impl_type::tpetra_map_type;
       using local_ordinal_type = typename impl_type::local_ordinal_type;
       using global_ordinal_type = typename impl_type::global_ordinal_type;
@@ -1094,66 +992,14 @@ namespace Ifpack2 {
       return Teuchos::null;
     }
 
-    template<typename MatrixType>
-    struct PartInterface {
-      using local_ordinal_type = typename ImplType<MatrixType>::local_ordinal_type;
-      using local_ordinal_type_1d_view = typename ImplType<MatrixType>::local_ordinal_type_1d_view;
-
-      PartInterface() = default;
-      PartInterface(const PartInterface &b) = default;
-
-      // Some terms:
-      //   The matrix A is split as A = D + R, where D is the matrix of tridiag
-      // blocks and R is the remainder.
-      //   A part is roughly a synonym for a tridiag. The distinction is that a part
-      // is the set of rows belonging to one tridiag and, equivalently, the off-diag
-      // rows in R associated with that tridiag. In contrast, the term tridiag is
-      // used to refer specifically to tridiag data, such as the pointer into the
-      // tridiag data array.
-      //   Local (lcl) row arge the LIDs. lclrow lists the LIDs belonging to each
-      // tridiag, and partptr points to the beginning of each tridiag. This is the
-      // LID space.
-      //   Row index (idx) is the ordinal in the tridiag ordering. lclrow is indexed
-      // by this ordinal. This is the 'index' space.
-      //   A flat index is the mathematical index into an array. A pack index
-      // accounts for SIMD packing.
-
-      // Local row LIDs. Permutation from caller's index space to tridiag index
-      // space.
-      local_ordinal_type_1d_view lclrow;
-      // partptr_ is the pointer array into lclrow_.
-      local_ordinal_type_1d_view partptr; // np+1
-      // packptr_(i), for i the pack index, indexes partptr_. partptr_(packptr_(i))
-      // is the start of the i'th pack.
-      local_ordinal_type_1d_view packptr; // npack+1
-      // part2rowidx0_(i) is the flat row index of the start of the i'th part. It's
-      // an alias of partptr_ in the case of no overlap.
-      local_ordinal_type_1d_view part2rowidx0; // np+1
-      // part2packrowidx0_(i) is the packed row index. If vector_length is 1, then
-      // it's the same as part2rowidx0_; if it's > 1, then the value is combined
-      // with i % vector_length to get the location in the packed data.
-      local_ordinal_type_1d_view part2packrowidx0; // np+1
-      local_ordinal_type part2packrowidx0_back; // So we don't need to grab the array from the GPU.
-      // rowidx2part_ maps the row index to the part index.
-      local_ordinal_type_1d_view rowidx2part; // nr
-      // True if lcl{row|col} is at most a constant away from row{idx|col}. In
-      // practice, this knowledge is not particularly useful, as packing for batched
-      // processing is done at the same time as the permutation from LID to index
-      // space. But it's easy to detect, so it's recorded in case an optimization
-      // can be made based on it.
-      bool row_contiguous;
-
-      local_ordinal_type max_partsz;
-    };
-
     ///
     /// setup part interface using the container partitions array
     ///
     template<typename MatrixType>
-    PartInterface<MatrixType>
-    createPartInterface(const Teuchos::RCP<const typename ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A,
-                        const Teuchos::Array<Teuchos::Array<typename ImplType<MatrixType>::local_ordinal_type> > &partitions) {
-      using impl_type = ImplType<MatrixType>;
+    BlockHelperDetails::PartInterface<MatrixType>
+    createPartInterface(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A,
+                        const Teuchos::Array<Teuchos::Array<typename BlockHelperDetails::ImplType<MatrixType>::local_ordinal_type> > &partitions) {
+      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using local_ordinal_type = typename impl_type::local_ordinal_type;
       using local_ordinal_type_1d_view = typename impl_type::local_ordinal_type_1d_view;
 
@@ -1161,7 +1007,7 @@ namespace Ifpack2 {
 
       const auto comm = A->getRowMap()->getComm();
 
-      PartInterface<MatrixType> interf;
+      BlockHelperDetails::PartInterface<MatrixType> interf;
 
       const bool jacobi = partitions.size() == 0;
       const local_ordinal_type A_n_lclrows = A->getLocalNumRows();
@@ -1175,7 +1021,7 @@ namespace Ifpack2 {
         for (local_ordinal_type i=0;i<nparts;++i) nrows += partitions[i].size();
 
       TEUCHOS_TEST_FOR_EXCEPT_MSG
-        (nrows != A_n_lclrows, get_msg_prefix(comm) << "The #rows implied by the local partition is not "
+        (nrows != A_n_lclrows, BlockHelperDetails::get_msg_prefix(comm) << "The #rows implied by the local partition is not "
          << "the same as getLocalNumRows: " << nrows << " vs " << A_n_lclrows);
 #endif
 
@@ -1225,7 +1071,7 @@ namespace Ifpack2 {
 	for (local_ordinal_type ip=0;ip<nparts;++ip) {
 	  const local_ordinal_type ipnrows = 1;
 	  TEUCHOS_TEST_FOR_EXCEPT_MSG(ipnrows == 0,
-				      get_msg_prefix(comm)
+				      BlockHelperDetails::get_msg_prefix(comm)
 				      << "partition " << p[ip]
 				      << " is empty, which is not allowed.");
 	  //assume No overlap.
@@ -1238,7 +1084,7 @@ namespace Ifpack2 {
 	  for (local_ordinal_type i=0;i<ipnrows;++i) {
 	    const auto lcl_row = ip;
 	    TEUCHOS_TEST_FOR_EXCEPT_MSG(lcl_row < 0 || lcl_row >= A_n_lclrows,
-					get_msg_prefix(comm)
+					BlockHelperDetails::get_msg_prefix(comm)
 					<< "partitions[" << p[ip] << "]["
 					<< i << "] = " << lcl_row
 					<< " but input matrix implies limits of [0, " << A_n_lclrows-1
@@ -1256,7 +1102,7 @@ namespace Ifpack2 {
 	  const local_ordinal_type ipnrows = part->size();
 	  TEUCHOS_ASSERT(ip == 0 || (ipnrows <= static_cast<local_ordinal_type>(partitions[p[ip-1]].size())));
 	  TEUCHOS_TEST_FOR_EXCEPT_MSG(ipnrows == 0,
-				      get_msg_prefix(comm)
+				      BlockHelperDetails::get_msg_prefix(comm)
 				      << "partition " << p[ip]
 				      << " is empty, which is not allowed.");
 	  //assume No overlap.
@@ -1269,7 +1115,7 @@ namespace Ifpack2 {
 	  for (local_ordinal_type i=0;i<ipnrows;++i) {
 	    const auto lcl_row = (*part)[i];
 	    TEUCHOS_TEST_FOR_EXCEPT_MSG(lcl_row < 0 || lcl_row >= A_n_lclrows,
-					get_msg_prefix(comm)
+					BlockHelperDetails::get_msg_prefix(comm)
 					<< "partitions[" << p[ip] << "]["
 					<< i << "] = " << lcl_row
 					<< " but input matrix implies limits of [0, " << A_n_lclrows-1
@@ -1319,7 +1165,7 @@ namespace Ifpack2 {
     ///
     template <typename MatrixType>
     struct BlockTridiags {
-      using impl_type = ImplType<MatrixType>;
+      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using local_ordinal_type_1d_view = typename impl_type::local_ordinal_type_1d_view;
       using size_type_1d_view = typename impl_type::size_type_1d_view;
       using vector_type_3d_view = typename impl_type::vector_type_3d_view;
@@ -1362,8 +1208,8 @@ namespace Ifpack2 {
     ///
     template<typename MatrixType>
     BlockTridiags<MatrixType>
-    createBlockTridiags(const PartInterface<MatrixType> &interf) {
-      using impl_type = ImplType<MatrixType>;
+    createBlockTridiags(const BlockHelperDetails::PartInterface<MatrixType> &interf) {
+      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using execution_space = typename impl_type::execution_space;
       using local_ordinal_type = typename impl_type::local_ordinal_type;
       using size_type = typename impl_type::size_type;
@@ -1441,9 +1287,9 @@ namespace Ifpack2 {
     void
     setTridiagsToIdentity
       (const BlockTridiags<MatrixType>& btdm,
-       const typename ImplType<MatrixType>::local_ordinal_type_1d_view& packptr)
+       const typename BlockHelperDetails::ImplType<MatrixType>::local_ordinal_type_1d_view& packptr)
     {
-      using impl_type = ImplType<MatrixType>;
+      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using execution_space = typename impl_type::execution_space;
       using local_ordinal_type = typename impl_type::local_ordinal_type;
       using size_type_1d_view = typename impl_type::size_type_1d_view;
@@ -1528,47 +1374,18 @@ namespace Ifpack2 {
     }
 
     ///
-    /// A - Tridiags(A), i.e., R in the splitting A = D + R.
-    ///
-    template <typename MatrixType>
-    struct AmD {
-      using impl_type = ImplType<MatrixType>;
-      using local_ordinal_type_1d_view = typename impl_type::local_ordinal_type_1d_view;
-      using size_type_1d_view = typename impl_type::size_type_1d_view;
-      using impl_scalar_type_1d_view_tpetra = Unmanaged<typename impl_type::impl_scalar_type_1d_view_tpetra>;
-      // rowptr points to the start of each row of A_colindsub.
-      size_type_1d_view rowptr, rowptr_remote;
-      // Indices into A's rows giving the blocks to extract. rowptr(i) points to
-      // the i'th row. Thus, g.entries(A_colindsub(rowptr(row) : rowptr(row+1))),
-      // where g is A's graph, are the columns AmD uses. If seq_method_, then
-      // A_colindsub contains all the LIDs and A_colindsub_remote is empty. If !
-      // seq_method_, then A_colindsub contains owned LIDs and A_colindsub_remote
-      // contains the remote ones.
-      local_ordinal_type_1d_view A_colindsub, A_colindsub_remote;
-
-      // Currently always true.
-      bool is_tpetra_block_crs;
-
-      // If is_tpetra_block_crs, then this is a pointer to A_'s value data.
-      impl_scalar_type_1d_view_tpetra tpetra_values;
-
-      AmD() = default;
-      AmD(const AmD &b) = default;
-    };
-
-    ///
     /// symbolic phase, on host : create R = A - D, pack D
     ///
     template<typename MatrixType>
     void
-    performSymbolicPhase(const Teuchos::RCP<const typename ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A,
-                         const PartInterface<MatrixType> &interf,
+    performSymbolicPhase(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A,
+                         const BlockHelperDetails::PartInterface<MatrixType> &interf,
                          BlockTridiags<MatrixType> &btdm,
-                         AmD<MatrixType> &amd,
+                         BlockHelperDetails::AmD<MatrixType> &amd,
                          const bool overlap_communication_and_computation) {
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::SymbolicPhase");
+      IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::SymbolicPhase");
 
-      using impl_type = ImplType<MatrixType>;
+      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       // using node_memory_space = typename impl_type::node_memory_space;
       using host_execution_space = typename impl_type::host_execution_space;
 
@@ -1615,7 +1432,7 @@ namespace Ifpack2 {
               const local_ordinal_type lc = colmap->getLocalElement(gid);
 #  if defined(BLOCKTRIDICONTAINER_DEBUG)
               TEUCHOS_TEST_FOR_EXCEPT_MSG(lc == Teuchos::OrdinalTraits<local_ordinal_type>::invalid(),
-                                          get_msg_prefix(comm) << "GID " << gid
+                                          BlockHelperDetails::get_msg_prefix(comm) << "GID " << gid
                                           << " gives an invalid local column.");
 #  endif
               col2row(lc) = lr;
@@ -1644,7 +1461,7 @@ namespace Ifpack2 {
         }
 
         // count (block) nnzs in D and R.
-        typedef SumReducer<size_type,3,host_execution_space> sum_reducer_type;
+        typedef BlockHelperDetails::SumReducer<size_type,3,host_execution_space> sum_reducer_type;
         typename sum_reducer_type::value_type sum_reducer_value;
         {
           const Kokkos::RangePolicy<host_execution_space> policy(0,nrows);
@@ -1790,7 +1607,7 @@ namespace Ifpack2 {
           }
 
           // exclusive scan
-          typedef ArrayValueType<size_type,2> update_type;
+          typedef BlockHelperDetails::ArrayValueType<size_type,2> update_type;
           {
             Kokkos::RangePolicy<host_execution_space> policy(0,nrows+1);
             Kokkos::parallel_scan
@@ -1850,7 +1667,7 @@ namespace Ifpack2 {
                                
         }
       }
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(typename ImplType<MatrixType>::execution_space)
+      IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
     }
 
 
@@ -1988,7 +1805,7 @@ namespace Ifpack2 {
     template<typename MatrixType>
     struct ExtractAndFactorizeTridiags {
     public:
-      using impl_type = ImplType<MatrixType>;
+      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       // a functor cannot have both device_type and execution_space; specialization error in kokkos
       using execution_space = typename impl_type::execution_space;
       using memory_space = typename impl_type::memory_space;
@@ -2042,7 +1859,7 @@ namespace Ifpack2 {
 
     public:
       ExtractAndFactorizeTridiags(const BlockTridiags<MatrixType> &btdm_,
-                                  const PartInterface<MatrixType> &interf_,
+                                  const BlockHelperDetails::PartInterface<MatrixType> &interf_,
                                   const Teuchos::RCP<const block_crs_matrix_type> &A_,
                                   const magnitude_type& tiny_) :
         // interface
@@ -2080,7 +1897,7 @@ namespace Ifpack2 {
       void
       extract(local_ordinal_type partidx,
               local_ordinal_type npacks) const {
-        using tlb = TpetraLittleBlock<Tpetra::Impl::BlockCrsMatrixLittleBlockArrayLayout>;
+        using tlb = BlockHelperDetails::TpetraLittleBlock<Tpetra::Impl::BlockCrsMatrixLittleBlockArrayLayout>;
         const size_type kps = pack_td_ptr(partidx);
         local_ordinal_type kfs[vector_length] = {};
         local_ordinal_type ri0[vector_length] = {};
@@ -2128,7 +1945,7 @@ namespace Ifpack2 {
               const local_ordinal_type &partidxbeg,
               const local_ordinal_type &npacks,
               const local_ordinal_type &vbeg) const {
-        using tlb = TpetraLittleBlock<Tpetra::Impl::BlockCrsMatrixLittleBlockArrayLayout>;
+        using tlb = BlockHelperDetails::TpetraLittleBlock<Tpetra::Impl::BlockCrsMatrixLittleBlockArrayLayout>;
         local_ordinal_type kfs_vals[internal_vector_length] = {};
         local_ordinal_type ri0_vals[internal_vector_length] = {};
         local_ordinal_type nrows_vals[internal_vector_length] = {};
@@ -2300,14 +2117,14 @@ namespace Ifpack2 {
     ///
     template<typename MatrixType>
     void
-    performNumericPhase(const Teuchos::RCP<const typename ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A,
-                        const PartInterface<MatrixType> &interf,
+    performNumericPhase(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A,
+                        const BlockHelperDetails::PartInterface<MatrixType> &interf,
                         BlockTridiags<MatrixType> &btdm,
-                        const typename ImplType<MatrixType>::magnitude_type tiny) {
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::NumericPhase");
+                        const typename BlockHelperDetails::ImplType<MatrixType>::magnitude_type tiny) {
+      IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::NumericPhase");
       ExtractAndFactorizeTridiags<MatrixType> function(btdm, interf, A, tiny);
       function.run();
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(typename ImplType<MatrixType>::execution_space)
+      IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
     }
 
     ///
@@ -2316,7 +2133,7 @@ namespace Ifpack2 {
     template<typename MatrixType>
     struct MultiVectorConverter {
     public:
-      using impl_type = ImplType<MatrixType>;
+      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using execution_space = typename impl_type::execution_space;
       using memory_space = typename impl_type::memory_space;
 
@@ -2359,7 +2176,7 @@ namespace Ifpack2 {
 
     public:
 
-      MultiVectorConverter(const PartInterface<MatrixType> &interf,
+      MultiVectorConverter(const BlockHelperDetails::PartInterface<MatrixType> &interf,
                            const vector_type_3d_view &pmv)
         : partptr(interf.partptr),
           packptr(interf.packptr),
@@ -2429,10 +2246,10 @@ namespace Ifpack2 {
 
       void run(const const_impl_scalar_type_2d_view_tpetra &scalar_multivector_) {
         IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_BEGIN;
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::MultiVectorConverter");
+        IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::MultiVectorConverter");
 
         scalar_multivector = scalar_multivector_;
-        if constexpr (is_device<execution_space>::value) {
+        if constexpr (BlockHelperDetails::is_device<execution_space>::value) {
           const local_ordinal_type vl = vector_length;
           const Kokkos::TeamPolicy<execution_space> policy(packptr.extent(0) - 1, Kokkos::AUTO(), vl);
           Kokkos::parallel_for
@@ -2592,7 +2409,7 @@ namespace Ifpack2 {
     template<typename MatrixType>
     struct SolveTridiags {
     public:
-      using impl_type = ImplType<MatrixType>;
+      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using execution_space = typename impl_type::execution_space;
 
       using local_ordinal_type = typename impl_type::local_ordinal_type;
@@ -2650,7 +2467,7 @@ namespace Ifpack2 {
       const bool compute_diff;
 
     public:
-      SolveTridiags(const PartInterface<MatrixType> &interf,
+      SolveTridiags(const BlockHelperDetails::PartInterface<MatrixType> &interf,
                     const BlockTridiags<MatrixType> &btdm,
                     const vector_type_3d_view &pmv,
                     const impl_scalar_type damping_factor,
@@ -3035,7 +2852,7 @@ namespace Ifpack2 {
       void run(const impl_scalar_type_2d_view_tpetra &Y,
                const impl_scalar_type_1d_view &Z) {
         IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_BEGIN;
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::SolveTridiags");
+        IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::SolveTridiags");
 
         /// set vectors
         this->Y_scalar_multivector = Y;
@@ -3157,7 +2974,7 @@ namespace Ifpack2 {
     template<typename MatrixType>
     struct ComputeResidualVector {
     public:
-      using impl_type = ImplType<MatrixType>;
+      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using node_device_type = typename impl_type::node_device_type;
       using execution_space = typename impl_type::execution_space;
       using memory_space = typename impl_type::memory_space;
@@ -3216,10 +3033,10 @@ namespace Ifpack2 {
 
     public:
       template<typename LocalCrsGraphType>
-      ComputeResidualVector(const AmD<MatrixType> &amd,
+      ComputeResidualVector(const BlockHelperDetails::AmD<MatrixType> &amd,
                             const LocalCrsGraphType &graph,
                             const local_ordinal_type &blocksize_requested_,
-                            const PartInterface<MatrixType> &interf,
+                            const BlockHelperDetails::PartInterface<MatrixType> &interf,
                             const local_ordinal_type_1d_view &dm2cm_)
         : rowptr(amd.rowptr), rowptr_remote(amd.rowptr_remote),
           colindsub(amd.A_colindsub), colindsub_remote(amd.A_colindsub_remote),
@@ -3242,7 +3059,7 @@ namespace Ifpack2 {
                  const impl_scalar_type * const KOKKOS_RESTRICT AA,
                  const impl_scalar_type * const KOKKOS_RESTRICT xx,
                  /* */ impl_scalar_type * KOKKOS_RESTRICT yy) const {
-        using tlb = TpetraLittleBlock<Tpetra::Impl::BlockCrsMatrixLittleBlockArrayLayout>;
+        using tlb = BlockHelperDetails::TpetraLittleBlock<Tpetra::Impl::BlockCrsMatrixLittleBlockArrayLayout>;
         for (local_ordinal_type k0=0;k0<blocksize;++k0) {
           impl_scalar_type val = 0;
 #if defined(KOKKOS_ENABLE_PRAGMA_IVDEP)
@@ -3816,12 +3633,12 @@ namespace Ifpack2 {
     };
 
     template<typename MatrixType>
-    void reduceVector(const ConstUnmanaged<typename ImplType<MatrixType>::impl_scalar_type_1d_view> zz,
-                      /* */ typename ImplType<MatrixType>::magnitude_type *vals) {
+    void reduceVector(const ConstUnmanaged<typename BlockHelperDetails::ImplType<MatrixType>::impl_scalar_type_1d_view> zz,
+                      /* */ typename BlockHelperDetails::ImplType<MatrixType>::magnitude_type *vals) {
       IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_BEGIN;
       IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::ReduceVector");
 
-      using impl_type = ImplType<MatrixType>;
+      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using local_ordinal_type = typename impl_type::local_ordinal_type;
       using impl_scalar_type = typename impl_type::impl_scalar_type;
 #if 0
@@ -3838,7 +3655,7 @@ namespace Ifpack2 {
       vals[0] = Kokkos::ArithTraits<impl_scalar_type>::abs(norm2);
 
       IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_END;
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(typename ImplType<MatrixType>::execution_space)
+      IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
     }
 
     ///
@@ -3847,7 +3664,7 @@ namespace Ifpack2 {
     template<typename MatrixType>
     struct NormManager {
     public:
-      using impl_type = ImplType<MatrixType>;
+      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using host_execution_space = typename impl_type::host_execution_space;
       using magnitude_type = typename impl_type::magnitude_type;
 
@@ -3973,30 +3790,30 @@ namespace Ifpack2 {
     template<typename MatrixType>
     int
     applyInverseJacobi(// importer
-                       const Teuchos::RCP<const typename ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A,
-                       const Teuchos::RCP<const typename ImplType<MatrixType>::tpetra_import_type> &tpetra_importer,
+                       const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A,
+                       const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_import_type> &tpetra_importer,
                        const Teuchos::RCP<AsyncableImport<MatrixType> > &async_importer,
                        const bool overlap_communication_and_computation,
                        // tpetra interface
-                       const typename ImplType<MatrixType>::tpetra_multivector_type &X,  // tpetra interface
-                       /* */ typename ImplType<MatrixType>::tpetra_multivector_type &Y,  // tpetra interface
-                       /* */ typename ImplType<MatrixType>::tpetra_multivector_type &Z,  // temporary tpetra interface (seq_method)
-                       /* */ typename ImplType<MatrixType>::impl_scalar_type_1d_view &W,  // temporary tpetra interface (diff)
+                       const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_multivector_type &X,  // tpetra interface
+                       /* */ typename BlockHelperDetails::ImplType<MatrixType>::tpetra_multivector_type &Y,  // tpetra interface
+                       /* */ typename BlockHelperDetails::ImplType<MatrixType>::tpetra_multivector_type &Z,  // temporary tpetra interface (seq_method)
+                       /* */ typename BlockHelperDetails::ImplType<MatrixType>::impl_scalar_type_1d_view &W,  // temporary tpetra interface (diff)
                        // local object interface
-                       const PartInterface<MatrixType> &interf, // mesh interface
+                       const BlockHelperDetails::PartInterface<MatrixType> &interf, // mesh interface
                        const BlockTridiags<MatrixType> &btdm, // packed block tridiagonal matrices
-                       const AmD<MatrixType> &amd, // R = A - D
-                       /* */ typename ImplType<MatrixType>::vector_type_1d_view &work, // workspace for packed multivector of right hand side
-                       /* */ NormManager<MatrixType> &norm_manager,
+                       const BlockHelperDetails::AmD<MatrixType> &amd, // R = A - D
+                       /* */ typename BlockHelperDetails::ImplType<MatrixType>::vector_type_1d_view &work, // workspace for packed multivector of right hand side
+                       /* */ BlockHelperDetails::NormManager<MatrixType> &norm_manager,
                        // preconditioner parameters
-                       const typename ImplType<MatrixType>::impl_scalar_type &damping_factor,
+                       const typename BlockHelperDetails::ImplType<MatrixType>::impl_scalar_type &damping_factor,
                        /* */ bool is_y_zero,
                        const int max_num_sweeps,
-                       const typename ImplType<MatrixType>::magnitude_type tol,
+                       const typename BlockHelperDetails::ImplType<MatrixType>::magnitude_type tol,
                        const int check_tol_every) {
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::ApplyInverseJacobi");
+      IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ApplyInverseJacobi");
 
-      using impl_type = ImplType<MatrixType>;
+      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using node_memory_space = typename impl_type::node_memory_space;
       using local_ordinal_type = typename impl_type::local_ordinal_type;
       using size_type = typename impl_type::size_type;
@@ -4075,7 +3892,7 @@ namespace Ifpack2 {
                                                damping_factor, is_norm_manager_active);
 
       const local_ordinal_type_1d_view dummy_local_ordinal_type_1d_view;
-      ComputeResidualVector<MatrixType>
+      BlockHelperDetails::ComputeResidualVector<MatrixType>
         compute_residual_vector(amd, A->getCrsGraph().getLocalGraphDevice(), blocksize, interf,
                                 is_async_importer_active ? async_importer->dm2cm : dummy_local_ordinal_type_1d_view);
 
@@ -4131,7 +3948,7 @@ namespace Ifpack2 {
         {
           if (is_norm_manager_active) {
             // y(lclrow) = (b - a) y(lclrow) + a pmv, with b = 1 always.
-            reduceVector<MatrixType>(W, norm_manager.getBuffer());
+            BlockHelperDetails::reduceVector<MatrixType>(W, norm_manager.getBuffer());
             if (sweep + 1 == max_num_sweeps) {
               norm_manager.ireduce(sweep, true);
               norm_manager.checkDone(sweep + 1, tolerance, true);
@@ -4152,11 +3969,11 @@ namespace Ifpack2 {
 
     template<typename MatrixType>
     struct ImplObject {
-      using impl_type = ImplType<MatrixType>;
-      using part_interface_type = PartInterface<MatrixType>;
+      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
+      using part_interface_type = BlockHelperDetails::PartInterface<MatrixType>;
       using block_tridiags_type = BlockTridiags<MatrixType>;
-      using amd_type = AmD<MatrixType>;
-      using norm_manager_type = NormManager<MatrixType>;
+      using amd_type = BlockHelperDetails::AmD<MatrixType>;
+      using norm_manager_type = BlockHelperDetails::NormManager<MatrixType>;
       using async_import_type = AsyncableImport<MatrixType>;
 
       // distructed objects
