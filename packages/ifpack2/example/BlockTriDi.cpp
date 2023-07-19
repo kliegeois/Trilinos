@@ -112,7 +112,7 @@ static Teuchos::RCP<Xpetra::Matrix<SC,LO,GO,NO> > BuildMatrix(Teuchos::Parameter
   ny = matrixList.get("ny", ny);
   nz = matrixList.get("nz", nz);
   
-  std::string matrixType = matrixList.get("matrixType","Laplace1D");
+  std::string matrixType = matrixList.get("matrixType","Laplace3D");
   RCP<const Map> map;
   if (matrixType == "Laplace1D")
     map = Galeri::Xpetra::CreateMap<LO,GO,NO>(lib, "Cartesian1D", comm, matrixList);
@@ -570,14 +570,14 @@ main (int argc, char* argv[])
     Ablock->apply(*X,*temp);
   }
 
-  if(use_BlockJacobi) {
+  if(!use_BlockJacobi) {
     // Create Ifpack2 preconditioner.
     if(rank0) std::cout<<"Creating preconditioner..."<<std::endl;
     RCP<BTDC> precond;
 
     {
       Teuchos::TimeMonitor precSetupTimeMon (*precSetupTime);
-      precond = rcp(new BTDC(Ablock,parts,args.overlapCommAndComp));
+      precond = rcp(new BTDC(Ablock,parts,2,args.overlapCommAndComp));
 
         if(args.overlapCommAndComp) {
           if(rank0) std::cout<<"With overlapCommAndComp..."<<std::endl;

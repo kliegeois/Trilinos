@@ -125,7 +125,7 @@ namespace Ifpack2 {
     impl_->Z = typename impl_type::tpetra_multivector_type();
     impl_->W = typename impl_type::impl_scalar_type_1d_view();
 
-    impl_->part_interface  = BlockTriDiSchurContainerDetails::createPartInterface<MatrixType>(impl_->A, partitions);
+    impl_->part_interface  = BlockTriDiSchurContainerDetails::createPartInterface<MatrixType>(impl_->A, partitions, n_subparts_per_part_);
     impl_->block_tridiags  = BlockTriDiSchurContainerDetails::createBlockTridiags<MatrixType>(impl_->part_interface);
     impl_->norm_manager    = BlockHelperDetails::NormManager<MatrixType>(impl_->A->getComm());
   }
