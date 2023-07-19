@@ -82,6 +82,7 @@ namespace Ifpack2 {
     struct PartInterface {
       using local_ordinal_type = typename BlockHelperDetails::ImplType<MatrixType>::local_ordinal_type;
       using local_ordinal_type_1d_view = typename BlockHelperDetails::ImplType<MatrixType>::local_ordinal_type_1d_view;
+      using local_ordinal_type_2d_view = typename BlockHelperDetails::ImplType<MatrixType>::local_ordinal_type_2d_view;
 
       PartInterface() = default;
       PartInterface(const PartInterface &b) = default;
@@ -112,16 +113,20 @@ namespace Ifpack2 {
       // packptr_(i), for i the pack index, indexes partptr_. partptr_(packptr_(i))
       // is the start of the i'th pack.
       local_ordinal_type_1d_view packptr; // npack+1
+      local_ordinal_type_1d_view packptr_sub;
       // part2rowidx0_(i) is the flat row index of the start of the i'th part. It's
       // an alias of partptr_ in the case of no overlap.
       local_ordinal_type_1d_view part2rowidx0; // np+1
+      local_ordinal_type_1d_view part2rowidx0_sub;
       // part2packrowidx0_(i) is the packed row index. If vector_length is 1, then
       // it's the same as part2rowidx0_; if it's > 1, then the value is combined
       // with i % vector_length to get the location in the packed data.
       local_ordinal_type_1d_view part2packrowidx0; // np+1
+      local_ordinal_type_1d_view part2packrowidx0_sub;
       local_ordinal_type part2packrowidx0_back; // So we don't need to grab the array from the GPU.
       // rowidx2part_ maps the row index to the part index.
       local_ordinal_type_1d_view rowidx2part; // nr
+      local_ordinal_type_1d_view rowidx2part_sub;
       // True if lcl{row|col} is at most a constant away from row{idx|col}. In
       // practice, this knowledge is not particularly useful, as packing for batched
       // processing is done at the same time as the permutation from LID to index

@@ -894,14 +894,20 @@ namespace Ifpack2 {
         interf.max_partsz = partsz[0].first;
       }
 
+      std::cout << "max_partsz = " << interf.max_partsz << std::endl;
+
       // allocate parts
       interf.partptr = local_ordinal_type_1d_view(do_not_initialize_tag("partptr"), nparts + 1);
       interf.lclrow = local_ordinal_type_1d_view(do_not_initialize_tag("lclrow"), A_n_lclrows);
-      interf.part2rowidx0 = local_ordinal_type_1d_view(do_not_initialize_tag("part2rowidx0"), nparts + 1); //n_sub_parts_and_schur
-      interf.part2packrowidx0 = local_ordinal_type_1d_view(do_not_initialize_tag("part2packrowidx0"), nparts + 1); //n_sub_parts_and_schur
+      interf.part2rowidx0 = local_ordinal_type_1d_view(do_not_initialize_tag("part2rowidx0"), nparts + 1);
+      interf.part2packrowidx0 = local_ordinal_type_1d_view(do_not_initialize_tag("part2packrowidx0"), nparts + 1);
       interf.rowidx2part = local_ordinal_type_1d_view(do_not_initialize_tag("rowidx2part"), A_n_lclrows);
 
-      interf.partptr_sub = local_ordinal_type_1d_view(do_not_initialize_tag("partptr"), n_sub_parts_and_schur + 1);
+      interf.part2rowidx0_sub = local_ordinal_type_1d_view(do_not_initialize_tag("part2rowidx0_sub"), n_sub_parts_and_schur + 1);
+      interf.part2packrowidx0_sub = local_ordinal_type_1d_view(do_not_initialize_tag("part2packrowidx0_sub"), n_sub_parts_and_schur + 1); //local_ordinal_type_2d_view
+      interf.rowidx2part_sub = local_ordinal_type_1d_view(do_not_initialize_tag("rowidx2part"), A_n_lclrows);
+
+      interf.partptr_sub = local_ordinal_type_1d_view(do_not_initialize_tag("partptr_sub"), n_sub_parts_and_schur + 1);
 
       // mirror to host and compute on host execution space
       const auto partptr = Kokkos::create_mirror_view(interf.partptr);
@@ -912,12 +918,17 @@ namespace Ifpack2 {
       const auto part2packrowidx0 = Kokkos::create_mirror_view(interf.part2packrowidx0);
       const auto rowidx2part = Kokkos::create_mirror_view(interf.rowidx2part);
 
+      const auto part2rowidx0_sub = Kokkos::create_mirror_view(interf.part2rowidx0_sub);
+      const auto part2packrowidx0_sub = Kokkos::create_mirror_view(interf.part2packrowidx0_sub);
+      const auto rowidx2part_sub = Kokkos::create_mirror_view(interf.rowidx2part_sub);
+
       // Determine parts.
       interf.row_contiguous = true;
       partptr(0) = 0;
       part2rowidx0(0) = 0;
       part2packrowidx0(0) = 0;
       local_ordinal_type pack_nrows = 0;
+      local_ordinal_type pack_nrows_sub = 0;
       if (jacobi) {
         for (local_ordinal_type ip=0;ip<nparts;++ip) {
           const local_ordinal_type ipnrows = 1;
@@ -960,11 +971,14 @@ namespace Ifpack2 {
                     << " is empty, which is not allowed.");
           //assume No overlap.
           part2rowidx0(ip+1) = part2rowidx0(ip) + ipnrows;
+          std::cout << "part2rowidx0(" << ip << ") = " << part2rowidx0(ip) << " part2rowidx0(" << ip+1 << ") = " << part2rowidx0(ip+1) << std::endl;
           // Since parts are ordered in nonincreasing size, the size of the first
           // part in a pack is the size for all parts in the pack.
           if (ip % vector_length == 0) pack_nrows = ipnrows;
           part2packrowidx0(ip+1) = part2packrowidx0(ip) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows : 0);
-          //std::cout << "part2packrowidx0(" << ip+1 << ") = " << part2packrowidx0(ip+1) << std::endl;
+          std::cout << "part2packrowidx0(" << ip << ") = " << part2packrowidx0(ip);
+          std::cout << " part2packrowidx0(" << ip+1 << ") = " << part2packrowidx0(ip+1);
+          std::cout << " " << bool((ip+1) % vector_length == 0) << " " << bool(ip+1 == nparts) << std::endl;
           const local_ordinal_type os = partptr(ip);
           for (local_ordinal_type i=0;i<ipnrows;++i) {
             const auto lcl_row = (*part)[i];
@@ -975,20 +989,33 @@ namespace Ifpack2 {
                 << " but input matrix implies limits of [0, " << A_n_lclrows-1
                 << "].");
             lclrow(os+i) = lcl_row;
+            std::cout << "lclrow(" << os+i << ") = " << lcl_row << std::endl;
             rowidx2part(os+i) = ip;
+            std::cout << "rowidx2part(" << os+i << ") = " << ip << std::endl;
             if (interf.row_contiguous && os+i > 0 && lclrow((os+i)-1) + 1 != lcl_row)
               interf.row_contiguous = false;
           }
           partptr(ip+1) = os + ipnrows;
 
-          printf("ip = %d, os = %d, ipnrows = %d;\n", ip, os, ipnrows);
+          printf("Part index = ip = %d, first LID associated to the part = partptr(ip) = os = %d, part->size() = ipnrows = %d;\n", ip, os, ipnrows);
           //printf("partptr(%d+1) = %d\n", ip, partptr(ip+1));
         }
 
         partptr_sub(0) = 0;
+        part2rowidx0_sub(0) = 0;
+        part2packrowidx0_sub(0) = 0;
+        const local_ordinal_type number_pack_per_sub_part = ceil(nparts/vector_length);
+
         for (local_ordinal_type ip=0;ip<nparts;++ip) {
+          const auto* part = &partitions[p[ip]];
+          const local_ordinal_type ipnrows = part->size();
           const local_ordinal_type first_sub_part_index = ip * (2*n_subparts_per_part - 1);
           const local_ordinal_type full_line_length = partptr(ip+1) - partptr(ip);
+
+          TEUCHOS_TEST_FOR_EXCEPTION
+            (full_line_length != ipnrows, std::logic_error, 
+            "In the part " << ip );  
+
           const local_ordinal_type connection_length = 2;
 
           if (full_line_length < n_subparts_per_part + (n_subparts_per_part - 1) * connection_length )
@@ -999,13 +1026,32 @@ namespace Ifpack2 {
           const local_ordinal_type sub_line_length = floor((full_line_length - (n_subparts_per_part - 1) * connection_length) / n_subparts_per_part);
           const local_ordinal_type last_sub_line_length = full_line_length - (n_subparts_per_part - 1) * (connection_length + sub_line_length);
 
-          for (local_ordinal_type sub_ip=0;sub_ip<n_subparts_per_part;++sub_ip) {
+          if (ip % vector_length == 0) pack_nrows_sub = ipnrows;
+
+          for (local_ordinal_type local_sub_ip=0; local_sub_ip<n_subparts_per_part;++local_sub_ip) {
+            const local_ordinal_type sub_ip = first_sub_part_index + 2*local_sub_ip;
             if (sub_ip != n_subparts_per_part-1) {
-              partptr_sub(first_sub_part_index + 2*sub_ip + 1) = partptr_sub(first_sub_part_index + 2*sub_ip) + sub_line_length;
-              partptr_sub(first_sub_part_index + 2*sub_ip + 2) = partptr_sub(first_sub_part_index + 2*sub_ip + 1) + connection_length;
+              partptr_sub(sub_ip + 1) = partptr_sub(sub_ip) + sub_line_length;
+              partptr_sub(sub_ip + 2) = partptr_sub(sub_ip + 1) + connection_length;
+
+              part2rowidx0_sub(sub_ip + 1) = part2rowidx0_sub(sub_ip) + sub_line_length;
+              part2rowidx0_sub(sub_ip + 2) = part2rowidx0_sub(sub_ip + 1) + connection_length;
+
+              //if (ip % vector_length == 0) pack_nrows_sub = sub_line_length;
+              //part2packrowidx0_sub(sub_ip + 1) = part2packrowidx0_sub(sub_ip) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows_sub : 0);
+              //if (ip % vector_length == 0) pack_nrows_sub = connection_length;
+              //part2packrowidx0_sub(sub_ip + 2) = part2packrowidx0_sub(sub_ip + 1) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows_sub : 0);
+
+              printf("Sub Part index = %d, first LID associated to the sub part = %d, sub part size = %d;\n", sub_ip, partptr_sub(sub_ip), sub_line_length);
+              printf("Sub Part index Schur = %d, first LID associated to the sub part = %d, sub part size = %d;\n", sub_ip + 1, partptr_sub(sub_ip + 1), connection_length);
             }
             else {
-              partptr_sub(first_sub_part_index + 2*sub_ip + 1) = partptr_sub(first_sub_part_index + 2*sub_ip) + last_sub_line_length;
+              partptr_sub(sub_ip + 1) = partptr_sub(sub_ip) + last_sub_line_length;
+              part2rowidx0_sub(sub_ip + 1) = part2rowidx0_sub(sub_ip) + last_sub_line_length;
+
+              //if (ip % vector_length == 0) pack_nrows_sub = last_sub_line_length;
+              //part2packrowidx0_sub(sub_ip + 1) = part2packrowidx0_sub(sub_ip) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows_sub : 0);
+              printf("Sub Part index = %d, first LID associated to the sub part = %d, sub part size = %d;\n", sub_ip, partptr_sub(sub_ip), last_sub_line_length);
             }
           }
         }
@@ -1021,10 +1067,10 @@ namespace Ifpack2 {
       Kokkos::deep_copy(interf.partptr, partptr);
       Kokkos::deep_copy(interf.lclrow, lclrow);
 
-      //std::cout << "nrows = " << std::endl;
-      //std::cout << partptr(partptr.extent(0) - 1) << std::endl;
-      //std::cout << interf.partptr(interf.partptr.extent(0) - 1) << std::endl;
-      //std::cout << "nrows ends" << std::endl;
+      std::cout << "nrows = " << std::endl;
+      std::cout << partptr(partptr.extent(0) - 1) << std::endl;
+      std::cout << interf.partptr(interf.partptr.extent(0) - 1) << std::endl;
+      std::cout << "nrows ends" << std::endl;
 
       //std::cout << "partptr.extent(0) = " << partptr.extent(0) << std::endl;
 
@@ -1042,9 +1088,9 @@ namespace Ifpack2 {
         for (local_ordinal_type ip=1;ip<=nparts;++ip) //n_sub_parts_and_schur
           if (part2packrowidx0(ip) != part2packrowidx0(ip-1))
             ++npacks;
-        //std::cout << "Number of packs is npacks = " << npacks << std::endl;
-        //std::cout << "Number of parts is nparts = " << nparts << std::endl;
-        //std::cout << "Number of sub parts is n_sub_parts = " << n_sub_parts << std::endl;
+        std::cout << "Number of packs is npacks = " << npacks << std::endl;
+        std::cout << "Number of parts is nparts = " << nparts << std::endl;
+        std::cout << "Number of sub parts is n_sub_parts = " << n_sub_parts << std::endl;
 
         interf.packptr = local_ordinal_type_1d_view(do_not_initialize_tag("packptr"), npacks + 1);
         const auto packptr = Kokkos::create_mirror_view(interf.packptr);
@@ -1124,6 +1170,8 @@ namespace Ifpack2 {
 
       const local_ordinal_type ntridiags = interf.partptr.extent(0) - 1;
 
+      std::cout << "ntridiags = " << ntridiags << std::endl;
+
       { // construct the flat index pointers into the tridiag values array.
         btdm.flat_td_ptr = size_type_1d_view(do_not_initialize_tag("btdm.flat_td_ptr"), ntridiags + 1);
         const Kokkos::RangePolicy<execution_space> policy(0,ntridiags + 1);
@@ -1148,13 +1196,16 @@ namespace Ifpack2 {
         btdm.pack_td_ptr = btdm.flat_td_ptr;
       } else {
         const local_ordinal_type npacks = interf.packptr.extent(0) - 1;
+        std::cout << "npacks = " << npacks << std::endl;
         btdm.pack_td_ptr = size_type_1d_view(do_not_initialize_tag("btdm.pack_td_ptr"), ntridiags + 1);
         const Kokkos::RangePolicy<execution_space> policy(0,npacks);
+        std::cout << " start createBlockTridiags::RangePolicy::pack_td_ptr " << std::endl;
         Kokkos::parallel_scan
           ("createBlockTridiags::RangePolicy::pack_td_ptr",
            policy, KOKKOS_LAMBDA(const local_ordinal_type &i, size_type &update, const bool &final) {
             const local_ordinal_type parti      = interf.packptr(i);
             const local_ordinal_type parti_next = interf.packptr(i+1);
+            std::cout << " parti = " << parti << " parti_next = " << parti_next <<  " ntridiags = " << ntridiags<< " i = " << i << std::endl;
             if (final) {
               const size_type nblks = update;
               for (local_ordinal_type pti=parti;pti<parti_next;++pti)
@@ -1169,6 +1220,7 @@ namespace Ifpack2 {
               update += btdm.NumBlocks(nrows);
             }
           });
+        std::cout << " end createBlockTridiags::RangePolicy::pack_td_ptr " << std::endl;
       }
 
       // values and A_colindsub are created in the symbolic phase
@@ -1194,6 +1246,7 @@ namespace Ifpack2 {
       (const BlockTridiags<MatrixType>& btdm,
        const typename BlockHelperDetails::ImplType<MatrixType>::local_ordinal_type_1d_view& packptr)
     {
+      std::cout << " start setTridiagsToIdentity " << std::endl;
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using execution_space = typename impl_type::execution_space;
       using local_ordinal_type = typename impl_type::local_ordinal_type;
@@ -1276,6 +1329,7 @@ namespace Ifpack2 {
               });
           });
       }
+      std::cout << " end setTridiagsToIdentity " << std::endl;
     }
 
     ///
@@ -1288,7 +1342,7 @@ namespace Ifpack2 {
                          BlockTridiags<MatrixType> &btdm,
                          BlockHelperDetails::AmD<MatrixType> &amd,
                          const bool overlap_communication_and_computation) {
-      //std::cout << " performSymbolicPhase start " << std::endl;
+      std::cout << " performSymbolicPhase start " << std::endl;
       IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchur::SymbolicPhase");
       //std::cout << " performSymbolicPhase a0 " << std::endl;
 
@@ -1619,7 +1673,7 @@ namespace Ifpack2 {
         }
       }
 
-      //std::cout << " performSymbolicPhase end " << std::endl;
+      std::cout << " performSymbolicPhase end " << std::endl;
     }
 
 
