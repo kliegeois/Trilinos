@@ -122,7 +122,7 @@ namespace Ifpack2 {
       // it's the same as part2rowidx0_; if it's > 1, then the value is combined
       // with i % vector_length to get the location in the packed data.
       local_ordinal_type_1d_view part2packrowidx0; // np+1
-      local_ordinal_type_1d_view part2packrowidx0_sub;
+      local_ordinal_type_2d_view part2packrowidx0_sub;
       local_ordinal_type part2packrowidx0_back; // So we don't need to grab the array from the GPU.
       // rowidx2part_ maps the row index to the part index.
       local_ordinal_type_1d_view rowidx2part; // nr

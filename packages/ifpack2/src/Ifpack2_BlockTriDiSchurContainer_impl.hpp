@@ -843,6 +843,7 @@ namespace Ifpack2 {
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using local_ordinal_type = typename impl_type::local_ordinal_type;
       using local_ordinal_type_1d_view = typename impl_type::local_ordinal_type_1d_view;
+      using local_ordinal_type_2d_view = typename impl_type::local_ordinal_type_2d_view;
 
       constexpr int vector_length = impl_type::vector_length;
 
@@ -904,7 +905,7 @@ namespace Ifpack2 {
       interf.rowidx2part = local_ordinal_type_1d_view(do_not_initialize_tag("rowidx2part"), A_n_lclrows);
 
       interf.part2rowidx0_sub = local_ordinal_type_1d_view(do_not_initialize_tag("part2rowidx0_sub"), n_sub_parts_and_schur + 1);
-      interf.part2packrowidx0_sub = local_ordinal_type_1d_view(do_not_initialize_tag("part2packrowidx0_sub"), n_sub_parts_and_schur + 1); //local_ordinal_type_2d_view
+      interf.part2packrowidx0_sub = local_ordinal_type_2d_view(do_not_initialize_tag("part2packrowidx0_sub"), nparts + 1, 2 * n_subparts_per_part - 1); //local_ordinal_type_2d_view
       interf.rowidx2part_sub = local_ordinal_type_1d_view(do_not_initialize_tag("rowidx2part"), A_n_lclrows);
 
       interf.partptr_sub = local_ordinal_type_1d_view(do_not_initialize_tag("partptr_sub"), n_sub_parts_and_schur + 1);
@@ -1003,7 +1004,8 @@ namespace Ifpack2 {
 
         partptr_sub(0) = 0;
         part2rowidx0_sub(0) = 0;
-        part2packrowidx0_sub(0) = 0;
+        for (local_ordinal_type local_sub_ip=0; local_sub_ip<2 * n_subparts_per_part - 1;++local_sub_ip)
+          part2packrowidx0_sub(0, local_sub_ip) = 0;
         const local_ordinal_type number_pack_per_sub_part = ceil(nparts/vector_length);
 
         for (local_ordinal_type ip=0;ip<nparts;++ip) {
@@ -1037,10 +1039,10 @@ namespace Ifpack2 {
               part2rowidx0_sub(sub_ip + 1) = part2rowidx0_sub(sub_ip) + sub_line_length;
               part2rowidx0_sub(sub_ip + 2) = part2rowidx0_sub(sub_ip + 1) + connection_length;
 
-              //if (ip % vector_length == 0) pack_nrows_sub = sub_line_length;
-              //part2packrowidx0_sub(sub_ip + 1) = part2packrowidx0_sub(sub_ip) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows_sub : 0);
-              //if (ip % vector_length == 0) pack_nrows_sub = connection_length;
-              //part2packrowidx0_sub(sub_ip + 2) = part2packrowidx0_sub(sub_ip + 1) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows_sub : 0);
+              if (ip % vector_length == 0) pack_nrows_sub = sub_line_length;
+              part2packrowidx0_sub(ip + 1, 2 * local_sub_ip) = part2packrowidx0_sub(ip, 2 * local_sub_ip) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows_sub : 0);
+              if (ip % vector_length == 0) pack_nrows_sub = connection_length;
+              part2packrowidx0_sub(ip + 1, 2 * local_sub_ip + 1) = part2packrowidx0_sub(ip, 2 * local_sub_ip + 1) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows_sub : 0);
 
               printf("Sub Part index = %d, first LID associated to the sub part = %d, sub part size = %d;\n", sub_ip, partptr_sub(sub_ip), sub_line_length);
               printf("Sub Part index Schur = %d, first LID associated to the sub part = %d, sub part size = %d;\n", sub_ip + 1, partptr_sub(sub_ip + 1), connection_length);
@@ -1049,8 +1051,8 @@ namespace Ifpack2 {
               partptr_sub(sub_ip + 1) = partptr_sub(sub_ip) + last_sub_line_length;
               part2rowidx0_sub(sub_ip + 1) = part2rowidx0_sub(sub_ip) + last_sub_line_length;
 
-              //if (ip % vector_length == 0) pack_nrows_sub = last_sub_line_length;
-              //part2packrowidx0_sub(sub_ip + 1) = part2packrowidx0_sub(sub_ip) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows_sub : 0);
+              if (ip % vector_length == 0) pack_nrows_sub = last_sub_line_length;
+              part2packrowidx0_sub(ip + 1, 2 * local_sub_ip) = part2packrowidx0_sub(ip, 2 * local_sub_ip) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows_sub : 0);
               printf("Sub Part index = %d, first LID associated to the sub part = %d, sub part size = %d;\n", sub_ip, partptr_sub(sub_ip), last_sub_line_length);
             }
           }
