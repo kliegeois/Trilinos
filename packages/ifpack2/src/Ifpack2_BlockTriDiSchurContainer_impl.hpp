@@ -1113,11 +1113,30 @@ namespace Ifpack2 {
 
 
         npacks = 0;
-        for (local_ordinal_type ip=1;ip<=nparts;++ip) //n_sub_parts_and_schur
+        for (local_ordinal_type ip=1;ip<=nparts;++ip)
           if (part2packrowidx0_sub(ip,0) != part2packrowidx0_sub(ip-1,0))
             ++npacks;
         local_ordinal_type npacks_per_subpart = npacks;
         npacks *= part2packrowidx0_sub.extent(1);
+
+        interf.packindices_sub = local_ordinal_type_1d_view(do_not_initialize_tag("packindices_sub"), npacks_per_subpart*n_subparts_per_part);
+        interf.packindices_schur = local_ordinal_type_1d_view(do_not_initialize_tag("packindices_schur"), npacks_per_subpart*(n_subparts_per_part-1));
+
+        const auto packindices_sub = Kokkos::create_mirror_view(interf.packindices_sub);
+        const auto packindices_schur = Kokkos::create_mirror_view(interf.packindices_schur);
+
+
+        // Fill packindices_sub and packindices_schur
+        for (local_ordinal_type local_sub_ip=0; local_sub_ip<n_subparts_per_part;++local_sub_ip)
+          for (local_ordinal_type local_pack_ip=0; local_pack_ip<npacks_per_subpart;++local_pack_ip)
+            packindices_sub(local_sub_ip * npacks_per_subpart + local_pack_ip) = 2 * local_sub_ip * npacks_per_subpart + local_pack_ip;
+
+        for (local_ordinal_type local_sub_ip=0; local_sub_ip<n_subparts_per_part-1;++local_sub_ip)
+          for (local_ordinal_type local_pack_ip=0; local_pack_ip<npacks_per_subpart;++local_pack_ip)
+            packindices_schur(local_sub_ip * npacks_per_subpart + local_pack_ip) = 2 * local_sub_ip * npacks_per_subpart + local_pack_ip + npacks_per_subpart;
+
+        Kokkos::deep_copy(interf.packindices_sub, packindices_sub);
+        Kokkos::deep_copy(interf.packindices_schur, packindices_schur);
 
         interf.packptr_sub = local_ordinal_type_1d_view(do_not_initialize_tag("packptr"), npacks + 1);
         const auto packptr_sub = Kokkos::create_mirror_view(interf.packptr_sub);
