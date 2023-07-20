@@ -1088,23 +1088,52 @@ namespace Ifpack2 {
       { // Fill packptr.
         local_ordinal_type npacks = 0;
         for (local_ordinal_type ip=1;ip<=nparts;++ip) //n_sub_parts_and_schur
+          if (part2packrowidx0_sub(ip,0) != part2packrowidx0_sub(ip-1,0))
+            ++npacks;
+        npacks *= part2packrowidx0_sub.extent(1);
+        std::cout << "Number of packs is npacks 1 = " << npacks << std::endl;
+        npacks = 0;
+        for (local_ordinal_type ip=1;ip<=nparts;++ip) //n_sub_parts_and_schur
           if (part2packrowidx0(ip) != part2packrowidx0(ip-1))
             ++npacks;
-        std::cout << "Number of packs is npacks = " << npacks << std::endl;
+        std::cout << "Number of packs is npacks = " << npacks << std::endl;        
         std::cout << "Number of parts is nparts = " << nparts << std::endl;
         std::cout << "Number of sub parts is n_sub_parts = " << n_sub_parts << std::endl;
 
         interf.packptr = local_ordinal_type_1d_view(do_not_initialize_tag("packptr"), npacks + 1);
         const auto packptr = Kokkos::create_mirror_view(interf.packptr);
         packptr(0) = 0;
-        //for (local_ordinal_type ip=1,k=1;ip<=n_sub_parts_and_schur;++ip)
         for (local_ordinal_type ip=1,k=1;ip<=nparts;++ip)
           if (part2packrowidx0(ip) != part2packrowidx0(ip-1))
             packptr(k++) = ip;
         
         for (local_ordinal_type k=0;k<npacks + 1;++k)
-          ;//std::cout << "packptr(" << k << ") = " << packptr(k) << std::endl;
+          std::cout << "packptr(" << k << ") = " << packptr(k) << std::endl;
         Kokkos::deep_copy(interf.packptr, packptr);
+
+
+        npacks = 0;
+        for (local_ordinal_type ip=1;ip<=nparts;++ip) //n_sub_parts_and_schur
+          if (part2packrowidx0_sub(ip,0) != part2packrowidx0_sub(ip-1,0))
+            ++npacks;
+        local_ordinal_type npacks_per_subpart = npacks;
+        npacks *= part2packrowidx0_sub.extent(1);
+
+        interf.packptr_sub = local_ordinal_type_1d_view(do_not_initialize_tag("packptr"), npacks + 1);
+        const auto packptr_sub = Kokkos::create_mirror_view(interf.packptr_sub);
+        packptr_sub(0) = 0;
+        for (local_ordinal_type ip=1,k=1;ip<=nparts;++ip)
+          for (local_ordinal_type local_sub_ip=0; local_sub_ip<2 * n_subparts_per_part - 1;++local_sub_ip) {
+            if (part2packrowidx0_sub(ip, local_sub_ip) != part2packrowidx0_sub(ip-1, local_sub_ip)) {
+              packptr_sub(local_sub_ip * npacks_per_subpart + k) = ip*(2 * n_subparts_per_part - 1) + local_sub_ip;
+              if (local_sub_ip == 2 * n_subparts_per_part - 2)
+                ++k;
+            }
+          }
+
+        for (local_ordinal_type k=0;k<npacks + 1;++k)
+          std::cout << "packptr_sub(" << k << ") = " << packptr_sub(k) << std::endl;
+        Kokkos::deep_copy(interf.packptr_sub, packptr_sub);
       }
 
       return interf;
