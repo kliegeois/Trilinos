@@ -108,7 +108,7 @@ namespace Ifpack2 {
       local_ordinal_type_1d_view lclrow;
       // partptr_ is the pointer array into lclrow_.
       local_ordinal_type_1d_view partptr; // np+1
-      local_ordinal_type_1d_view partptr_sub;
+      local_ordinal_type_2d_view partptr_sub;
       local_ordinal_type_1d_view partptr_schur;
       // packptr_(i), for i the pack index, indexes partptr_. partptr_(packptr_(i))
       // is the start of the i'th pack.

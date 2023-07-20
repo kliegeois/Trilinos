@@ -20,7 +20,7 @@ namespace { // (anonymous)
 
 // Values of command-line arguments.
 struct CmdLineArgs {
-  CmdLineArgs ():blockSize(-1),numIters(10),tol(1e-12),nx(172),ny(-1),nz(-1),mx(1),my(1),mz(1),sublinesPerLine(1),sublinesPerLineSchur(1),useStackedTimer(false),overlapCommAndComp(false){}
+  CmdLineArgs ():blockSize(-1),numIters(10),tol(1e-12),nx(172),ny(-1),nz(-1),mx(1),my(1),mz(1),sublinesPerLine(1),sublinesPerLineSchur(2),useStackedTimer(false),overlapCommAndComp(false){}
 
   std::string mapFilename;
   std::string matrixFilename;
