@@ -40,27 +40,49 @@
 // ************************************************************************
 // @HEADER
 
-#include "MockModelEval_B_Tpetra.hpp"
+#include "MassSpringDamperModel.hpp"
 #include "Thyra_LinearOpWithSolveBase_decl.hpp"
 
+#include "Thyra_ProductVectorBase.hpp"
+#include "Thyra_DefaultProductVectorSpace.hpp"
 
 #include <iostream>
 
 using Teuchos::RCP;
 using Teuchos::rcp;
 
-MockModelEval_B_Tpetra::MockModelEval_B_Tpetra(const Teuchos::RCP<const Teuchos::Comm<int> >  appComm, bool /*adjoint*/, const Teuchos::RCP<Teuchos::ParameterList>& problemList, bool hessianSupport) //problem is self-adjoint
+MassSpringDamperModel::MassSpringDamperModel(const Teuchos::RCP<const Teuchos::Comm<int> >  appComm, bool adjoint, const Teuchos::RCP<Teuchos::ParameterList>& problemList, bool hessianSupport)
  {
     comm = appComm;
     hessSupport = hessianSupport;
+    adjoint_ = adjoint;
+
+    std::cout << "adjoint_ = " << adjoint_ << std::endl;
+
+    target_x_ = 1;
+    target_x_dot_ = 0;
+    scaling_ = 0.02;
+
+    scaling_g_x_ = 1.;
+    scaling_g_p_ = 100.;
+
+    target_k_ = 1;
+    target_m_ = 0.5;
 
     //set up map and initial guess for solution vector
-    const int vecLength = 4;
-    x_map = rcp(new Tpetra_Map(vecLength, 0, comm));
+    const int vecLength = 2;
+    x_map = rcp(new Tpetra_Map(vecLength, comm->getRank() == 0 ? vecLength : 0, 0, comm));
     x_vec = rcp(new Tpetra_Vector(x_map));
     x_dot_vec = rcp(new Tpetra_Vector(x_map));
-    x_vec->putScalar(3.0);
-    x_dot_vec->putScalar(1.0);
+
+    if(x_map->isNodeGlobalElement(0))
+      x_vec->getDataNonConst()[x_map->getLocalElement(0)]= 0.0;
+    if(x_map->isNodeGlobalElement(1))
+      x_vec->getDataNonConst()[x_map->getLocalElement(1)]= 0.0;
+    if(x_map->isNodeGlobalElement(0))
+      x_dot_vec->getDataNonConst()[x_map->getLocalElement(0)]= 0.0;
+    if(x_map->isNodeGlobalElement(1))
+      x_dot_vec->getDataNonConst()[x_map->getLocalElement(1)]= 1.0;                                  // F/m with F == m == 1
 
     Teuchos::RCP<const Thyra::VectorSpaceBase<double>> x_space =
         Thyra::createVectorSpace<double>(x_map);
@@ -76,14 +98,14 @@ MockModelEval_B_Tpetra::MockModelEval_B_Tpetra(const Teuchos::RCP<const Teuchos:
     Teuchos::RCP<const Thyra::VectorSpaceBase<double>> p_space =
         Thyra::createVectorSpace<double>(p_map);
 
-
+    //std::cout << "MassSpringDamperModel::MassSpringDamperModel c " << std::endl;
     Teuchos::RCP<Tpetra_Vector> p_init = rcp(new Tpetra_Vector(p_map));
     Teuchos::RCP<Tpetra_Vector> p_lo = rcp(new Tpetra_Vector(p_map));
     Teuchos::RCP<Tpetra_Vector> p_up = rcp(new Tpetra_Vector(p_map));
     for (int i=0; i<numParameters; i++) {
       p_init->getDataNonConst()[i]= 1.0;
-      p_lo->getDataNonConst()[i]= 0.1;
-      p_up->getDataNonConst()[i]= 10.0;
+      p_lo->getDataNonConst()[i]= 0.5;
+      p_up->getDataNonConst()[i]= 1.5;
     }
 
     p_vec = rcp(new Tpetra_Vector(p_map));
@@ -98,7 +120,7 @@ MockModelEval_B_Tpetra::MockModelEval_B_Tpetra(const Teuchos::RCP<const Teuchos:
       for (int i=0; i<nodeNumElements; i++)
         crs_graph->insertGlobalIndices(x_map->getGlobalElement(i), vecLength, &indices[0]);
     }
-    crs_graph->fillComplete();
+    crs_graph->fillComplete(x_map, x_map);
 
     //set up hessian graph
     hess_crs_graph = rcp(new Tpetra_CrsGraph(p_map, numParameters));
@@ -110,7 +132,7 @@ MockModelEval_B_Tpetra::MockModelEval_B_Tpetra(const Teuchos::RCP<const Teuchos:
       for (int i=0; i<nodeNumElements; i++)
         hess_crs_graph->insertGlobalIndices(p_map->getGlobalElement(i), numParameters, &indices[0]);
     }
-    hess_crs_graph->fillComplete();
+    hess_crs_graph->fillComplete(x_map, x_map);
 
     // Setup nominal values, lower and upper bounds
     nominalValues = this->createInArgsImpl();
@@ -127,12 +149,12 @@ MockModelEval_B_Tpetra::MockModelEval_B_Tpetra(const Teuchos::RCP<const Teuchos:
     probList_ = problemList;
 }
 
-MockModelEval_B_Tpetra::~MockModelEval_B_Tpetra()
+MassSpringDamperModel::~MassSpringDamperModel()
 {
 }
 
 Teuchos::RCP<const Thyra::VectorSpaceBase<double>>
-MockModelEval_B_Tpetra::get_x_space() const
+MassSpringDamperModel::get_x_space() const
 {
   Teuchos::RCP<const Thyra::VectorSpaceBase<double>> x_space =
       Thyra::createVectorSpace<double>(x_map);
@@ -140,7 +162,7 @@ MockModelEval_B_Tpetra::get_x_space() const
 }
 
 Teuchos::RCP<const Thyra::VectorSpaceBase<double>>
-MockModelEval_B_Tpetra::get_f_space() const
+MassSpringDamperModel::get_f_space() const
 {
   Teuchos::RCP<const Thyra::VectorSpaceBase<double>> f_space =
       Thyra::createVectorSpace<double>(x_map);
@@ -148,7 +170,7 @@ MockModelEval_B_Tpetra::get_f_space() const
 }
 
 Teuchos::RCP<const Thyra::VectorSpaceBase<double>>
-MockModelEval_B_Tpetra::get_p_space(int l) const
+MassSpringDamperModel::get_p_space(int l) const
 {
   TEUCHOS_TEST_FOR_EXCEPTION(l != 0, std::logic_error,
                      std::endl <<
@@ -161,11 +183,11 @@ MockModelEval_B_Tpetra::get_p_space(int l) const
 }
 
 Teuchos::RCP<const Thyra::VectorSpaceBase<double>>
-MockModelEval_B_Tpetra::get_g_space(int l) const
+MassSpringDamperModel::get_g_space(int l) const
 {
   TEUCHOS_TEST_FOR_EXCEPTION(l != 0, std::logic_error,
                      std::endl <<
-                     "Error!  MockModelEval_B_Tpetra::get_g_map() only " <<
+                     "Error!  MassSpringDamperModel::get_g_map() only " <<
                      " supports 1 response.  Supplied index l = " <<
                      l << std::endl);
   Teuchos::RCP<const Thyra::VectorSpaceBase<double>> g_space =
@@ -173,7 +195,7 @@ MockModelEval_B_Tpetra::get_g_space(int l) const
   return g_space;
 }
 
-RCP<const  Teuchos::Array<std::string> > MockModelEval_B_Tpetra::get_p_names(int l) const
+RCP<const  Teuchos::Array<std::string> > MassSpringDamperModel::get_p_names(int l) const
 {
   TEUCHOS_TEST_FOR_EXCEPTION(l != 0, std::logic_error,
                      std::endl <<
@@ -195,8 +217,9 @@ RCP<const  Teuchos::Array<std::string> > MockModelEval_B_Tpetra::get_p_names(int
 
 
 Teuchos::RCP<Thyra::LinearOpBase<double>>
-MockModelEval_B_Tpetra::create_W_op() const
+MassSpringDamperModel::create_W_op() const
 {
+  std::cout << "Inside create_W_op adjoint_ = " << adjoint_ << std::endl;
   const Teuchos::RCP<Tpetra_Operator> W =
       Teuchos::rcp(new Tpetra_CrsMatrix(crs_graph));
   return Thyra::createLinearOp(W);
@@ -204,19 +227,21 @@ MockModelEval_B_Tpetra::create_W_op() const
 
 //! Create preconditioner operator
 Teuchos::RCP<Thyra::PreconditionerBase<double>>
-MockModelEval_B_Tpetra::create_W_prec() const
+MassSpringDamperModel::create_W_prec() const
 {
+  //std::cout << "Inside create_W_prec adjoint_ = " << adjoint_ << std::endl;
   return Teuchos::null;
 }
 
 Teuchos::RCP<const Thyra::LinearOpWithSolveFactoryBase<double>>
-MockModelEval_B_Tpetra::get_W_factory() const
+MassSpringDamperModel::get_W_factory() const
 {
+  //std::cout << "Inside get_W_factory adjoint_ = " << adjoint_ << std::endl;
   return Teuchos::null;
 }
 
 Teuchos::RCP<Thyra::LinearOpBase<double>>
-MockModelEval_B_Tpetra::create_hess_g_pp( int j, int l1, int l2 ) const
+MassSpringDamperModel::create_hess_g_pp( int j, int l1, int l2 ) const
 {
   const Teuchos::RCP<Tpetra_Operator> H =
       Teuchos::rcp(new Tpetra_CrsMatrix(hess_crs_graph));
@@ -224,39 +249,39 @@ MockModelEval_B_Tpetra::create_hess_g_pp( int j, int l1, int l2 ) const
 }
 
 Thyra::ModelEvaluatorBase::InArgs<double>
-MockModelEval_B_Tpetra::getNominalValues() const
+MassSpringDamperModel::getNominalValues() const
 {
   return nominalValues;
 }
 
 Thyra::ModelEvaluatorBase::InArgs<double>
-MockModelEval_B_Tpetra::getLowerBounds() const
+MassSpringDamperModel::getLowerBounds() const
 {
   return lowerBounds;
 }
 
 Thyra::ModelEvaluatorBase::InArgs<double>
-MockModelEval_B_Tpetra::getUpperBounds() const
+MassSpringDamperModel::getUpperBounds() const
 {
   return upperBounds;
 }
 
 
 Thyra::ModelEvaluatorBase::InArgs<double>
-MockModelEval_B_Tpetra::createInArgs() const
+MassSpringDamperModel::createInArgs() const
 {
   return this->createInArgsImpl();
 }
 
 void
-MockModelEval_B_Tpetra::reportFinalPoint(
+MassSpringDamperModel::reportFinalPoint(
     const Thyra::ModelEvaluatorBase::InArgs<double>& /* finalPoint */,
     const bool /* wasSolved */) {
   // Do nothing  
 }
 
 Thyra::ModelEvaluatorBase::OutArgs<double>
-MockModelEval_B_Tpetra::createOutArgsImpl() const
+MassSpringDamperModel::createOutArgsImpl() const
 {
   Thyra::ModelEvaluatorBase::OutArgsSetup<double> result;
   result.setModelEvalDescription(this->description());
@@ -283,16 +308,24 @@ MockModelEval_B_Tpetra::createOutArgsImpl() const
   return result;
 }
 
-void MockModelEval_B_Tpetra::evalModelImpl(
+void MassSpringDamperModel::evalModelImpl(
     const Thyra::ModelEvaluatorBase::InArgs<double>&  inArgs,
     const Thyra::ModelEvaluatorBase::OutArgs<double>& outArgs) const
 {
-
   // Parse InArgs
+
+  std::cout << "Inside evalModelImpl adjoint_ = " << adjoint_ << std::endl;
+
+  if (adjoint_) {
+    std::cout << "Inside evalModelImpl wiht adjoint_ " << std::endl;
+  }
+  else {
+    std::cout << "Inside evalModelImpl wihtout adjoint_ " << std::endl;
+  }
 
   const Teuchos::RCP<const Tpetra_Vector> x_in =
       ConverterT::getConstTpetraVector(inArgs.get_x());
-  if (!Teuchos::nonnull(x_in)) std::cerr << "ERROR: MockModelEval_B_Tpetra requires x as inargs\n";
+  if (!Teuchos::nonnull(x_in)) std::cerr << "ERROR: MassSpringDamperModel requires x as inargs\n";
 
   const Teuchos::RCP<const Tpetra_Vector> x_dot_in =
       Teuchos::nonnull(inArgs.get_x_dot()) ?
@@ -300,8 +333,19 @@ void MockModelEval_B_Tpetra::evalModelImpl(
           Teuchos::null;
 
   const Teuchos::RCP<const Thyra::VectorBase<double>> p_in = inArgs.get_p(0);
-  if (Teuchos::nonnull(p_in))
-    p_vec->assign(*ConverterT::getConstTpetraVector(p_in));
+  if (Teuchos::nonnull(p_in)) {
+    Teuchos::RCP<const Thyra::ProductVectorBase<double>> p_prod_in =
+      Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<double>>(p_in);
+    if(Teuchos::nonnull(p_prod_in)) {
+      if(p_prod_in->productSpace()->numBlocks() == 1) {
+        p_vec->assign(*ConverterT::getConstTpetraVector(p_prod_in->getVectorBlock(0)));
+      } else {
+        std::cerr << "ERROR: MassSpringDamperModel has a parameter with " << p_prod_in->productSpace()->numBlocks() << " blocks \n";
+      }
+    } else {
+      p_vec->assign(*ConverterT::getConstTpetraVector(p_in));
+    }
+  }
 
   int myVecLength = x_in->getLocalLength();
 
@@ -417,11 +461,24 @@ void MockModelEval_B_Tpetra::evalModelImpl(
   auto x = x_in->getData();
   auto p = p_vec->getData();
 
+  auto k = p[0];
+  auto m = p[1];
+
+  double F = 1;
+
   if (f_out != Teuchos::null) {
     f_out->putScalar(0.0);
-    auto f_out_data = f_out->getDataNonConst();
-    for (int i=0; i<myVecLength; i++)
-      f_out_data[i] = x[i];
+
+    if(x_map->isNodeGlobalElement(0) && x_map->isNodeGlobalElement(1)) {
+      f_out->getDataNonConst()[x_map->getLocalElement(0)]= x[x_map->getLocalElement(1)];
+      f_out->getDataNonConst()[x_map->getLocalElement(1)]= - (2*sqrt(m*k)*x[x_map->getLocalElement(1)] + k*x[x_map->getLocalElement(0)] - F ) / m;
+
+      //std::cout << "x = [" << x[x_map->getLocalElement(0)] << " " << x[x_map->getLocalElement(1)] << " ] " << std::endl;
+      //std::cout << "m = " << m << std::endl;
+      //std::cout << "k = " << k << std::endl;
+      //std::cout << "F = " << F << std::endl;
+      //std::cout << "f_out = [" << f_out->getDataNonConst()[x_map->getLocalElement(0)] << " " << f_out->getDataNonConst()[x_map->getLocalElement(1)] << " ] " << std::endl;
+    }
   }
   if (W_out != Teuchos::null) {
     Teuchos::RCP<Tpetra_CrsMatrix> W_out_crs =
@@ -429,11 +486,24 @@ void MockModelEval_B_Tpetra::evalModelImpl(
     W_out_crs->resumeFill();
     W_out_crs->setAllToScalar(0.0);
 
-    double diag=1.0;
-    for (int i=0; i<myVecLength; i++)
-      W_out_crs->replaceLocalValues(i, 1, &diag, &i);
-    if(!Teuchos::nonnull(x_dot_in))
-      W_out_crs->fillComplete();
+    double val;
+    if (comm->getRank() == 0) {
+      for (int row=0; row<myVecLength; ++row) {
+        for (int col=0; col<myVecLength; ++col) {
+          if ( row == 0 && col == 0)
+            val = 0.0;                // d(f0)/d(x0_n)
+          if ( (row == 0 && col == 1 && !adjoint_) || (row == 1 && col == 0 && adjoint_))
+            val = 1.0;                // d(f0)/d(x1_n)
+          if ( (row == 1 && col == 0 && !adjoint_) || (row == 0 && col == 1 && adjoint_))
+            val = -(k/m);             // d(f1)/d(x0_n)
+          if ( row == 1 && col == 1)
+            val = -2*sqrt(k/m);       // d(f1)/d(x1_n)
+          W_out_crs->replaceLocalValues(row, 1, &val, &col);
+          //std::cout << " W_out_crs set " << row << " " << col << " to " << val << std::endl;
+        }
+      }
+    }
+    W_out_crs->fillComplete(x_map, x_map);
   }
 
   auto hess_g_pp = outArgs.supports(Thyra::ModelEvaluator<double>::OUT_ARG_hess_g_pp,0,0,0) ? outArgs.get_hess_g_pp(0,0,0) : Teuchos::null; 
@@ -442,13 +512,15 @@ void MockModelEval_B_Tpetra::evalModelImpl(
       Teuchos::rcp_dynamic_cast<MatrixBased_LOWS>(outArgs.get_hess_g_pp(0,0,0)):
       Teuchos::null;
 
-  // Response: g = 0.5*(p0-6)^2 + 0.5*c*(p1-4)^2 + 0.5*(p0+p1-10)^2
-  // min g(x(p), p) s.t. f(x, p) = 0 reached for p0 = 6, p1 = 4
+  // Response:  g = ( x - target_x )^2 + scaling ( x_dot - target_x_dot )^2
 
-  double term1, term2, term3, c;
-  term1 = p[0]-6;
-  term2 = p[1]-4;
-  term3 = p[0]+p[1]-10;
+  double diff_x, diff_x_dot, diff_k, diff_m, c;
+  if(x_map->isNodeGlobalElement(0) && x_map->isNodeGlobalElement(1)) {
+    diff_x = (x[0] - target_x_);
+    diff_x_dot = (x[1] - target_x_dot_);
+    diff_k = (p[0] - target_k_);
+    diff_m = (p[1] - target_m_);
+  }
   c = 5;
 
   if (Teuchos::nonnull(H_pp_out)) {
@@ -465,7 +537,7 @@ void MockModelEval_B_Tpetra::evalModelImpl(
       vals[1] = 1+c;
       H_pp_out_crs->replaceGlobalValues(1, 2, &vals[0], &indices[0]);
     }
-    H_pp_out_crs->fillComplete();
+    H_pp_out_crs->fillComplete(x_map, x_map);
 
       if(probList_->sublist("Hessian").sublist("Response 0").sublist("Parameter 0").isSublist("H_pp Solver")) {
         auto pl = probList_->sublist("Hessian").sublist("Response 0").sublist("Parameter 0").sublist("H_pp Solver");
@@ -477,21 +549,52 @@ void MockModelEval_B_Tpetra::evalModelImpl(
     dfdp_out->putScalar(0.0);
     auto dfdp_out_data_0 = dfdp_out->getVectorNonConst(0)->getDataNonConst();
     auto dfdp_out_data_1 = dfdp_out->getVectorNonConst(1)->getDataNonConst();
-    for (int i=0; i<myVecLength; i++)
-      dfdp_out_data_1[i] = 0.0;
+
+    if (comm->getRank() == 0) {
+      dfdp_out_data_0[0] = 0.0;
+      dfdp_out_data_1[0] = 0.0;
+      dfdp_out_data_0[1] = -1/sqrt(m*k) * x[1] - 1/m * x[0];
+      dfdp_out_data_1[1] = sqrt(m*k)/std::pow(m,2) * x[1] + k/std::pow(m,2) * x[0] - F/std::pow(m,2);
+
+      double t = inArgs.get_t();
+      std::cout << "dfdp_out = [[" << dfdp_out_data_0[0] << ", " << dfdp_out_data_1[0] << "], [" << dfdp_out_data_0[1] << ", " << dfdp_out_data_1[1] << "]] at x[0] = " << x[0] << " x[1] = " << x[1] << " m = " << m << " k = " << k << " t = " << t << " adjoint_ = " << adjoint_ << std::endl;
+    }
+
+/*
+    if (!is_null(DxDp_in)) {
+      Thyra::ConstDetachedMultiVectorView<Scalar> DxDp( *DxDp_in );
+      dfdp_out_data_0[0] +=  DxDp(1,0);
+      dfdp_out_data_1[0] +=  DxDp(1,1);
+      dfdp_out_data_0[1] += - (2*sqrt(m*k)*DxDp(1,0) + k*DxDp(0,0) - F ) / m;
+      dfdp_out_data_1[0] += - (2*sqrt(m*k)*DxDp(1,1) + k*DxDp(0,1) - F ) / m;
+    }
+*/
   }
 
   if (Teuchos::nonnull(g_out)) {
-    g_out->getDataNonConst()[0] = 0.5*term1*term1 + 0.5*c*term2*term2 + 0.5*term3*term3;
+    if (comm->getRank() == 0) {
+      g_out->getDataNonConst()[0] = scaling_g_x_ * (diff_x*diff_x + scaling_ * diff_x_dot*diff_x_dot)
+      + scaling_g_p_ * (diff_k*diff_k + diff_m*diff_m);
+      double t = inArgs.get_t();
+      std::cout << std::setprecision(9) << "g_out = " << g_out->getDataNonConst()[0] << " x[0] = " << x[0] << " x[1] = " << x[1] << " m = " << m << " k = " << k << " t = " << t << " adjoint_ = " << adjoint_ << std::endl;
+    }
   }
 
   if (dgdx_out != Teuchos::null) {
-    dgdx_out->putScalar(0);
+    if (comm->getRank() == 0) {
+      dgdx_out->getVectorNonConst(0)->getDataNonConst()[0] = scaling_g_x_*2*diff_x;
+      dgdx_out->getVectorNonConst(0)->getDataNonConst()[1] = scaling_g_x_*scaling_*2*diff_x_dot;
+      double t = inArgs.get_t();
+      std::cout << "dgdx_out = [" << dgdx_out->getVectorNonConst(0)->getDataNonConst()[0] << ", " << dgdx_out->getVectorNonConst(0)->getDataNonConst()[1] << "] at x[0] = " << x[0] << " x[1] = " << x[1] << " m = " << m << " k = " << k << " t = " << t << " adjoint_ = " << adjoint_ << std::endl;
+      std::cout << "dgdx_out norm = " << dgdx_out->getVectorNonConst(0)->norm2() << " adjoint_ = " << adjoint_ << std::endl;
+    }
   }
   if (dgdp_out != Teuchos::null) {
     dgdp_out->putScalar(0.0);
-    dgdp_out->getVectorNonConst(0)->getDataNonConst()[0] = term1+term3;
-    dgdp_out->getVectorNonConst(0)->getDataNonConst()[1] = c*term2+term3;
+    dgdp_out->getVectorNonConst(0)->getDataNonConst()[0] = scaling_g_p_*2*diff_k;
+    dgdp_out->getVectorNonConst(0)->getDataNonConst()[1] = scaling_g_p_*2*diff_m;
+    double t = inArgs.get_t();
+    std::cout << "dgdp_out = [" << dgdp_out->getVectorNonConst(0)->getDataNonConst()[0] << ", " << dgdp_out->getVectorNonConst(0)->getDataNonConst()[1] << "] at x[0] = " << x[0] << " x[1] = " << x[1] << " m = " << m << " k = " << k << " t = " << t << " adjoint_ = " << adjoint_ << std::endl;
   }
 
   if (Teuchos::nonnull(f_hess_xx_v_out)) {
@@ -523,10 +626,7 @@ void MockModelEval_B_Tpetra::evalModelImpl(
   }
 
   if (Teuchos::nonnull(g_hess_pp_v_out)) {
-    TEUCHOS_ASSERT(Teuchos::nonnull(p_direction));
-    const auto direction_p = p_direction->getVector(0)->getData();
-    g_hess_pp_v_out->getVectorNonConst(0)->getDataNonConst()[0] = 2*direction_p[0]+direction_p[1];
-    g_hess_pp_v_out->getVectorNonConst(0)->getDataNonConst()[1] = direction_p[0]+(c+1)*direction_p[1];
+    g_hess_pp_v_out->getVectorNonConst(0)->putScalar(0);
   }
 
   // Modify for time dependent (implicit time integration or eigensolves)
@@ -539,11 +639,15 @@ void MockModelEval_B_Tpetra::evalModelImpl(
       beta = 1.0;
     }
 
+    //std::cout << "alpha = " << alpha << " beta = " << beta << std::endl;
+
     if (f_out != Teuchos::null) {
       // f(x, x_dot) = f(x) - x_dot
       auto f_out_data = f_out->getDataNonConst();
-      for (int i=0; i<myVecLength; i++) {
-        f_out_data[i] = -x_dot_in->getData()[i] + f_out->getData()[i];
+      if (comm->getRank() == 0) {
+        for (int i=0; i<myVecLength; i++) {
+          f_out_data[i] -= x_dot_in->getData()[i];
+        }
       }
     }
     if (W_out != Teuchos::null) {
@@ -553,17 +657,30 @@ void MockModelEval_B_Tpetra::evalModelImpl(
       W_out_crs->resumeFill();
       W_out_crs->scale(beta);
 
-      const double diag = -alpha;
-      for (int i=0; i<myVecLength; i++) {
-        W_out_crs->sumIntoLocalValues(i, 1, &diag, &i);
+      if (comm->getRank() == 0) {
+        const double diag = -alpha;
+        for (int i=0; i<myVecLength; i++) {
+          W_out_crs->sumIntoLocalValues(i, 1, &diag, &i);
+        }
       }
-      W_out_crs->fillComplete();
+      W_out_crs->fillComplete(x_map, x_map);
+      if ( adjoint_ )
+      {
+        std::cout << "W_out_crs adjoint_ = " << adjoint_ << " " << beta << " " << alpha << std::endl;
+        std::cout << Teuchos::describe(*W_out_crs, Teuchos::VERB_EXTREME ) << std::endl;
+      }
+      else {
+        std::cout << "W_out_crs adjoint_ = " << adjoint_ << " " << beta << " " << alpha << std::endl;
+        std::cout << Teuchos::describe(*W_out_crs, Teuchos::VERB_EXTREME ) << std::endl;
+      }
+      //std::cout << "W_out_crs adjoint_ = " << adjoint_ << std::endl;
+      //std::cout << Teuchos::describe(*W_out_crs, Teuchos::VERB_EXTREME ) << std::endl;
     }
   }
 }
 
 Thyra::ModelEvaluatorBase::InArgs<double>
-MockModelEval_B_Tpetra::createInArgsImpl() const
+MassSpringDamperModel::createInArgsImpl() const
 {
   Thyra::ModelEvaluatorBase::InArgsSetup<double> result;
   result.setModelEvalDescription(this->description());
@@ -580,3 +697,4 @@ MockModelEval_B_Tpetra::createInArgsImpl() const
 
   return result;
 }
+
