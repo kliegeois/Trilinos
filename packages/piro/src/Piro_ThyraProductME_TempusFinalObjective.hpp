@@ -62,8 +62,6 @@
 #include "ROL_DynamicObjective.hpp"
 #include "ROL_Vector.hpp"
 #include "ROL_ThyraVector.hpp"
-//#include "Piro_ROL_ObserverBase.hpp"
-//#include "Piro_TempusIntegrator.hpp" 
 
 #include "ROL_SerialStationaryControlsConstraint.hpp"
 #include "ROL_SerialStationaryControlsObjective.hpp"

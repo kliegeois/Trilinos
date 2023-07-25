@@ -170,7 +170,6 @@
         <Parameter name="Bound Constrained" type="bool" value="false" />
 
         <Parameter name="Full Space" type="bool" value="false" />
-        <Parameter name="Use NOX Solver" type="bool" value="false" />
 
         <!-- =========== BEGIN ROL INPUT PARAMETER SUBLIST =========== -->
         <ParameterList name="ROL Options">
