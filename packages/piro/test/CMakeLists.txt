@@ -34,6 +34,8 @@ IF (Piro_ENABLE_NOX)
     MockModelEval_B_Tpetra_2_parameters.hpp
     MatrixBased_LOWS.cpp
     MatrixBased_LOWS.hpp
+    MassSpringDamperModel.cpp
+    MassSpringDamperModel.hpp
     NUM_MPI_PROCS 1-4
     ARGS -v
     PASS_REGULAR_EXPRESSION "TEST PASSED"
