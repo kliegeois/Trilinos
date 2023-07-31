@@ -115,6 +115,7 @@ TRIBITS_COPY_FILES_TO_BINARY_DIR(copyTestInputFiles
         input_Analysis_ROL_ReducedSpace_LineSearch_HessianBasedDotProduct.xml
         input_Analysis_ROL_ReducedSpace_Transient.xml
         input_Analysis_ROL_ReducedSpace_Transient_2_parameters.xml
+        input_Analysis_ROL_ReducedSpace_Transient_MSD.xml
         input_Analysis_ROL_ReducedSpace_TrustRegion_HessianBasedDotProduct.xml
         input_Analysis_ROL_ReducedSpace_TrustRegion_HessianBasedDotProduct_2_parameters.xml
         input_Analysis_ROL_ReducedSpace_TrustRegion_BoundConstrained_NOXSolver.xml

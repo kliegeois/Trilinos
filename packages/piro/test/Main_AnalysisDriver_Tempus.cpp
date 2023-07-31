@@ -47,6 +47,7 @@
 #include "MockModelEval_A_Tpetra.hpp"
 #include "MockModelEval_B_Tpetra.hpp"
 #include "MockModelEval_B_Tpetra_2_parameters.hpp"
+#include "MassSpringDamperModel.hpp"
 //#include "ObserveSolution_Epetra.hpp"
 
 #include "Piro_SolverFactory.hpp"
@@ -144,12 +145,13 @@ int main(int argc, char *argv[]) {
 
   //Piro::SolverFactory solverFactory;
 
-  for (int iTest=0; iTest<2; iTest++) {
+  for (int iTest=0; iTest<3; iTest++) {
 
     if (doAll) {
       switch (iTest) {
        case 0: inputFile="input_Analysis_ROL_ReducedSpace_Transient.xml"; break;
        case 1: inputFile="input_Analysis_ROL_ReducedSpace_Transient_2_parameters.xml"; break;
+       case 2: inputFile="input_Analysis_ROL_ReducedSpace_Transient_MSD.xml"; break;
        default : std::cout << "iTest logic error " << std::endl; exit(-1);
       }
     }
@@ -160,13 +162,20 @@ int main(int argc, char *argv[]) {
 
     try {
 
-      std::vector<std::string> mockModels = {"MockModelEval_A_Tpetra", "MockModelEval_B_Tpetra", "MockModelEval_B_Tpetra_2_parameters"};
+      //std::vector<std::string> mockModels = {"MockModelEval_A_Tpetra", "MockModelEval_B_Tpetra", "MockModelEval_B_Tpetra_2_parameters", "MassSpringDamperModel"};
+      std::vector<std::string> mockModels = {"MassSpringDamperModel"};
       for (auto mockModel : mockModels) {
 
-        if (mockModel=="MockModelEval_B_Tpetra_2_parameters" && iTest < 1) {
+        if (mockModel=="MockModelEval_B_Tpetra_2_parameters" && iTest != 1) {
           continue;
         }
-        if (mockModel!="MockModelEval_B_Tpetra_2_parameters" && iTest > 0) {
+        if (mockModel=="MockModelEval_A_Tpetra" && iTest > 0) {
+          continue;
+        }
+        if (mockModel=="MockModelEval_B_Tpetra" && iTest > 0) {
+          continue;
+        }
+        if (mockModel=="MassSpringDamperModel" && iTest != 2) {
           continue;
         }
 
@@ -222,6 +231,15 @@ int main(int argc, char *argv[]) {
             adjointModel = rcp(new Piro::ProductModelEvaluator<double>(adjointModel_tmp,p_indices));
           }
           modelName = "B_2";
+        }
+        else if (mockModel=="MassSpringDamperModel") {
+          RCP<Thyra::ModelEvaluator<double>> model_tmp = rcp(new MassSpringDamperModel(probParams));
+          model = rcp(new Piro::ProductModelEvaluator<double>(model_tmp,p_indices));
+          if(explicitAdjointME) {
+            RCP<Thyra::ModelEvaluator<double>> adjointModel_tmp = rcp(new MassSpringDamperModelAdjoint(probParams));
+            adjointModel = rcp(new Piro::ProductModelEvaluator<double>(adjointModel_tmp,p_indices));
+          }
+          modelName = "MSD";
         }
         if (Proc==0)
           std::cout << "=======================================================================================================\n"
@@ -280,6 +298,10 @@ int main(int argc, char *argv[]) {
           if (mockModel=="MockModelEval_B_Tpetra_2_parameters") {
             p_exact[0] = 4;
             p_exact[1] = 6;
+          }
+          if (mockModel=="MassSpringDamperModel") {
+            p_exact[0] = 1;
+            p_exact[1] = 0.5;
           }
           double tol = 1e-5;
 
