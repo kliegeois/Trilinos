@@ -16,6 +16,8 @@
 #include "Teuchos_StackedTimer.hpp"
 #include <Teuchos_StandardCatchMacros.hpp>
 
+#include <cfenv>
+
 namespace { // (anonymous)
 
 // Values of command-line arguments.
@@ -270,6 +272,7 @@ Teuchos::RCP<Tpetra::BlockCrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node> >
 int
 main (int argc, char* argv[])
 {
+  feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
   using Teuchos::Comm;
   using Teuchos::ParameterList;
   using Teuchos::RCP;
@@ -368,7 +371,11 @@ main (int argc, char* argv[])
     // matrix
     Teuchos::ParameterList plist;
     if(args.matrixType == "") {
-      plist.set("matrixType","Laplace1D");
+      plist.set("matrixType","Laplace3D");
+      plist.set("nx",(GO)15);
+      plist.set("ny",(GO)4);
+      plist.set("nz",(GO)5);
+      plist.set("blockSize", (GO)1);
     } else {
       plist.set("matrixType", args.matrixType);
       plist.set("nx", (GO)args.nx);

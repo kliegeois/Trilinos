@@ -346,8 +346,8 @@ namespace Ifpack2 {
       template<typename T, typename M> using DefaultVectorLength = KB::DefaultVectorLength<T,M>;
       template<typename T, typename M> using DefaultInternalVectorLength = KB::DefaultInternalVectorLength<T,M>;
 
-      static constexpr int vector_length = DefaultVectorLength<btdm_scalar_type,memory_space>::value;
-      static constexpr int internal_vector_length = DefaultInternalVectorLength<btdm_scalar_type,memory_space>::value;
+      static constexpr int vector_length = 1; //DefaultVectorLength<btdm_scalar_type,memory_space>::value;
+      static constexpr int internal_vector_length = 1; //DefaultInternalVectorLength<btdm_scalar_type,memory_space>::value;
       typedef Vector<SIMD<btdm_scalar_type>,vector_length> vector_type;
       typedef Vector<SIMD<btdm_scalar_type>,internal_vector_length> internal_vector_type;
 
@@ -355,6 +355,7 @@ namespace Ifpack2 {
       /// commonly used view types
       ///
       typedef Kokkos::View<size_type*,device_type> size_type_1d_view;
+      typedef Kokkos::View<size_type**,device_type> size_type_2d_view;
       typedef Kokkos::View<local_ordinal_type*,device_type> local_ordinal_type_1d_view;
       typedef Kokkos::View<local_ordinal_type**,device_type> local_ordinal_type_2d_view;
       // tpetra block crs values
@@ -368,10 +369,13 @@ namespace Ifpack2 {
       // packed data always use layout right
       typedef Kokkos::View<vector_type*,device_type> vector_type_1d_view;
       typedef Kokkos::View<vector_type***,Kokkos::LayoutRight,device_type> vector_type_3d_view;
+      typedef Kokkos::View<vector_type****,Kokkos::LayoutRight,device_type> vector_type_4d_view;
       typedef Kokkos::View<internal_vector_type***,Kokkos::LayoutRight,device_type> internal_vector_type_3d_view;
       typedef Kokkos::View<internal_vector_type****,Kokkos::LayoutRight,device_type> internal_vector_type_4d_view;
+      typedef Kokkos::View<internal_vector_type*****,Kokkos::LayoutRight,device_type> internal_vector_type_5d_view;
       typedef Kokkos::View<btdm_scalar_type***,Kokkos::LayoutRight,device_type> btdm_scalar_type_3d_view;
       typedef Kokkos::View<btdm_scalar_type****,Kokkos::LayoutRight,device_type> btdm_scalar_type_4d_view;
+      typedef Kokkos::View<btdm_scalar_type*****,Kokkos::LayoutRight,device_type> btdm_scalar_type_5d_view;
     };
 
 

@@ -139,6 +139,7 @@ namespace Ifpack2 {
       local_ordinal_type max_partsz;
       local_ordinal_type max_subpartsz;
       local_ordinal_type n_subparts_per_part;
+      local_ordinal_type nparts;
     };
 
     ///
