@@ -2483,7 +2483,7 @@ namespace Ifpack2 {
         const local_ordinal_type local_subpartidx = floor(subpartidx/n_parts);
         const local_ordinal_type partidx = subpartidx%n_parts;
 
-        const local_ordinal_type npacks = packptr_sub(packidx+1) - partidx;
+        const local_ordinal_type npacks = packptr_sub(packidx+1) - subpartidx;
         const local_ordinal_type i0 = pack_td_ptr(partidx,local_subpartidx);
         const local_ordinal_type nrows = partptr_sub(subpartidx,1) - partptr_sub(subpartidx,0);
 
