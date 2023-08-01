@@ -1843,7 +1843,7 @@ namespace Ifpack2 {
         const auto one = Kokkos::ArithTraits<btdm_magnitude_type>::one();
         const auto zero = Kokkos::ArithTraits<btdm_magnitude_type>::zero();
 
-        Kokkos::deep_copy(btdm.e_values, one);
+        Kokkos::deep_copy(btdm.e_values, zero);
 
         // TO DO put entries here
       }
@@ -2222,33 +2222,71 @@ namespace Ifpack2 {
           kfs[vi] = flat_td_ptr(partidx,local_subpartidx);
           ri0[vi] = partptr_sub(pack_td_ptr.extent(0)*local_subpartidx + partidx,0);
           nrows[vi] = partptr_sub(pack_td_ptr.extent(0)*local_subpartidx + partidx,1) - ri0[vi];
+          printf("kfs[%d] = %d;\n", vi, kfs[vi]);
+          printf("ri0[%d] = %d;\n", vi, ri0[vi]);
           printf("nrows[%d] = %d;\n", vi, nrows[vi]);
         }
-        for (local_ordinal_type tr=0,j=0;tr<nrows[0];++tr) {
-          for (local_ordinal_type e=0;e<3;++e) {
-            const impl_scalar_type* block[vector_length] = {};
-            for (local_ordinal_type vi=0;vi<npacks;++vi) {
-              const size_type Aj = A_rowptr(lclrow(ri0[vi] + tr)) + A_colindsub(kfs[vi] + j);
-              block[vi] = &A_values(Aj*blocksize_square);
-            }
-            const size_type pi = kps + j;
-            ++j;
-            for (local_ordinal_type ii=0;ii<blocksize;++ii) {
-              for (local_ordinal_type jj=0;jj<blocksize;++jj) {
-                //const auto idx = ii*blocksize + jj;
-                const auto idx = tlb::getFlatIndex(ii, jj, blocksize);
-                auto& v = internal_vector_values(pi, ii, jj, 0);
-                for (local_ordinal_type vi=0;vi<npacks;++vi)
-                  v[vi] = static_cast<btdm_scalar_type>(block[vi][idx]);
+        if (local_subpartidx % 2 == 0) {
+          for (local_ordinal_type tr=0,j=0;tr<nrows[0];++tr) {
+            for (local_ordinal_type e=0;e<3;++e) {
+              const impl_scalar_type* block[vector_length] = {};
+              for (local_ordinal_type vi=0;vi<npacks;++vi) {
+                const size_type Aj = A_rowptr(lclrow(ri0[vi] + tr)) + A_colindsub(kfs[vi] + j);
+                block[vi] = &A_values(Aj*blocksize_square);
+              }
+              const size_type pi = kps + j;
+              ++j;
+              for (local_ordinal_type ii=0;ii<blocksize;++ii) {
+                for (local_ordinal_type jj=0;jj<blocksize;++jj) {
+                  //const auto idx = ii*blocksize + jj;
+                  const auto idx = tlb::getFlatIndex(ii, jj, blocksize);
+                  auto& v = internal_vector_values(pi, ii, jj, 0);
+                  for (local_ordinal_type vi=0;vi<npacks;++vi)
+                    v[vi] = static_cast<btdm_scalar_type>(block[vi][idx]);
+                }
+              }
+
+              if (nrows[0] == 1) break;
+              if (e == 1 && (tr == 0 || tr+1 == nrows[0])) break;
+              for (local_ordinal_type vi=1;vi<npacks;++vi) {
+                if ((e == 0 && nrows[vi] == 1) || (e == 1 && tr+1 == nrows[vi])) {
+                  npacks = vi;
+                  break;
+                }
               }
             }
+          }
+        }
+        else {
+          printf("This is a Schur related extract for local_subpartidx = %d!\n", local_subpartidx);
 
-            if (nrows[0] == 1) break;
-            if (e == 1 && (tr == 0 || tr+1 == nrows[0])) break;
-            for (local_ordinal_type vi=1;vi<npacks;++vi) {
-              if ((e == 0 && nrows[vi] == 1) || (e == 1 && tr+1 == nrows[vi])) {
-                npacks = vi;
-                break;
+          for (local_ordinal_type tr=-1,j=0;tr<nrows[0]+1;++tr) {
+            for (local_ordinal_type e=0;e<3;++e) {
+              const impl_scalar_type* block[vector_length] = {};
+              for (local_ordinal_type vi=0;vi<npacks;++vi) {
+                const size_type Aj = A_rowptr(lclrow(ri0[vi] + tr)) + A_colindsub(kfs[vi] + j);
+                block[vi] = &A_values(Aj*blocksize_square);
+              }
+              const size_type pi = kps + j;
+              printf("extract pi = %ld;\n", pi);
+              ++j;
+              for (local_ordinal_type ii=0;ii<blocksize;++ii) {
+                for (local_ordinal_type jj=0;jj<blocksize;++jj) {
+                  //const auto idx = ii*blocksize + jj;
+                  const auto idx = tlb::getFlatIndex(ii, jj, blocksize);
+                  auto& v = internal_vector_values(pi, ii, jj, 0);
+                  for (local_ordinal_type vi=0;vi<npacks;++vi)
+                    v[vi] = static_cast<btdm_scalar_type>(block[vi][idx]);
+                }
+              }
+
+              if (nrows[0] == 1) break;
+              if (e == 0 && (tr == -1 || tr == nrows[0])) break;
+              for (local_ordinal_type vi=1;vi<npacks;++vi) {
+                if ((e == 0 && nrows[vi] == 1) || (e == 0 && tr == nrows[vi])) {
+                  npacks = vi;
+                  break;
+                }
               }
             }
           }
@@ -2397,8 +2435,9 @@ namespace Ifpack2 {
     public:
 
       struct ExtractAndFactorizeSubLineTag {};
+      struct ExtractBCDTag {};
       struct ComputeETag {};
-      struct ExtractAndFactorizeSchurTag {};
+      struct ComputeAndFactorizeSchurTag {};
 
       KOKKOS_INLINE_FUNCTION
       void
@@ -2444,6 +2483,45 @@ namespace Ifpack2 {
 
       KOKKOS_INLINE_FUNCTION
       void
+      operator() (const ExtractBCDTag &, const member_type &member) const {
+        // btdm is packed and sorted from largest one
+        const local_ordinal_type packidx = packindices_schur(member.league_rank());
+
+        const local_ordinal_type subpartidx = packptr_sub(packidx);
+        const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0)-1;
+        const local_ordinal_type local_subpartidx = floor(subpartidx/n_parts);
+        const local_ordinal_type partidx = subpartidx%n_parts;
+
+        const local_ordinal_type npacks = packptr_sub(packidx+1) - subpartidx;
+        const local_ordinal_type i0 = pack_td_ptr(partidx,local_subpartidx);
+        const local_ordinal_type nrows = partptr_sub(subpartidx,1) - partptr_sub(subpartidx,0);
+
+        if (vector_loop_size == 1) {
+          extract(partidx, local_subpartidx, npacks);
+        }
+        else {
+          TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Not implemented yet.");
+        }
+
+        const size_type kps1 = pack_td_ptr(partidx, local_subpartidx);
+        const size_type kps2 = pack_td_ptr(partidx, local_subpartidx+1)-1;
+
+        const local_ordinal_type r1 = part2packrowidx0_sub(partidx,local_subpartidx)-1;
+        const local_ordinal_type r2 = part2packrowidx0_sub(partidx,local_subpartidx)+2;
+
+        printf("Copy for Schur complement part id = %d from kps1 = %d to r1 = %d and from kps2 = %d to r2 = %d;\n", packidx, kps1, r1, kps2, r2);
+
+        // Need to copy D to e_internal_vector_values.
+        Kokkos::deep_copy(Kokkos::subview(e_internal_vector_values, 0, r1, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), 
+                          Kokkos::subview(internal_vector_values, kps1, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()));
+
+        Kokkos::deep_copy(Kokkos::subview(e_internal_vector_values, 1, r2, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), 
+                          Kokkos::subview(internal_vector_values, kps2, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()));
+
+      }
+      
+      KOKKOS_INLINE_FUNCTION
+      void
       operator() (const ComputeETag &, const member_type &member) const {
         // btdm is packed and sorted from largest one
         const local_ordinal_type packidx = packindices_sub(member.league_rank());
@@ -2474,7 +2552,7 @@ namespace Ifpack2 {
 
       KOKKOS_INLINE_FUNCTION
       void
-      operator() (const ExtractAndFactorizeSchurTag &, const member_type &member) const {
+      operator() (const ComputeAndFactorizeSchurTag &, const member_type &member) const {
         // btdm is packed and sorted from largest one
         const local_ordinal_type packidx = packindices_schur(member.league_rank());
 
@@ -2563,6 +2641,32 @@ namespace Ifpack2 {
         if (packindices_schur.extent(0) != 0)
         {
           {
+            std::cout << "before extract e_scalar_values = " << std::endl;
+            for (local_ordinal_type i1=0;i1<e_scalar_values.extent(0);++i1) {
+              for (local_ordinal_type i2=0;i2<e_scalar_values.extent(1);++i2) {
+                std::cout << "(" << i1 << "," << i2 << ")" << std::endl;
+                for (local_ordinal_type i3=0;i3<e_scalar_values.extent(2);++i3) {
+                  for (local_ordinal_type i4=0;i4<e_scalar_values.extent(3);++i4) {
+                    for (local_ordinal_type i5=0;i5<e_scalar_values.extent(4);++i5) {
+                        std::cout << e_scalar_values(i1,i2,i3,i4,i5) << " ";
+                    }
+                  }
+                }
+                std::cout << std::endl;
+              }
+            }
+            std::cout << "[e_scalar_values]" << std::endl;
+
+            {
+              //std::cout << " Start ExtractBCDTag " << std::endl;
+              Kokkos::TeamPolicy<execution_space,ExtractBCDTag>
+                policy(packindices_schur.extent(0), team_size, vector_loop_size);
+
+              policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
+              Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<ExtractBCDTag>",
+                                  policy, *this);
+            }
+
             std::cout << "before e_scalar_values = " << std::endl;
             for (local_ordinal_type i1=0;i1<e_scalar_values.extent(0);++i1) {
               for (local_ordinal_type i2=0;i2<e_scalar_values.extent(1);++i2) {
@@ -2610,12 +2714,12 @@ namespace Ifpack2 {
           }
 
           {
-            //std::cout << " Start ExtractAndFactorizeSchurTag " << std::endl;
-            Kokkos::TeamPolicy<execution_space,ExtractAndFactorizeSchurTag>
+            //std::cout << " Start ComputeAndFactorizeSchurTag " << std::endl;
+            Kokkos::TeamPolicy<execution_space,ComputeAndFactorizeSchurTag>
               policy(packindices_schur.extent(0), team_size, vector_loop_size);
 
             policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
-            Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<ExtractAndFactorizeSchurTag>",
+            Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<ComputeAndFactorizeSchurTag>",
                                 policy, *this);
           }
         }
