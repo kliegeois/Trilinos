@@ -2088,9 +2088,9 @@ namespace Ifpack2 {
     }
 
     template<typename local_ordinal_type, typename ViewType>
-    void writeBTDValuesToFile (const local_ordinal_type &n_parts, const ViewType &scalar_values, std::string fileName) {
+    void writeBTDValuesToFile (const local_ordinal_type &n_parts, const ViewType &scalar_values_device, std::string fileName) {
 
-      using tlb = BlockHelperDetails::TpetraLittleBlock<Tpetra::Impl::BlockCrsMatrixLittleBlockArrayLayout>;
+      auto scalar_values = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), scalar_values_device);
       std::ofstream myfile;
       myfile.open (fileName);
 
@@ -2102,13 +2102,13 @@ namespace Ifpack2 {
 
       const local_ordinal_type block_size = scalar_values.extent(1);
 
-      const local_ordinal_type n_rows_per_part = (n_blocks_per_part+2)/3;
+      const local_ordinal_type n_rows_per_part = (n_blocks_per_part+2)/3 * block_size;
       const local_ordinal_type n_rows = n_rows_per_part*n_parts;
 
       const local_ordinal_type n_packs = n_parts/n_parts_per_pack;
 
       myfile << "%%nnz = " << nnz; 
-      myfile << " block size = " << scalar_values.extent(1);
+      myfile << " block size = " << block_size;
       myfile << " number of blocks = " << n_blocks;
       myfile << " number of parts = " << n_parts;
       myfile << " number of blocks per part = " << n_blocks_per_part;
@@ -2152,6 +2152,58 @@ namespace Ifpack2 {
       myfile.close();
     }
 
+
+    template<typename local_ordinal_type, typename ViewType>
+    void writeMultiVectorValuesToFile (const local_ordinal_type &n_parts, const ViewType &scalar_values_device, std::string fileName) {
+
+      auto scalar_values = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), scalar_values_device);
+      std::ofstream myfile;
+      myfile.open (fileName);
+
+      const local_ordinal_type n_parts_per_pack = scalar_values.extent(4);
+      const local_ordinal_type n_blocks = scalar_values.extent(1)*n_parts_per_pack;
+      const local_ordinal_type n_blocks_per_part = n_blocks/n_parts;
+
+      const local_ordinal_type block_size = scalar_values.extent(2);
+      const local_ordinal_type n_blocks_cols = scalar_values.extent(0);
+      const local_ordinal_type n_cols = n_blocks_cols * block_size;
+
+      const local_ordinal_type n_rows_per_part = n_blocks_per_part * block_size;
+      const local_ordinal_type n_rows = n_rows_per_part*n_parts;
+
+      const local_ordinal_type n_packs = n_parts/n_parts_per_pack;
+
+      myfile << "%%block size = " << block_size;
+      myfile << " number of blocks = " << n_blocks;
+      myfile << " number of parts = " << n_parts;
+      myfile << " number of blocks per part = " << n_blocks_per_part;
+      myfile << " number of rows = " << n_rows ;
+      myfile << " number of cols = " << n_cols;
+      myfile << " number of packs = " << n_packs << std::endl;
+
+      myfile << n_rows << " " << n_cols << std::endl;     
+
+      local_ordinal_type current_part_idx, current_block_idx, current_row_offset;
+      for (local_ordinal_type i_pack=0;i_pack<n_packs;++i_pack) {
+        for (local_ordinal_type i_part_in_pack=0;i_part_in_pack<n_parts_per_pack;++i_part_in_pack) {
+          current_part_idx = i_part_in_pack + i_pack * n_parts_per_pack;
+          for (local_ordinal_type i_block_in_part=0;i_block_in_part<n_blocks_per_part;++i_block_in_part) {
+            current_block_idx = i_block_in_part + i_pack * n_blocks_per_part;
+
+            for (local_ordinal_type i_in_block=0;i_in_block<block_size;++i_in_block) {
+              for (local_ordinal_type i_block_col=0;i_block_col<n_blocks_cols;++i_block_col) {
+                for (local_ordinal_type j_in_block=0;j_in_block<block_size;++j_in_block) {
+                  myfile << scalar_values(i_block_col,current_block_idx,i_in_block,j_in_block,i_part_in_pack) << " ";
+                }
+              }
+              myfile << std::endl;;
+            }
+          }
+        }
+      }
+
+      myfile.close();
+    }
     
     template<typename MatrixType>
     struct ExtractAndFactorizeTridiags {
@@ -2669,21 +2721,33 @@ namespace Ifpack2 {
         if (packindices_schur.extent(0) != 0)
         {
           {
-            std::cout << "before extract e_scalar_values = " << std::endl;
+
+
             for (local_ordinal_type i1=0;i1<e_scalar_values.extent(0);++i1) {
               for (local_ordinal_type i2=0;i2<e_scalar_values.extent(1);++i2) {
-                std::cout << "(" << i1 << "," << i2 << ")" << std::endl;
                 for (local_ordinal_type i3=0;i3<e_scalar_values.extent(2);++i3) {
                   for (local_ordinal_type i4=0;i4<e_scalar_values.extent(3);++i4) {
                     for (local_ordinal_type i5=0;i5<e_scalar_values.extent(4);++i5) {
-                        std::cout << e_scalar_values(i1,i2,i3,i4,i5) << " ";
+                      e_scalar_values(i1,i2,i3,i4,i5) = i1 == 0 ? -i2 : i2;
                     }
                   }
                 }
-                std::cout << std::endl;
               }
             }
-            std::cout << "[e_scalar_values]" << std::endl;
+
+            writeMultiVectorValuesToFile(part2packrowidx0_sub.extent(0)-1, e_scalar_values, "e_scalar_values_before_extract.mm");
+
+            for (local_ordinal_type i1=0;i1<e_scalar_values.extent(0);++i1) {
+              for (local_ordinal_type i2=0;i2<e_scalar_values.extent(1);++i2) {
+                for (local_ordinal_type i3=0;i3<e_scalar_values.extent(2);++i3) {
+                  for (local_ordinal_type i4=0;i4<e_scalar_values.extent(3);++i4) {
+                    for (local_ordinal_type i5=0;i5<e_scalar_values.extent(4);++i5) {
+                      e_scalar_values(i1,i2,i3,i4,i5) = 0;
+                    }
+                  }
+                }
+              }
+            }
 
             {
               //std::cout << " Start ExtractBCDTag " << std::endl;
@@ -2697,21 +2761,7 @@ namespace Ifpack2 {
 
             writeBTDValuesToFile(part2packrowidx0_sub.extent(0)-1, scalar_values, "after_extraction_of_BCD.mm");
 
-            std::cout << "before e_scalar_values = " << std::endl;
-            for (local_ordinal_type i1=0;i1<e_scalar_values.extent(0);++i1) {
-              for (local_ordinal_type i2=0;i2<e_scalar_values.extent(1);++i2) {
-                std::cout << "(" << i1 << "," << i2 << ")" << std::endl;
-                for (local_ordinal_type i3=0;i3<e_scalar_values.extent(2);++i3) {
-                  for (local_ordinal_type i4=0;i4<e_scalar_values.extent(3);++i4) {
-                    for (local_ordinal_type i5=0;i5<e_scalar_values.extent(4);++i5) {
-                        std::cout << e_scalar_values(i1,i2,i3,i4,i5) << " ";
-                    }
-                  }
-                }
-                std::cout << std::endl;
-              }
-            }
-            std::cout << "[e_scalar_values]" << std::endl;
+            writeMultiVectorValuesToFile(part2packrowidx0_sub.extent(0)-1, e_scalar_values, "e_scalar_values_after_extract.mm");
 
             Kokkos::TeamPolicy<execution_space,ComputeETag>
               policy(packindices_sub.extent(0), team_size, vector_loop_size);
@@ -2721,26 +2771,8 @@ namespace Ifpack2 {
             Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<ComputeETag>",
                                 policy, *this);
             std::cout << " End ComputeETag " << std::endl;
-            //TEUCHOS_TEST_FOR_EXCEPTION
-            //  (true, std::logic_error, 
-            //  "End of ComputeETag");
 
-
-            std::cout << "after e_scalar_values = " << std::endl;
-            for (local_ordinal_type i1=0;i1<e_scalar_values.extent(0);++i1) {
-              for (local_ordinal_type i2=0;i2<e_scalar_values.extent(1);++i2) {
-                std::cout << "(" << i1 << "," << i2 << ")" << std::endl;
-                for (local_ordinal_type i3=0;i3<e_scalar_values.extent(2);++i3) {
-                  for (local_ordinal_type i4=0;i4<e_scalar_values.extent(3);++i4) {
-                    for (local_ordinal_type i5=0;i5<e_scalar_values.extent(4);++i5) {
-                        std::cout << e_scalar_values(i1,i2,i3,i4,i5) << " ";
-                    }
-                  }
-                }
-                std::cout << std::endl;
-              }
-            }
-            std::cout << "[e_scalar_values]" << std::endl;
+            writeMultiVectorValuesToFile(part2packrowidx0_sub.extent(0)-1, e_scalar_values, "e_scalar_values_after_compute.mm");
           }
 
           {
