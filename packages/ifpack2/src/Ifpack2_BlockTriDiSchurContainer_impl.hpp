@@ -2658,11 +2658,25 @@ namespace Ifpack2 {
         std::cout << " member.league_rank() = " << member.league_rank() << " subpartidx = " << subpartidx << " r0 = " << r0 << " " << part2packrowidx0_sub(partidx,local_subpartidx) << " nrows = " << nrows << std::endl;
         internal_vector_scratch_type_3d_view
           WW(member.team_scratch(0), blocksize, num_vectors, vector_loop_size);
-        Kokkos::parallel_for
-          (Kokkos::ThreadVectorRange(member, vector_loop_size),[&](const int &v) {
-            solveMultiVector<impl_type, internal_vector_scratch_type_3d_view> (member, blocksize, i0, r0, nrows, v, internal_vector_values, Kokkos::subview(e_internal_vector_values, 0, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), WW);
-            solveMultiVector<impl_type, internal_vector_scratch_type_3d_view> (member, blocksize, i0, r0, nrows, v, internal_vector_values, Kokkos::subview(e_internal_vector_values, 1, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), WW, false); // TO DO -> true
-          });        
+        if (local_subpartidx == 0) {
+          Kokkos::parallel_for
+            (Kokkos::ThreadVectorRange(member, vector_loop_size),[&](const int &v) {
+              solveMultiVector<impl_type, internal_vector_scratch_type_3d_view> (member, blocksize, i0, r0, nrows, v, internal_vector_values, Kokkos::subview(e_internal_vector_values, 0, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), WW, false); // TO DO -> true
+            });
+        }
+        else if (local_subpartidx == part2packrowidx0_sub.extent(1) - 2) {
+          Kokkos::parallel_for
+            (Kokkos::ThreadVectorRange(member, vector_loop_size),[&](const int &v) {
+              solveMultiVector<impl_type, internal_vector_scratch_type_3d_view> (member, blocksize, i0, r0, nrows, v, internal_vector_values, Kokkos::subview(e_internal_vector_values, 1, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), WW);
+            });
+        }
+        else {
+          Kokkos::parallel_for
+            (Kokkos::ThreadVectorRange(member, vector_loop_size),[&](const int &v) {
+              solveMultiVector<impl_type, internal_vector_scratch_type_3d_view> (member, blocksize, i0, r0, nrows, v, internal_vector_values, Kokkos::subview(e_internal_vector_values, 0, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), WW, false); // TO DO -> true
+              solveMultiVector<impl_type, internal_vector_scratch_type_3d_view> (member, blocksize, i0, r0, nrows, v, internal_vector_values, Kokkos::subview(e_internal_vector_values, 1, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), WW); 
+            });
+        }
       }
 
       KOKKOS_INLINE_FUNCTION
