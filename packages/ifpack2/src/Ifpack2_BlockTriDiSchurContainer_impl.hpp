@@ -916,7 +916,7 @@ namespace Ifpack2 {
       interf.rowidx2part = local_ordinal_type_1d_view(do_not_initialize_tag("rowidx2part"), A_n_lclrows);
 
       interf.part2rowidx0_sub = local_ordinal_type_1d_view(do_not_initialize_tag("part2rowidx0_sub"), n_sub_parts_and_schur + 1);
-      interf.part2packrowidx0_sub = local_ordinal_type_2d_view(do_not_initialize_tag("part2packrowidx0_sub"), nparts + 1, 2 * n_subparts_per_part - 1);
+      interf.part2packrowidx0_sub = local_ordinal_type_2d_view(do_not_initialize_tag("part2packrowidx0_sub"), nparts, 2 * n_subparts_per_part);
       interf.rowidx2part_sub = local_ordinal_type_1d_view(do_not_initialize_tag("rowidx2part"), A_n_lclrows);
 
       interf.partptr_sub = local_ordinal_type_2d_view(do_not_initialize_tag("partptr_sub"), n_sub_parts_and_schur, 2);
@@ -1015,9 +1015,6 @@ namespace Ifpack2 {
 
         part2rowidx0_sub(0) = 0;
         partptr_sub(0, 0) = 0;
-        for (local_ordinal_type local_sub_ip=0; local_sub_ip<2 * n_subparts_per_part - 1;++local_sub_ip) {
-          part2packrowidx0_sub(0, local_sub_ip) = 0;
-        }
         const local_ordinal_type number_pack_per_sub_part = ceil(nparts/vector_length);
 
         for (local_ordinal_type ip=0;ip<nparts;++ip) {
@@ -1059,11 +1056,6 @@ namespace Ifpack2 {
               part2rowidx0_sub(sub_ip + 1) = part2rowidx0_sub(sub_ip) + sub_line_length;
               part2rowidx0_sub(sub_ip + 2) = part2rowidx0_sub(sub_ip + 1) + connection_length;
 
-              if (ip % vector_length == 0) pack_nrows_sub = sub_line_length;
-              part2packrowidx0_sub(ip + 1, 2 * local_sub_ip) = part2packrowidx0_sub(ip, 2 * local_sub_ip) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows_sub : 0);
-              if (ip % vector_length == 0) {pack_nrows_sub = connection_length; std::cout << "pack_nrows_sub = connection_length = " <<  connection_length << std::endl; }
-              part2packrowidx0_sub(ip + 1, 2 * local_sub_ip + 1) = part2packrowidx0_sub(ip, 2 * local_sub_ip + 1) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows_sub : 0);
-
               //printf("Sub Part index = %d, first LID associated to the sub part = %d, sub part size = %d;\n", sub_ip, partptr_sub(ip, 2 * local_sub_ip), sub_line_length);
               //printf("Sub Part index Schur = %d, first LID associated to the sub part = %d, sub part size = %d;\n", sub_ip + 1, partptr_sub(ip, 2 * local_sub_ip + 1), connection_length);
             }
@@ -1078,36 +1070,51 @@ namespace Ifpack2 {
 
               part2rowidx0_sub(sub_ip + 1) = part2rowidx0_sub(sub_ip) + last_sub_line_length;
 
-              if (ip % vector_length == 0) pack_nrows_sub = last_sub_line_length;
-              part2packrowidx0_sub(ip + 1, 2 * local_sub_ip) = part2packrowidx0_sub(ip, 2 * local_sub_ip) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows_sub : 0);
               //printf("Sub Part index = %d, first LID associated to the sub part = %d, sub part size = %d;\n", sub_ip, partptr_sub(ip, 2 * local_sub_ip), last_sub_line_length);
             }
           }
         }
 
-
 {
-        part2packrowidx0_sub(0, 0) = 0;
-        for (local_ordinal_type local_sub_ip=0; local_sub_ip<part2packrowidx0_sub.extent(1);++local_sub_ip) {
-          if (local_sub_ip != 0)
-            part2packrowidx0_sub(0, local_sub_ip) = part2packrowidx0_sub(part2packrowidx0_sub.extent(0)-1, local_sub_ip-1);
+        local_ordinal_type npacks = ceil(nparts/vector_length);
+        std::cout << "Number of packs is npacks 0 = " << npacks << " " << nparts << " " << vector_length << std::endl;
 
-          for (local_ordinal_type ip=0;ip<nparts;++ip) {
-            const auto* part = &partitions[p[ip]];
+        local_ordinal_type ip_max = nparts > vector_length ? vector_length : nparts;
+        for (local_ordinal_type ip=0;ip<ip_max;++ip) {
+          part2packrowidx0_sub(ip, 0) = 0;
+        }
+        for (local_ordinal_type ipack=0;ipack<npacks;++ipack) {
+          if (ipack != 0) {
+            local_ordinal_type ip_min = ipack*vector_length;
+            local_ordinal_type ip_max = nparts > (ipack+1)*vector_length ? (ipack+1)*vector_length : nparts;
+            for (local_ordinal_type ip=ip_min;ip<ip_max;++ip) {
+              part2packrowidx0_sub(ip, 0) = part2packrowidx0_sub(ip-vector_length, part2packrowidx0_sub.extent(1)-1);
+            }
+          }
+
+          for (local_ordinal_type local_sub_ip=0; local_sub_ip<part2packrowidx0_sub.extent(1)-1;++local_sub_ip) {
+            local_ordinal_type ip_min = ipack*vector_length;
+            local_ordinal_type ip_max = nparts > (ipack+1)*vector_length ? (ipack+1)*vector_length : nparts;
+
+            const auto* part = &partitions[p[ip_min]];
             const local_ordinal_type ipnrows = part->size();
-            const local_ordinal_type first_sub_part_index = ip * (2*n_subparts_per_part - 1);
-            const local_ordinal_type full_line_length = partptr(ip+1) - partptr(ip);
+            const local_ordinal_type first_sub_part_index = ip_min * (2*n_subparts_per_part - 1);
+            const local_ordinal_type full_line_length = partptr(ip_min+1) - partptr(ip_min);
 
             const local_ordinal_type connection_length = 2;      
 
             const local_ordinal_type sub_line_length = floor((full_line_length - (n_subparts_per_part - 1) * connection_length) / n_subparts_per_part);
             const local_ordinal_type last_sub_line_length = full_line_length - (n_subparts_per_part - 1) * (connection_length + sub_line_length);
 
-            if (local_sub_ip % 2 == 0 && ip % vector_length == 0) pack_nrows_sub = sub_line_length;
-            if (local_sub_ip % 2 == 1 && ip % vector_length == 0) pack_nrows_sub = connection_length;
-            if (local_sub_ip == part2packrowidx0_sub.extent(1)-1 && ip % vector_length == 0) pack_nrows_sub = last_sub_line_length;
+            if (local_sub_ip % 2 == 0) pack_nrows_sub = sub_line_length;
+            if (local_sub_ip % 2 == 1) pack_nrows_sub = connection_length;
+            if (local_sub_ip == part2packrowidx0_sub.extent(1)-2) pack_nrows_sub = last_sub_line_length;
 
-            part2packrowidx0_sub(ip + 1, local_sub_ip) = part2packrowidx0_sub(ip, local_sub_ip) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows_sub : 0);
+            part2packrowidx0_sub(ip_min, local_sub_ip + 1) = part2packrowidx0_sub(ip_min, local_sub_ip) + pack_nrows_sub;
+
+            for (local_ordinal_type ip=ip_min+1;ip<ip_max;++ip) {
+              part2packrowidx0_sub(ip, local_sub_ip + 1) = part2packrowidx0_sub(ip_min, local_sub_ip + 1);
+            }
           }
         }
 }
@@ -1156,11 +1163,7 @@ namespace Ifpack2 {
       Kokkos::deep_copy(interf.rowidx2part, rowidx2part);
 
       { // Fill packptr.
-        local_ordinal_type npacks = 0;
-        for (local_ordinal_type ip=1;ip<=nparts;++ip) //n_sub_parts_and_schur
-          if (part2packrowidx0_sub(ip,0) != part2packrowidx0_sub(ip-1,0))
-            ++npacks;
-        npacks *= part2packrowidx0_sub.extent(1);
+        local_ordinal_type npacks = ceil(nparts/vector_length) * (part2packrowidx0_sub.extent(1)-1);
         std::cout << "Number of packs is npacks 1 = " << npacks << std::endl;
         npacks = 0;
         for (local_ordinal_type ip=1;ip<=nparts;++ip) //n_sub_parts_and_schur
@@ -1182,13 +1185,8 @@ namespace Ifpack2 {
           std::cout << "packptr(" << k << ") = " << packptr(k) << std::endl;
         Kokkos::deep_copy(interf.packptr, packptr);
 
-
-        npacks = 0;
-        for (local_ordinal_type ip=1;ip<=nparts;++ip)
-          if (part2packrowidx0_sub(ip,0) != part2packrowidx0_sub(ip-1,0))
-            ++npacks;
-        local_ordinal_type npacks_per_subpart = npacks;
-        npacks *= part2packrowidx0_sub.extent(1);
+        local_ordinal_type npacks_per_subpart = ceil(nparts/vector_length);
+        npacks = ceil(nparts/vector_length) * (part2packrowidx0_sub.extent(1)-1);
 
         interf.packindices_sub = local_ordinal_type_1d_view(do_not_initialize_tag("packindices_sub"), npacks_per_subpart*n_subparts_per_part);
         interf.packindices_schur = local_ordinal_type_1d_view(do_not_initialize_tag("packindices_schur"), npacks_per_subpart*(n_subparts_per_part-1));
@@ -2564,7 +2562,7 @@ namespace Ifpack2 {
         const local_ordinal_type packidx = packindices_sub(member.league_rank());
 
         const local_ordinal_type subpartidx = packptr_sub(packidx);
-        const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0)-1;
+        const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0);
         const local_ordinal_type local_subpartidx = floor(subpartidx/n_parts);
         const local_ordinal_type partidx = subpartidx%n_parts;
 
@@ -2605,7 +2603,7 @@ namespace Ifpack2 {
         const local_ordinal_type packidx = packindices_schur(member.league_rank());
 
         const local_ordinal_type subpartidx = packptr_sub(packidx);
-        const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0)-1;
+        const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0);
         const local_ordinal_type local_subpartidx = floor(subpartidx/n_parts);
         const local_ordinal_type partidx = subpartidx%n_parts;
 
@@ -2644,7 +2642,7 @@ namespace Ifpack2 {
         const local_ordinal_type packidx = packindices_sub(member.league_rank());
 
         const local_ordinal_type subpartidx = packptr_sub(packidx);
-        const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0)-1;
+        const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0);
         const local_ordinal_type local_subpartidx = floor(subpartidx/n_parts);
         const local_ordinal_type partidx = subpartidx%n_parts;
 
@@ -2674,7 +2672,7 @@ namespace Ifpack2 {
         const local_ordinal_type packidx = packindices_schur(member.league_rank());
 
         const local_ordinal_type subpartidx = packptr_sub(packidx);
-        const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0)-1;
+        const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0);
         const local_ordinal_type local_subpartidx = floor(subpartidx/n_parts);
         const local_ordinal_type partidx = subpartidx%n_parts;
 
@@ -2706,7 +2704,7 @@ namespace Ifpack2 {
             policy(packindices_sub.extent(0), team_size, vector_loop_size);
 
 
-          const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0)-1;
+          const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0);
           writeBTDValuesToFile(n_parts, scalar_values, "before.mm");
 
           policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
@@ -2735,7 +2733,7 @@ namespace Ifpack2 {
               }
             }
 
-            writeMultiVectorValuesToFile(part2packrowidx0_sub.extent(0)-1, e_scalar_values, "e_scalar_values_before_extract.mm");
+            writeMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), e_scalar_values, "e_scalar_values_before_extract.mm");
 
             for (local_ordinal_type i1=0;i1<e_scalar_values.extent(0);++i1) {
               for (local_ordinal_type i2=0;i2<e_scalar_values.extent(1);++i2) {
@@ -2759,9 +2757,9 @@ namespace Ifpack2 {
                                   policy, *this);
             }
 
-            writeBTDValuesToFile(part2packrowidx0_sub.extent(0)-1, scalar_values, "after_extraction_of_BCD.mm");
+            writeBTDValuesToFile(part2packrowidx0_sub.extent(0), scalar_values, "after_extraction_of_BCD.mm");
 
-            writeMultiVectorValuesToFile(part2packrowidx0_sub.extent(0)-1, e_scalar_values, "e_scalar_values_after_extract.mm");
+            writeMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), e_scalar_values, "e_scalar_values_after_extract.mm");
 
             Kokkos::TeamPolicy<execution_space,ComputeETag>
               policy(packindices_sub.extent(0), team_size, vector_loop_size);
@@ -2772,7 +2770,7 @@ namespace Ifpack2 {
                                 policy, *this);
             std::cout << " End ComputeETag " << std::endl;
 
-            writeMultiVectorValuesToFile(part2packrowidx0_sub.extent(0)-1, e_scalar_values, "e_scalar_values_after_compute.mm");
+            writeMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), e_scalar_values, "e_scalar_values_after_compute.mm");
           }
 
           {
