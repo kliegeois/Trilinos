@@ -2087,6 +2087,71 @@ namespace Ifpack2 {
 
     }
 
+    template<typename local_ordinal_type, typename ViewType>
+    void writeBTDValuesToFile (const local_ordinal_type &n_parts, const ViewType &scalar_values, std::string fileName) {
+
+      using tlb = BlockHelperDetails::TpetraLittleBlock<Tpetra::Impl::BlockCrsMatrixLittleBlockArrayLayout>;
+      std::ofstream myfile;
+      myfile.open (fileName);
+
+      local_ordinal_type nnz = scalar_values.extent(0) * scalar_values.extent(1) * scalar_values.extent(2) * scalar_values.extent(3);
+
+      const local_ordinal_type n_parts_per_pack = scalar_values.extent(3);
+      const local_ordinal_type n_blocks = scalar_values.extent(0)*n_parts_per_pack;
+      const local_ordinal_type n_blocks_per_part = n_blocks/n_parts;
+
+      const local_ordinal_type block_size = scalar_values.extent(1);
+
+      const local_ordinal_type n_rows_per_part = (n_blocks_per_part+2)/3;
+      const local_ordinal_type n_rows = n_rows_per_part*n_parts;
+
+      const local_ordinal_type n_packs = n_parts/n_parts_per_pack;
+
+      myfile << "%%nnz = " << nnz; 
+      myfile << " block size = " << scalar_values.extent(1);
+      myfile << " number of blocks = " << n_blocks;
+      myfile << " number of parts = " << n_parts;
+      myfile << " number of blocks per part = " << n_blocks_per_part;
+      myfile << " number of rows = " << n_rows ;
+      myfile << " number of cols = " << n_rows;
+      myfile << " number of packs = " << n_packs << std::endl;
+
+      myfile << n_rows << " " << n_rows << " " << nnz << std::endl;
+
+      local_ordinal_type current_part_idx, current_block_idx, current_row_offset, current_col_offset, current_row, current_col;
+      for (local_ordinal_type i_pack=0;i_pack<n_packs;++i_pack) {
+        for (local_ordinal_type i_part_in_pack=0;i_part_in_pack<n_parts_per_pack;++i_part_in_pack) {
+          current_part_idx = i_part_in_pack + i_pack * n_parts_per_pack;
+          for (local_ordinal_type i_block_in_part=0;i_block_in_part<n_blocks_per_part;++i_block_in_part) {
+            current_block_idx = i_block_in_part + i_pack * n_blocks_per_part;
+            if (i_block_in_part % 3 == 0) {
+              current_row_offset = i_block_in_part/3 * block_size;
+              current_col_offset = i_block_in_part/3 * block_size;
+            }
+            else if (i_block_in_part % 3 == 1) {
+              current_row_offset = (i_block_in_part-1)/3 * block_size;
+              current_col_offset = ((i_block_in_part-1)/3+1) * block_size;
+            }
+            else if (i_block_in_part % 3 == 2) {
+              current_row_offset = ((i_block_in_part-2)/3+1) * block_size;
+              current_col_offset = (i_block_in_part-2)/3 * block_size;
+            }
+            current_row_offset += current_part_idx * n_rows_per_part;
+            current_col_offset += current_part_idx * n_rows_per_part;
+            for (local_ordinal_type i_in_block=0;i_in_block<block_size;++i_in_block) {
+              for (local_ordinal_type j_in_block=0;j_in_block<block_size;++j_in_block) {
+                current_row = current_row_offset + i_in_block + 1;
+                current_col = current_col_offset + j_in_block + 1;
+                myfile <<  current_row << " " << current_col << " " << scalar_values(current_block_idx,i_in_block,j_in_block,i_part_in_pack) << std::endl;
+              }
+            }
+          }
+        }
+      }
+
+      myfile.close();
+    }
+
     
     template<typename MatrixType>
     struct ExtractAndFactorizeTridiags {
@@ -2546,7 +2611,7 @@ namespace Ifpack2 {
         Kokkos::parallel_for
           (Kokkos::ThreadVectorRange(member, vector_loop_size),[&](const int &v) {
             solveMultiVector<impl_type, internal_vector_scratch_type_3d_view> (member, blocksize, i0, r0, nrows, v, internal_vector_values, Kokkos::subview(e_internal_vector_values, 0, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), WW);
-            solveMultiVector<impl_type, internal_vector_scratch_type_3d_view> (member, blocksize, i0, r0, nrows, v, internal_vector_values, Kokkos::subview(e_internal_vector_values, 1, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), WW, false);
+            solveMultiVector<impl_type, internal_vector_scratch_type_3d_view> (member, blocksize, i0, r0, nrows, v, internal_vector_values, Kokkos::subview(e_internal_vector_values, 1, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), WW, false); // TO DO -> true
           });        
       }
 
@@ -2567,22 +2632,8 @@ namespace Ifpack2 {
 
         internal_vector_scratch_type_3d_view
           WW(member.team_scratch(0), blocksize, blocksize, vector_loop_size);
-        if (vector_loop_size == 1) {
-          extract(partidx, local_subpartidx, npacks);
-          factorize_Schur(member, i0, nrows, 0, internal_vector_values, WW);
-        } else {
-          Kokkos::parallel_for
-            (Kokkos::ThreadVectorRange(member, vector_loop_size),
-	     [&](const local_ordinal_type &v) {
-              const local_ordinal_type vbeg = v*internal_vector_length;
-              if (vbeg < npacks)
-                extract(member, partidx+vbeg, npacks, vbeg);
-              // this is not safe if vector loop size is different from vector size of 
-              // the team policy. we always make sure this when constructing the team policy
-              member.team_barrier();
-              factorize_Schur(member, i0, nrows, v, internal_vector_values, WW);
-            });
-        }
+
+        // Compute S = D - C E
       }
 
       void run() {
@@ -2603,19 +2654,8 @@ namespace Ifpack2 {
             policy(packindices_sub.extent(0), team_size, vector_loop_size);
 
 
-          std::cout << "before scalar_values = " << std::endl;
-          for (local_ordinal_type i1=0;i1<scalar_values.extent(0);++i1) {
-            for (local_ordinal_type i2=0;i2<scalar_values.extent(1);++i2) {
-              std::cout << "(" << i1 << "," << i2 << ")" << std::endl;
-              for (local_ordinal_type i3=0;i3<scalar_values.extent(2);++i3) {
-                for (local_ordinal_type i4=0;i4<scalar_values.extent(3);++i4) {
-                  std::cout << scalar_values(i1,i2,i3,i4) << " ";
-                }
-              }
-              std::cout << std::endl;
-            }
-          }
-          std::cout << "[scalar_values]" << std::endl;
+          const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0)-1;
+          writeBTDValuesToFile(n_parts, scalar_values, "before.mm");
 
           policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
           std::cout << " Start ExtractAndFactorizeSubLineTag nteams = " << packindices_sub.extent(0) << std::endl;
@@ -2623,19 +2663,7 @@ namespace Ifpack2 {
                               policy, *this);
           std::cout << " End ExtractAndFactorizeSubLineTag " << std::endl;
 
-          std::cout << "end scalar_values = " << std::endl;
-          for (local_ordinal_type i1=0;i1<scalar_values.extent(0);++i1) {
-            for (local_ordinal_type i2=0;i2<scalar_values.extent(1);++i2) {
-              std::cout << "(" << i1 << "," << i2 << ")" << std::endl;
-              for (local_ordinal_type i3=0;i3<scalar_values.extent(2);++i3) {
-                for (local_ordinal_type i4=0;i4<scalar_values.extent(3);++i4) {
-                  std::cout << scalar_values(i1,i2,i3,i4) << " ";
-                }
-              }
-              std::cout << std::endl;
-            }
-          }
-          std::cout << "[scalar_values]" << std::endl;
+          writeBTDValuesToFile(n_parts, scalar_values, "after.mm");
         }
 
         if (packindices_schur.extent(0) != 0)
@@ -2666,6 +2694,8 @@ namespace Ifpack2 {
               Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<ExtractBCDTag>",
                                   policy, *this);
             }
+
+            writeBTDValuesToFile(part2packrowidx0_sub.extent(0)-1, scalar_values, "after_extraction_of_BCD.mm");
 
             std::cout << "before e_scalar_values = " << std::endl;
             for (local_ordinal_type i1=0;i1<e_scalar_values.extent(0);++i1) {
