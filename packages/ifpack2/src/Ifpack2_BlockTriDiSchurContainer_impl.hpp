@@ -898,7 +898,7 @@ namespace Ifpack2 {
         interf.max_partsz = partsz[0].first;
 
         const local_ordinal_type connection_length = 2;
-        const local_ordinal_type sub_line_length = floor((interf.max_partsz - (n_subparts_per_part - 1) * connection_length) / n_subparts_per_part);
+        const local_ordinal_type sub_line_length = floor(float(interf.max_partsz - (n_subparts_per_part - 1) * connection_length) / n_subparts_per_part);
         const local_ordinal_type last_sub_line_length = interf.max_partsz - (n_subparts_per_part - 1) * (connection_length + sub_line_length);
 
         interf.max_subpartsz = (sub_line_length > last_sub_line_length) ? sub_line_length : last_sub_line_length;
@@ -1015,7 +1015,7 @@ namespace Ifpack2 {
 
         part2rowidx0_sub(0) = 0;
         partptr_sub(0, 0) = 0;
-        const local_ordinal_type number_pack_per_sub_part = ceil(nparts/vector_length);
+        const local_ordinal_type number_pack_per_sub_part = ceil(float(nparts)/vector_length);
 
         for (local_ordinal_type ip=0;ip<nparts;++ip) {
           const auto* part = &partitions[p[ip]];
@@ -1034,7 +1034,7 @@ namespace Ifpack2 {
                 (true, std::logic_error, 
                 "The part " << ip << " is too short to use " << n_subparts_per_part << " sub parts.");            
 
-          const local_ordinal_type sub_line_length = floor((full_line_length - (n_subparts_per_part - 1) * connection_length) / n_subparts_per_part);
+          const local_ordinal_type sub_line_length = floor(float(full_line_length - (n_subparts_per_part - 1) * connection_length) / n_subparts_per_part);
           const local_ordinal_type last_sub_line_length = full_line_length - (n_subparts_per_part - 1) * (connection_length + sub_line_length);
 
           if (ip % vector_length == 0) pack_nrows_sub = ipnrows;
@@ -1076,7 +1076,7 @@ namespace Ifpack2 {
         }
 
 {
-        local_ordinal_type npacks = ceil(nparts/vector_length);
+        local_ordinal_type npacks = ceil(float(nparts)/vector_length);
         std::cout << "Number of packs is npacks 0 = " << npacks << " " << nparts << " " << vector_length << std::endl;
 
         local_ordinal_type ip_max = nparts > vector_length ? vector_length : nparts;
@@ -1103,7 +1103,7 @@ namespace Ifpack2 {
 
             const local_ordinal_type connection_length = 2;      
 
-            const local_ordinal_type sub_line_length = floor((full_line_length - (n_subparts_per_part - 1) * connection_length) / n_subparts_per_part);
+            const local_ordinal_type sub_line_length = floor(float(full_line_length - (n_subparts_per_part - 1) * connection_length) / n_subparts_per_part);
             const local_ordinal_type last_sub_line_length = full_line_length - (n_subparts_per_part - 1) * (connection_length + sub_line_length);
 
             if (local_sub_ip % 2 == 0) pack_nrows_sub = sub_line_length;
@@ -1163,7 +1163,7 @@ namespace Ifpack2 {
       Kokkos::deep_copy(interf.rowidx2part, rowidx2part);
 
       { // Fill packptr.
-        local_ordinal_type npacks = ceil(nparts/vector_length) * (part2packrowidx0_sub.extent(1)-1);
+        local_ordinal_type npacks = ceil(float(nparts)/vector_length) * (part2packrowidx0_sub.extent(1)-1);
         std::cout << "Number of packs is npacks 1 = " << npacks << std::endl;
         npacks = 0;
         for (local_ordinal_type ip=1;ip<=nparts;++ip) //n_sub_parts_and_schur
@@ -1185,8 +1185,8 @@ namespace Ifpack2 {
           std::cout << "packptr(" << k << ") = " << packptr(k) << std::endl;
         Kokkos::deep_copy(interf.packptr, packptr);
 
-        local_ordinal_type npacks_per_subpart = ceil(nparts/vector_length);
-        npacks = ceil(nparts/vector_length) * (part2packrowidx0_sub.extent(1)-1);
+        local_ordinal_type npacks_per_subpart = ceil(float(nparts)/vector_length);
+        npacks = ceil(float(nparts)/vector_length) * (part2packrowidx0_sub.extent(1)-1);
 
         interf.packindices_sub = local_ordinal_type_1d_view(do_not_initialize_tag("packindices_sub"), npacks_per_subpart*n_subparts_per_part);
         interf.packindices_schur = local_ordinal_type_1d_view(do_not_initialize_tag("packindices_schur"), npacks_per_subpart*(n_subparts_per_part-1));
@@ -1212,7 +1212,7 @@ namespace Ifpack2 {
         const auto packptr_sub = Kokkos::create_mirror_view(interf.packptr_sub);
         packptr_sub(0) = 0;
         for (local_ordinal_type k=0;k<npacks + 1;++k)
-          packptr_sub(k) = packptr(k%npacks_per_subpart) + floor(k / npacks_per_subpart) * packptr(npacks_per_subpart);
+          packptr_sub(k) = packptr(k%npacks_per_subpart) + floor(float(k) / npacks_per_subpart) * packptr(npacks_per_subpart);
 
         for (local_ordinal_type k=0;k<npacks + 1;++k)
           std::cout << "packptr_sub(" << k << ") = " << packptr_sub(k) << std::endl;
@@ -1301,7 +1301,7 @@ namespace Ifpack2 {
         Kokkos::parallel_scan
           ("createBlockTridiags::RangePolicy::flat_td_ptr",
            policy, KOKKOS_LAMBDA(const local_ordinal_type &i, size_type &update, const bool &final) {
-            const local_ordinal_type partidx = floor(i/(2 * interf.n_subparts_per_part));
+            const local_ordinal_type partidx = floor(float(i)/(2 * interf.n_subparts_per_part));
             const local_ordinal_type local_subpartidx = i % (2 * interf.n_subparts_per_part);
 
             if (final) {
@@ -1369,7 +1369,7 @@ namespace Ifpack2 {
           if (i != 0)
             host_pack_td_ptr_schur(i,0) = host_pack_td_ptr_schur(i-1,host_pack_td_ptr_schur.extent(1)-1);
           for (local_ordinal_type j = 0; j < interf.n_subparts_per_part-1; ++j) {
-            host_pack_td_ptr_schur(i,j+1) = host_pack_td_ptr_schur(i,j) + btdm.NumBlocks(connection_length) + (j != 0 ? 2 : 0);
+            host_pack_td_ptr_schur(i,j+1) = host_pack_td_ptr_schur(i,j) + btdm.NumBlocks(connection_length) + (j != 0 ? 1 : 0) + (j != interf.n_subparts_per_part-2 ? 1 : 0);
           }
         }
         else {
@@ -2114,6 +2114,7 @@ namespace Ifpack2 {
 
       const local_ordinal_type n_packs = n_parts/n_parts_per_pack;
 
+      myfile << "%%MatrixMarket matrix coordinate real general"<< std::endl;
       myfile << "%%nnz = " << nnz; 
       myfile << " block size = " << block_size;
       myfile << " number of blocks = " << n_blocks;
@@ -2180,6 +2181,7 @@ namespace Ifpack2 {
 
       const local_ordinal_type n_packs = n_parts/n_parts_per_pack;
 
+      myfile << "%%MatrixMarket matrix coordinate real general"<< std::endl;
       myfile << "%%block size = " << block_size;
       myfile << " number of blocks = " << n_blocks;
       myfile << " number of parts = " << n_parts;
@@ -2572,7 +2574,8 @@ namespace Ifpack2 {
       struct ExtractAndFactorizeSubLineTag {};
       struct ExtractBCDTag {};
       struct ComputeETag {};
-      struct ComputeAndFactorizeSchurTag {};
+      struct ComputeSchurTag {};
+      struct FactorizeSchurTag {};
 
       KOKKOS_INLINE_FUNCTION
       void
@@ -2583,7 +2586,7 @@ namespace Ifpack2 {
 
         const local_ordinal_type subpartidx = packptr_sub(packidx);
         const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0);
-        const local_ordinal_type local_subpartidx = floor(subpartidx/n_parts);
+        const local_ordinal_type local_subpartidx = floor(float(subpartidx)/n_parts);
         const local_ordinal_type partidx = subpartidx%n_parts;
 
         const local_ordinal_type npacks = packptr_sub(packidx+1) - subpartidx;
@@ -2624,7 +2627,7 @@ namespace Ifpack2 {
 
         const local_ordinal_type subpartidx = packptr_sub(packidx);
         const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0);
-        const local_ordinal_type local_subpartidx = floor(subpartidx/n_parts);
+        const local_ordinal_type local_subpartidx = floor(float(subpartidx)/n_parts);
         const local_ordinal_type partidx = subpartidx%n_parts;
 
         const local_ordinal_type npacks = packptr_sub(packidx+1) - subpartidx;
@@ -2663,7 +2666,7 @@ namespace Ifpack2 {
 
         const local_ordinal_type subpartidx = packptr_sub(packidx);
         const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0);
-        const local_ordinal_type local_subpartidx = floor(subpartidx/n_parts);
+        const local_ordinal_type local_subpartidx = floor(float(subpartidx)/n_parts);
         const local_ordinal_type partidx = subpartidx%n_parts;
 
         const local_ordinal_type npacks = packptr_sub(packidx+1) - subpartidx;
@@ -2701,13 +2704,13 @@ namespace Ifpack2 {
 
       KOKKOS_INLINE_FUNCTION
       void
-      operator() (const ComputeAndFactorizeSchurTag &, const member_type &member) const {
+      operator() (const ComputeSchurTag &, const member_type &member) const {
         // btdm is packed and sorted from largest one
         const local_ordinal_type packidx = packindices_schur(member.league_rank());
 
         const local_ordinal_type subpartidx = packptr_sub(packidx);
         const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0);
-        const local_ordinal_type local_subpartidx = floor(subpartidx/n_parts);
+        const local_ordinal_type local_subpartidx = floor(float(subpartidx)/n_parts);
         const local_ordinal_type partidx = subpartidx%n_parts;
 
         const local_ordinal_type npacks = packptr_sub(packidx+1) - subpartidx;
@@ -2720,17 +2723,17 @@ namespace Ifpack2 {
 
         // Compute S = D - C E
 
-        std::cout << " ComputeAndFactorizeSchurTag " << std::endl;
+        std::cout << " ComputeSchurTag " << std::endl;
         std::cout << " subpartidx = " << subpartidx << " partidx = " << partidx << " local_subpartidx = " << local_subpartidx << std::endl;
         std::cout << " part2packrowidx0_sub.extent(0) = " << part2packrowidx0_sub.extent(0) << " part2packrowidx0_sub.extent(1) = " << part2packrowidx0_sub.extent(1) << std::endl;
         std::cout << " member.league_rank() = " << member.league_rank() << " subpartidx = " << subpartidx << " i0 = " << i0 << " ifinal = " << pack_td_ptr(partidx,local_subpartidx+1) << " r0 = " << r0 << " " << part2packrowidx0_sub(partidx,local_subpartidx) << " nrows = " << nrows << std::endl;
 
 
         const local_ordinal_type local_subpartidx_schur = (local_subpartidx-1)/2;
-        const local_ordinal_type i0_schur = local_subpartidx_schur == 0 ? pack_td_ptr_schur(partidx,local_subpartidx_schur) : pack_td_ptr_schur(partidx,local_subpartidx_schur) + 2;
+        const local_ordinal_type i0_schur = local_subpartidx_schur == 0 ? pack_td_ptr_schur(partidx,local_subpartidx_schur) : pack_td_ptr_schur(partidx,local_subpartidx_schur) + 1;
         const local_ordinal_type i0_offset = local_subpartidx_schur == 0 ? i0+2 : i0+2;
 
-        for  (local_ordinal_type i = 0; i < pack_td_ptr_schur(partidx,local_subpartidx_schur+1)-i0_schur; ++i) {
+        for  (local_ordinal_type i = 0; i < 4; ++i) { //pack_td_ptr_schur(partidx,local_subpartidx_schur+1)-i0_schur
           Kokkos::deep_copy(Kokkos::subview(internal_vector_values_schur, i0_schur+i, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), 
                             Kokkos::subview(internal_vector_values, i0_offset+i, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()));
         }
@@ -2803,15 +2806,21 @@ namespace Ifpack2 {
               }
 
 
-              //auto S = Kokkos::subview(internal_vector_values_schur, i0_schur+i, Kokkos::ALL(), Kokkos::ALL(), v);
-              //auto C = Kokkos::subview(internal_vector_values, c_kps, Kokkos::ALL(), Kokkos::ALL(), v);
-              //auto E = Kokkos::subview(e_internal_vector_values, e_c, e_r, Kokkos::ALL(), Kokkos::ALL(), v);
-              //KB::Gemm<member_type,
-              //        KB::Trans::NoTranspose,KB::Trans::NoTranspose,
-              //        default_mode_type,default_algo_type>
-              //  ::invoke(member, -one, C, E, one, S);
+              auto S = Kokkos::subview(internal_vector_values_schur, i0_schur+i, Kokkos::ALL(), Kokkos::ALL(), v);
+              auto C = Kokkos::subview(internal_vector_values, c_kps, Kokkos::ALL(), Kokkos::ALL(), v);
+              auto E = Kokkos::subview(e_internal_vector_values, e_c, e_r, Kokkos::ALL(), Kokkos::ALL(), v);
+              KB::Gemm<member_type,
+                      KB::Trans::NoTranspose,KB::Trans::NoTranspose,
+                      default_mode_type,default_algo_type>
+                ::invoke(member, -one, C, E, one, S);
             }
           });
+      }
+
+      KOKKOS_INLINE_FUNCTION
+      void
+      operator() (const FactorizeSchurTag &, const member_type &member) const {
+        std::cout << "FactorizeSchurTag" << std::endl;
       }
 
       void run() {
@@ -2903,14 +2912,23 @@ namespace Ifpack2 {
 
           {
             writeBTDValuesToFile(part2packrowidx0_sub.extent(0), scalar_values_schur, "before_schur.mm");
-            //std::cout << " Start ComputeAndFactorizeSchurTag " << std::endl;
-            Kokkos::TeamPolicy<execution_space,ComputeAndFactorizeSchurTag>
+            //std::cout << " Start ComputeSchurTag " << std::endl;
+            Kokkos::TeamPolicy<execution_space,ComputeSchurTag>
               policy(packindices_schur.extent(0), team_size, vector_loop_size);
 
             policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
-            Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<ComputeAndFactorizeSchurTag>",
+            Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<ComputeSchurTag>",
                                 policy, *this);
             writeBTDValuesToFile(part2packrowidx0_sub.extent(0), scalar_values_schur, "after_schur.mm");
+          }
+
+          {
+            Kokkos::TeamPolicy<execution_space,FactorizeSchurTag>
+              policy(part2packrowidx0_sub.extent(0), team_size, vector_loop_size);
+            policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
+            Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<FactorizeSchurTag>",
+                                policy, *this);
+            writeBTDValuesToFile(part2packrowidx0_sub.extent(0), scalar_values_schur, "after_factor_schur.mm");
           }
         }
 
