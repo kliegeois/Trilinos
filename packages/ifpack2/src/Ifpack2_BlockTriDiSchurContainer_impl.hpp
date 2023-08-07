@@ -2124,7 +2124,7 @@ namespace Ifpack2 {
       myfile << " number of cols = " << n_rows;
       myfile << " number of packs = " << n_packs << std::endl;
 
-      myfile << n_rows << " " << n_rows << " " << nnz << std::endl;
+      myfile << n_rows << " " << n_rows << " " << nnz << std::setprecision(9) << std::endl;
 
       local_ordinal_type current_part_idx, current_block_idx, current_row_offset, current_col_offset, current_row, current_col;
       for (local_ordinal_type i_pack=0;i_pack<n_packs;++i_pack) {
@@ -2190,7 +2190,7 @@ namespace Ifpack2 {
       myfile << " number of cols = " << n_cols;
       myfile << " number of packs = " << n_packs << std::endl;
 
-      myfile << n_rows << " " << n_cols << std::endl;     
+      myfile << n_rows << " " << n_cols << std::setprecision(9) << std::endl;     
 
       local_ordinal_type current_part_idx, current_block_idx, current_row_offset;
       for (local_ordinal_type i_block_col=0;i_block_col<n_blocks_cols;++i_block_col) {
@@ -2752,7 +2752,7 @@ namespace Ifpack2 {
 
         Kokkos::parallel_for
           (Kokkos::ThreadVectorRange(member, vector_loop_size),[&](const int &v) {
-            for  (local_ordinal_type i = 0; i < pack_td_ptr_schur(partidx,local_subpartidx_schur+1)-i0_schur; ++i) {
+            for  (local_ordinal_type i = 0; i < pack_td_ptr_schur(partidx,local_subpartidx_schur+1)-pack_td_ptr_schur(partidx,local_subpartidx_schur); ++i) {
               local_ordinal_type e_r, e_c, c_kps;
 
               if ( local_subpartidx_schur == 0 ) {
@@ -2781,7 +2781,7 @@ namespace Ifpack2 {
                   e_c = 1;
                   c_kps = c_kps1;
                 }
-                if ( i == 1 ) {
+                else if ( i == 1 ) {
                   e_r = e_r1;
                   e_c = 0;
                   c_kps = c_kps1;
@@ -2801,8 +2801,7 @@ namespace Ifpack2 {
                 }
               }
 
-
-              auto S = Kokkos::subview(internal_vector_values_schur, i0_schur+i, Kokkos::ALL(), Kokkos::ALL(), v);
+              auto S = Kokkos::subview(internal_vector_values_schur, pack_td_ptr_schur(partidx,local_subpartidx_schur)+i, Kokkos::ALL(), Kokkos::ALL(), v);
               auto C = Kokkos::subview(internal_vector_values, c_kps, Kokkos::ALL(), Kokkos::ALL(), v);
               auto E = Kokkos::subview(e_internal_vector_values, e_c, e_r, Kokkos::ALL(), Kokkos::ALL(), v);
               KB::Gemm<member_type,
