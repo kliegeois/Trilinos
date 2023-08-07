@@ -906,7 +906,7 @@ namespace Ifpack2 {
         interf.nparts = nparts;
       }
 
-      std::cout << "max_partsz = " << interf.max_partsz << std::endl;
+      //std::cout << "max_partsz = " << interf.max_partsz << std::endl;
 
       // allocate parts
       interf.partptr = local_ordinal_type_1d_view(do_not_initialize_tag("partptr"), nparts + 1);
@@ -971,7 +971,7 @@ namespace Ifpack2 {
           partptr(ip+1) = os + ipnrows;
         }
       } else {
-        printf("Not use Jacobi\n");
+        //printf("Not use Jacobi\n");
         //std::cout << " vector_length = " << vector_length << std::endl;
         for (local_ordinal_type ip=0;ip<nparts;++ip) {
           const auto* part = &partitions[p[ip]];
@@ -983,14 +983,14 @@ namespace Ifpack2 {
                     << " is empty, which is not allowed.");
           //assume No overlap.
           part2rowidx0(ip+1) = part2rowidx0(ip) + ipnrows;
-          std::cout << "part2rowidx0(" << ip << ") = " << part2rowidx0(ip) << " part2rowidx0(" << ip+1 << ") = " << part2rowidx0(ip+1) << std::endl;
+          //std::cout << "part2rowidx0(" << ip << ") = " << part2rowidx0(ip) << " part2rowidx0(" << ip+1 << ") = " << part2rowidx0(ip+1) << std::endl;
           // Since parts are ordered in nonincreasing size, the size of the first
           // part in a pack is the size for all parts in the pack.
           if (ip % vector_length == 0) pack_nrows = ipnrows;
           part2packrowidx0(ip+1) = part2packrowidx0(ip) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows : 0);
-          std::cout << "part2packrowidx0(" << ip << ") = " << part2packrowidx0(ip);
-          std::cout << " part2packrowidx0(" << ip+1 << ") = " << part2packrowidx0(ip+1);
-          std::cout << " " << bool((ip+1) % vector_length == 0) << " " << bool(ip+1 == nparts) << std::endl;
+          //std::cout << "part2packrowidx0(" << ip << ") = " << part2packrowidx0(ip);
+          //std::cout << " part2packrowidx0(" << ip+1 << ") = " << part2packrowidx0(ip+1);
+          //std::cout << " " << bool((ip+1) % vector_length == 0) << " " << bool(ip+1 == nparts) << std::endl;
           const local_ordinal_type os = partptr(ip);
           for (local_ordinal_type i=0;i<ipnrows;++i) {
             const auto lcl_row = (*part)[i];
@@ -1001,15 +1001,15 @@ namespace Ifpack2 {
                 << " but input matrix implies limits of [0, " << A_n_lclrows-1
                 << "].");
             lclrow(os+i) = lcl_row;
-            std::cout << "lclrow(" << os+i << ") = " << lcl_row << std::endl;
+            //std::cout << "lclrow(" << os+i << ") = " << lcl_row << std::endl;
             rowidx2part(os+i) = ip;
-            std::cout << "rowidx2part(" << os+i << ") = " << ip << std::endl;
+            //std::cout << "rowidx2part(" << os+i << ") = " << ip << std::endl;
             if (interf.row_contiguous && os+i > 0 && lclrow((os+i)-1) + 1 != lcl_row)
               interf.row_contiguous = false;
           }
           partptr(ip+1) = os + ipnrows;
 
-          printf("Part index = ip = %d, first LID associated to the part = partptr(ip) = os = %d, part->size() = ipnrows = %d;\n", ip, os, ipnrows);
+          //printf("Part index = ip = %d, first LID associated to the part = partptr(ip) = os = %d, part->size() = ipnrows = %d;\n", ip, os, ipnrows);
           //printf("partptr(%d+1) = %d\n", ip, partptr(ip+1));
         }
 
@@ -1077,7 +1077,7 @@ namespace Ifpack2 {
 
 {
         local_ordinal_type npacks = ceil(float(nparts)/vector_length);
-        std::cout << "Number of packs is npacks 0 = " << npacks << " " << nparts << " " << vector_length << std::endl;
+        //std::cout << "Number of packs is npacks 0 = " << npacks << " " << nparts << " " << vector_length << std::endl;
 
         local_ordinal_type ip_max = nparts > vector_length ? vector_length : nparts;
         for (local_ordinal_type ip=0;ip<ip_max;++ip) {
@@ -1119,23 +1119,23 @@ namespace Ifpack2 {
         }
 }
 
-        std::cout << "part2packrowidx0_sub = " << std::endl;
+        //std::cout << "part2packrowidx0_sub = " << std::endl;
         for (local_ordinal_type i=0;i<part2packrowidx0_sub.extent(0);++i) {
           for (local_ordinal_type j=0;j<part2packrowidx0_sub.extent(1);++j) {
-            std::cout << part2packrowidx0_sub(i,j) << " ";
+            //std::cout << part2packrowidx0_sub(i,j) << " ";
           }
-          std::cout << std::endl;
+          //std::cout << std::endl;
         }
-        std::cout << "[part2packrowidx0_sub]" << std::endl;
+        //std::cout << "[part2packrowidx0_sub]" << std::endl;
 
-        std::cout << "partptr_sub = " << std::endl;
+        //std::cout << "partptr_sub = " << std::endl;
         for (local_ordinal_type i=0;i<partptr_sub.extent(0);++i) {
           for (local_ordinal_type j=0;j<partptr_sub.extent(1);++j) {
-            std::cout << partptr_sub(i,j) << " ";
+            //std::cout << partptr_sub(i,j) << " ";
           }
-          std::cout << std::endl;
+          //std::cout << std::endl;
         }
-        std::cout << "[partptr_sub]" << std::endl;
+        //std::cout << "[partptr_sub]" << std::endl;
       }
 #if defined(BLOCKTRIDISCHURCONTAINER_DEBUG)
       TEUCHOS_ASSERT(partptr(nparts) == nrows);
@@ -1145,10 +1145,10 @@ namespace Ifpack2 {
       Kokkos::deep_copy(interf.partptr, partptr);
       Kokkos::deep_copy(interf.lclrow, lclrow);
 
-      std::cout << "nrows = " << std::endl;
-      std::cout << partptr(partptr.extent(0) - 1) << std::endl;
-      std::cout << interf.partptr(interf.partptr.extent(0) - 1) << std::endl;
-      std::cout << "nrows ends" << std::endl;
+      //std::cout << "nrows = " << std::endl;
+      //std::cout << partptr(partptr.extent(0) - 1) << std::endl;
+      //std::cout << interf.partptr(interf.partptr.extent(0) - 1) << std::endl;
+      //std::cout << "nrows ends" << std::endl;
 
       //std::cout << "partptr.extent(0) = " << partptr.extent(0) << std::endl;
 
@@ -1159,20 +1159,20 @@ namespace Ifpack2 {
       Kokkos::deep_copy(interf.part2packrowidx0, part2packrowidx0);
 
       interf.part2packrowidx0_back = part2packrowidx0_sub(part2packrowidx0_sub.extent(0) - 1, part2packrowidx0_sub.extent(1) - 1);
-      std::cout << "interf.part2packrowidx0_back = " << interf.part2packrowidx0_back << std::endl;
+      //std::cout << "interf.part2packrowidx0_back = " << interf.part2packrowidx0_back << std::endl;
       Kokkos::deep_copy(interf.rowidx2part, rowidx2part);
 
       { // Fill packptr.
         local_ordinal_type npacks = ceil(float(nparts)/vector_length) * (part2packrowidx0_sub.extent(1)-1);
-        std::cout << "Number of packs is npacks 1 = " << npacks << std::endl;
+        //std::cout << "Number of packs is npacks 1 = " << npacks << std::endl;
         npacks = 0;
         for (local_ordinal_type ip=1;ip<=nparts;++ip) //n_sub_parts_and_schur
           if (part2packrowidx0(ip) != part2packrowidx0(ip-1))
             ++npacks;
-        std::cout << "Number of packs is npacks = " << npacks << std::endl;        
-        std::cout << "Number of parts is nparts = " << nparts << std::endl;
-        std::cout << "Number of sub parts is n_sub_parts = " << n_sub_parts << std::endl;
-        std::cout << "Number of sub parts is n_sub_parts_and_schur = " << n_sub_parts_and_schur << std::endl;
+        //std::cout << "Number of packs is npacks = " << npacks << std::endl;        
+        //std::cout << "Number of parts is nparts = " << nparts << std::endl;
+        //std::cout << "Number of sub parts is n_sub_parts = " << n_sub_parts << std::endl;
+        //std::cout << "Number of sub parts is n_sub_parts_and_schur = " << n_sub_parts_and_schur << std::endl;
 
         interf.packptr = local_ordinal_type_1d_view(do_not_initialize_tag("packptr"), npacks + 1);
         const auto packptr = Kokkos::create_mirror_view(interf.packptr);
@@ -1182,7 +1182,7 @@ namespace Ifpack2 {
             packptr(k++) = ip;
         
         for (local_ordinal_type k=0;k<npacks + 1;++k)
-          std::cout << "packptr(" << k << ") = " << packptr(k) << std::endl;
+          //std::cout << "packptr(" << k << ") = " << packptr(k) << std::endl;
         Kokkos::deep_copy(interf.packptr, packptr);
 
         local_ordinal_type npacks_per_subpart = ceil(float(nparts)/vector_length);
@@ -1207,7 +1207,7 @@ namespace Ifpack2 {
         Kokkos::deep_copy(interf.packindices_sub, packindices_sub);
         Kokkos::deep_copy(interf.packindices_schur, packindices_schur);
 
-        std::cout << "npacks = " << npacks << std::endl;
+        //std::cout << "npacks = " << npacks << std::endl;
         interf.packptr_sub = local_ordinal_type_1d_view(do_not_initialize_tag("packptr"), npacks + 1);
         const auto packptr_sub = Kokkos::create_mirror_view(interf.packptr_sub);
         packptr_sub(0) = 0;
@@ -1215,7 +1215,7 @@ namespace Ifpack2 {
           packptr_sub(k) = packptr(k%npacks_per_subpart) + floor(float(k) / npacks_per_subpart) * packptr(npacks_per_subpart);
 
         for (local_ordinal_type k=0;k<npacks + 1;++k)
-          std::cout << "packptr_sub(" << k << ") = " << packptr_sub(k) << std::endl;
+          //std::cout << "packptr_sub(" << k << ") = " << packptr_sub(k) << std::endl;
         Kokkos::deep_copy(interf.packptr_sub, packptr_sub);
       }
 
@@ -1293,7 +1293,7 @@ namespace Ifpack2 {
 
       const local_ordinal_type ntridiags = interf.partptr_sub.extent(0);
 
-      std::cout << "ntridiags = " << ntridiags << std::endl;
+      //std::cout << "ntridiags = " << ntridiags << std::endl;
 
       { // construct the flat index pointers into the tridiag values array.
         btdm.flat_td_ptr = size_type_2d_view(do_not_initialize_tag("btdm.flat_td_ptr"), interf.nparts, 2*interf.n_subparts_per_part);
@@ -1332,10 +1332,10 @@ namespace Ifpack2 {
             if (interf.part2packrowidx0(ip) != interf.part2packrowidx0(ip-1))
               ++npacks_per_subpart;
 
-        std::cout << "in btdm.pack_td_ptr npacks = " << npacks << " ntridiags = " << ntridiags << " npacks_per_subpart = " << npacks_per_subpart << std::endl;
+        //std::cout << "in btdm.pack_td_ptr npacks = " << npacks << " ntridiags = " << ntridiags << " npacks_per_subpart = " << npacks_per_subpart << std::endl;
         btdm.pack_td_ptr = size_type_2d_view(do_not_initialize_tag("btdm.pack_td_ptr"), interf.nparts, 2*interf.n_subparts_per_part);
         const Kokkos::RangePolicy<execution_space> policy(0,npacks_per_subpart);
-        std::cout << " start createBlockTridiags::RangePolicy::pack_td_ptr " << std::endl;
+        //std::cout << " start createBlockTridiags::RangePolicy::pack_td_ptr " << std::endl;
 
         Kokkos::parallel_for
           ("createBlockTridiags::RangePolicy::pack_td_ptr",
@@ -1347,7 +1347,7 @@ namespace Ifpack2 {
               const local_ordinal_type parti = interf.packptr_sub(pack_id);
               const local_ordinal_type partidx = parti%interf.nparts;
 
-              std::cout << "i = " << i << " j = " << j << " pack_id = " << pack_id <<  " nparts_in_pack = " << nparts_in_pack << std::endl;
+              //std::cout << "i = " << i << " j = " << j << " pack_id = " << pack_id <<  " nparts_in_pack = " << nparts_in_pack << std::endl;
 
               for (local_ordinal_type pti=0;pti<nparts_in_pack;++pti) {
                 btdm.pack_td_ptr(partidx+pti, j) = btdm.flat_td_ptr(i, j);
@@ -1355,7 +1355,7 @@ namespace Ifpack2 {
             }
           });
 
-        std::cout << " end createBlockTridiags::RangePolicy::pack_td_ptr " << std::endl;
+        //std::cout << " end createBlockTridiags::RangePolicy::pack_td_ptr " << std::endl;
       }
 
       btdm.pack_td_ptr_schur = size_type_2d_view(do_not_initialize_tag("btdm.pack_td_ptr_schur"), interf.nparts, interf.n_subparts_per_part);
@@ -1381,33 +1381,33 @@ namespace Ifpack2 {
 
       Kokkos::deep_copy(btdm.pack_td_ptr_schur, host_pack_td_ptr_schur);
 
-      std::cout << "flat_td_ptr = " << std::endl;
+      //std::cout << "flat_td_ptr = " << std::endl;
       for (int i = 0; i < btdm.flat_td_ptr.extent(0); ++i) {
         for (int j = 0; j < btdm.flat_td_ptr.extent(1); ++j) {
-          std::cout << btdm.flat_td_ptr(i,j) << " ";
+          //std::cout << btdm.flat_td_ptr(i,j) << " ";
         }
-        std::cout << std::endl;
+        //std::cout << std::endl;
       }
-      std::cout << "flat_td_ptr end" << std::endl;
+      //std::cout << "flat_td_ptr end" << std::endl;
 
-      std::cout << "pack_td_ptr = " << std::endl;
+      //std::cout << "pack_td_ptr = " << std::endl;
       for (int i = 0; i < btdm.pack_td_ptr.extent(0); ++i) {
         for (int j = 0; j < btdm.pack_td_ptr.extent(1); ++j) {
-          std::cout << btdm.pack_td_ptr(i,j) << " ";
+          //std::cout << btdm.pack_td_ptr(i,j) << " ";
         }
-        std::cout << std::endl;
+        //std::cout << std::endl;
       }
-      std::cout << "pack_td_ptr end" << std::endl;
+      //std::cout << "pack_td_ptr end" << std::endl;
 
 
-      std::cout << "pack_td_ptr_schur = " << std::endl;
+      //std::cout << "pack_td_ptr_schur = " << std::endl;
       for (int i = 0; i < btdm.pack_td_ptr_schur.extent(0); ++i) {
         for (int j = 0; j < btdm.pack_td_ptr_schur.extent(1); ++j) {
-          std::cout << btdm.pack_td_ptr_schur(i,j) << " ";
+          //std::cout << btdm.pack_td_ptr_schur(i,j) << " ";
         }
-        std::cout << std::endl;
+        //std::cout << std::endl;
       }
-      std::cout << "pack_td_ptr_schur end" << std::endl;
+      //std::cout << "pack_td_ptr_schur end" << std::endl;
 
       // values and A_colindsub are created in the symbolic phase
 
@@ -1432,7 +1432,7 @@ namespace Ifpack2 {
       (const BlockTridiags<MatrixType>& btdm,
        const typename BlockHelperDetails::ImplType<MatrixType>::local_ordinal_type_1d_view& packptr)
     {
-      std::cout << " start setTridiagsToIdentity " << std::endl;
+      //std::cout << " start setTridiagsToIdentity " << std::endl;
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using execution_space = typename impl_type::execution_space;
       using local_ordinal_type = typename impl_type::local_ordinal_type;
@@ -1501,11 +1501,11 @@ namespace Ifpack2 {
           ("setTridiagsToIdentity::TeamPolicy",
            policy, KOKKOS_LAMBDA(const typename team_policy_type::member_type &member) {
             const local_ordinal_type k = member.league_rank();
-            std::cout << " will access pack_td_ptr with k=" << k <<" and packptr(k) =" << packptr(k) << " n work items = " << packptr.extent(0)-1 << std::endl;
+            //std::cout << " will access pack_td_ptr with k=" << k <<" and packptr(k) =" << packptr(k) << " n work items = " << packptr.extent(0)-1 << std::endl;
             const local_ordinal_type ibeg = pack_td_ptr(packptr(k),0);
             const local_ordinal_type iend = pack_td_ptr(packptr(k),pack_td_ptr.extent(1)-1);
 
-            std::cout << " setTridiagsToIdentity k=" << k <<" ibeg=" << ibeg << " iend=" << iend << std::endl;
+            //std::cout << " setTridiagsToIdentity k=" << k <<" ibeg=" << ibeg << " iend=" << iend << std::endl;
             const local_ordinal_type diff = iend - ibeg;
             const local_ordinal_type icount = diff/3 + (diff%3 > 0);
             const btdm_scalar_type one(1);
@@ -1513,14 +1513,14 @@ namespace Ifpack2 {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(member,icount),[&](const local_ordinal_type &ii) {
                     const local_ordinal_type i = ibeg + ii*3;
                     for (local_ordinal_type j=0;j<blocksize;++j) {
-                      std::cout << " set values (" << i <<", " << j << ", " << v << ") to one " << std::endl;
+                      //std::cout << " set values (" << i <<", " << j << ", " << v << ") to one " << std::endl;
                       values(i,j,j,v) = one;
                     }
                   });
               });
           });
       }
-      std::cout << " end setTridiagsToIdentity " << std::endl;
+      //std::cout << " end setTridiagsToIdentity " << std::endl;
     }
 
     ///
@@ -1533,7 +1533,7 @@ namespace Ifpack2 {
                          BlockTridiags<MatrixType> &btdm,
                          BlockHelperDetails::AmD<MatrixType> &amd,
                          const bool overlap_communication_and_computation) {
-      std::cout << " performSymbolicPhase start " << std::endl;
+      //std::cout << " performSymbolicPhase start " << std::endl;
       IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchur::SymbolicPhase");
 
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
@@ -1730,8 +1730,8 @@ namespace Ifpack2 {
             const auto num_packed_blocks_schur = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), pack_td_ptr_schur_last);
             btdm.values_schur = vector_type_3d_view("btdm.values_schur", num_packed_blocks_schur(), blocksize, blocksize);
 
-            std::cout << "num_packed_blocks() = " << num_packed_blocks() << std::endl;
-            std::cout << "num_packed_blocks_schur() = " << num_packed_blocks_schur() << std::endl;
+            //std::cout << "num_packed_blocks() = " << num_packed_blocks() << std::endl;
+            //std::cout << "num_packed_blocks_schur() = " << num_packed_blocks_schur() << std::endl;
 
             if (vector_length > 1) setTridiagsToIdentity(btdm, interf.packptr);
           }
@@ -2003,7 +2003,7 @@ namespace Ifpack2 {
                       const Unmanaged<typename impl_type::internal_vector_type_4d_view> X_internal_vector_values,
                       const WWViewType &WW, 
                       const bool skip_first_pass=false) {
-        std::cout << "Start solveMultiVector" << std::endl;
+        //std::cout << "Start solveMultiVector" << std::endl;
         using execution_space = typename impl_type::execution_space;
         using team_policy_type = Kokkos::TeamPolicy<execution_space>;
         using member_type = typename team_policy_type::member_type;
@@ -2023,8 +2023,8 @@ namespace Ifpack2 {
 
         // subview pattern
         auto A  = Kokkos::subview(D_internal_vector_values, i0, Kokkos::ALL(), Kokkos::ALL(), v);
-        std::cout << "r0 = " << r0 << std::endl;
-        std::cout << "X_internal_vector_values.extent(0) = " << X_internal_vector_values.extent(0) << std::endl;
+        //std::cout << "r0 = " << r0 << std::endl;
+        //std::cout << "X_internal_vector_values.extent(0) = " << X_internal_vector_values.extent(0) << std::endl;
         auto X1 = Kokkos::subview(X_internal_vector_values, r0, Kokkos::ALL(), Kokkos::ALL(), v);
         auto X2 = X1;
 
@@ -2352,7 +2352,7 @@ namespace Ifpack2 {
       extract(local_ordinal_type partidx,
               local_ordinal_type local_subpartidx,
               local_ordinal_type npacks) const {
-        printf("extract partidx = %d, local_subpartidx = %d, npacks = %d;\n", partidx, local_subpartidx, npacks);
+        //printf("extract partidx = %d, local_subpartidx = %d, npacks = %d;\n", partidx, local_subpartidx, npacks);
         using tlb = BlockHelperDetails::TpetraLittleBlock<Tpetra::Impl::BlockCrsMatrixLittleBlockArrayLayout>;
         const size_type kps = pack_td_ptr(partidx, local_subpartidx);
         local_ordinal_type kfs[vector_length] = {};
@@ -2366,9 +2366,9 @@ namespace Ifpack2 {
           kfs[vi] = flat_td_ptr(partidx,local_subpartidx);
           ri0[vi] = partptr_sub(pack_td_ptr.extent(0)*local_subpartidx + partidx,0);
           nrows[vi] = partptr_sub(pack_td_ptr.extent(0)*local_subpartidx + partidx,1) - ri0[vi];
-          printf("kfs[%d] = %d;\n", vi, kfs[vi]);
-          printf("ri0[%d] = %d;\n", vi, ri0[vi]);
-          printf("nrows[%d] = %d;\n", vi, nrows[vi]);
+          //printf("kfs[%d] = %d;\n", vi, kfs[vi]);
+          //printf("ri0[%d] = %d;\n", vi, ri0[vi]);
+          //printf("nrows[%d] = %d;\n", vi, nrows[vi]);
         }
         if (local_subpartidx % 2 == 0) {
           for (local_ordinal_type tr=0,j=0;tr<nrows[0];++tr) {
@@ -2402,7 +2402,7 @@ namespace Ifpack2 {
           }
         }
         else {
-          printf("This is a Schur related extract for local_subpartidx = %d!\n", local_subpartidx);
+          //printf("This is a Schur related extract for local_subpartidx = %d!\n", local_subpartidx);
 
           for (local_ordinal_type tr=-1,j=0;tr<nrows[0]+1;++tr) {
             for (local_ordinal_type e=0;e<3;++e) {
@@ -2412,7 +2412,7 @@ namespace Ifpack2 {
                 block[vi] = &A_values(Aj*blocksize_square);
               }
               const size_type pi = kps + j;
-              printf("extract pi = %ld;\n", pi);
+              //printf("extract pi = %ld;\n", pi);
               ++j;
               for (local_ordinal_type ii=0;ii<blocksize;++ii) {
                 for (local_ordinal_type jj=0;jj<blocksize;++jj) {
@@ -2473,7 +2473,7 @@ namespace Ifpack2 {
                   (Kokkos::TeamThreadRange(member,blocksize),
                    [&](const local_ordinal_type &ii) {
                     for (local_ordinal_type jj=0;jj<blocksize;++jj) {
-                      std::cout << "Extract scalar_values(" << pi << ", " << ii << ", " << jj << ", " << v << ") " << std::endl;
+                      //std::cout << "Extract scalar_values(" << pi << ", " << ii << ", " << jj << ", " << v << ") " << std::endl;
                       scalar_values(pi, ii, jj, v) = static_cast<btdm_scalar_type>(block[tlb::getFlatIndex(ii,jj,blocksize)]);
                     }
                   });
@@ -2503,8 +2503,8 @@ namespace Ifpack2 {
         // constant
         const auto one = Kokkos::ArithTraits<btdm_magnitude_type>::one();
 
-        printf("i0 = %d, nrows = %d, v = %d;\n", i0, nrows, v);
-        printf("AA.extent(0) = %ld\n", AA.extent(0));
+        //printf("i0 = %d, nrows = %d, v = %d;\n", i0, nrows, v);
+        //printf("AA.extent(0) = %ld\n", AA.extent(0));
 
         // subview pattern
         auto A = Kokkos::subview(AA, i0, Kokkos::ALL(), Kokkos::ALL(), v);
@@ -2517,7 +2517,7 @@ namespace Ifpack2 {
           auto C = A;
           local_ordinal_type i = i0;
           for (local_ordinal_type tr=1;tr<nrows;++tr,i+=3) {
-            printf("tr = %d, i = %d;\n", tr, i);
+            //printf("tr = %d, i = %d;\n", tr, i);
             B.assign_data( &AA(i+1,0,0,v) );
             KB::Trsm<member_type,
                      KB::Side::Left,KB::Uplo::Lower,KB::Trans::NoTranspose,KB::Diag::Unit,
@@ -2602,7 +2602,7 @@ namespace Ifpack2 {
         internal_vector_scratch_type_3d_view
           WW(member.team_scratch(0), blocksize, blocksize, vector_loop_size);
         
-        printf("rank = %d, i0 = %d, npacks = %d, nrows = %d, packidx = %d, subpartidx = %d, partidx = %d, local_subpartidx = %d;\n", member.league_rank(), i0, npacks, nrows, packidx, subpartidx, partidx, local_subpartidx);
+        //printf("rank = %d, i0 = %d, npacks = %d, nrows = %d, packidx = %d, subpartidx = %d, partidx = %d, local_subpartidx = %d;\n", member.league_rank(), i0, npacks, nrows, packidx, subpartidx, partidx, local_subpartidx);
         //printf("vector_loop_size = %d\n", vector_loop_size);
 
         if (vector_loop_size == 1) {
@@ -2613,7 +2613,7 @@ namespace Ifpack2 {
             (Kokkos::ThreadVectorRange(member, vector_loop_size),
 	     [&](const local_ordinal_type &v) {
               const local_ordinal_type vbeg = v*internal_vector_length;
-              printf("i0 = %d, npacks = %d, vbeg = %d;\n", i0, npacks, vbeg);
+              //printf("i0 = %d, npacks = %d, vbeg = %d;\n", i0, npacks, vbeg);
               if (vbeg < npacks)
                 extract(member, partidx+vbeg, npacks, vbeg);
               // this is not safe if vector loop size is different from vector size of 
@@ -2652,7 +2652,7 @@ namespace Ifpack2 {
         const local_ordinal_type r1 = part2packrowidx0_sub(partidx,local_subpartidx)-1;
         const local_ordinal_type r2 = part2packrowidx0_sub(partidx,local_subpartidx)+2;
 
-        printf("Copy for Schur complement part id = %d from kps1 = %d to r1 = %d and from kps2 = %d to r2 = %d;\n", packidx, kps1, r1, kps2, r2);
+        //printf("Copy for Schur complement part id = %d from kps1 = %d to r1 = %d and from kps2 = %d to r2 = %d;\n", packidx, kps1, r1, kps2, r2);
 
         // Need to copy D to e_internal_vector_values.
         Kokkos::deep_copy(Kokkos::subview(e_internal_vector_values, 0, r1, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), 
@@ -2681,9 +2681,9 @@ namespace Ifpack2 {
         const local_ordinal_type blocksize = e_internal_vector_values.extent(2);
         const local_ordinal_type num_vectors = blocksize;
 
-        std::cout << " subpartidx = " << subpartidx << " partidx = " << partidx << " local_subpartidx = " << local_subpartidx << std::endl;
-        std::cout << " part2packrowidx0_sub.extent(0) = " << part2packrowidx0_sub.extent(0) << " part2packrowidx0_sub.extent(1) = " << part2packrowidx0_sub.extent(1) << std::endl;
-        std::cout << " member.league_rank() = " << member.league_rank() << " subpartidx = " << subpartidx << " r0 = " << r0 << " " << part2packrowidx0_sub(partidx,local_subpartidx) << " nrows = " << nrows << std::endl;
+        //std::cout << " subpartidx = " << subpartidx << " partidx = " << partidx << " local_subpartidx = " << local_subpartidx << std::endl;
+        //std::cout << " part2packrowidx0_sub.extent(0) = " << part2packrowidx0_sub.extent(0) << " part2packrowidx0_sub.extent(1) = " << part2packrowidx0_sub.extent(1) << std::endl;
+        //std::cout << " member.league_rank() = " << member.league_rank() << " subpartidx = " << subpartidx << " r0 = " << r0 << " " << part2packrowidx0_sub(partidx,local_subpartidx) << " nrows = " << nrows << std::endl;
         internal_vector_scratch_type_3d_view
           WW(member.team_scratch(0), blocksize, num_vectors, vector_loop_size);
         if (local_subpartidx == 0) {
@@ -2728,10 +2728,10 @@ namespace Ifpack2 {
 
         // Compute S = D - C E
 
-        std::cout << " ComputeSchurTag " << std::endl;
-        std::cout << " subpartidx = " << subpartidx << " partidx = " << partidx << " local_subpartidx = " << local_subpartidx << std::endl;
-        std::cout << " part2packrowidx0_sub.extent(0) = " << part2packrowidx0_sub.extent(0) << " part2packrowidx0_sub.extent(1) = " << part2packrowidx0_sub.extent(1) << std::endl;
-        std::cout << " member.league_rank() = " << member.league_rank() << " subpartidx = " << subpartidx << " i0 = " << i0 << " ifinal = " << pack_td_ptr(partidx,local_subpartidx+1) << " r0 = " << r0 << " " << part2packrowidx0_sub(partidx,local_subpartidx) << " nrows = " << nrows << std::endl;
+        //std::cout << " ComputeSchurTag " << std::endl;
+        //std::cout << " subpartidx = " << subpartidx << " partidx = " << partidx << " local_subpartidx = " << local_subpartidx << std::endl;
+        //std::cout << " part2packrowidx0_sub.extent(0) = " << part2packrowidx0_sub.extent(0) << " part2packrowidx0_sub.extent(1) = " << part2packrowidx0_sub.extent(1) << std::endl;
+        //std::cout << " member.league_rank() = " << member.league_rank() << " subpartidx = " << subpartidx << " i0 = " << i0 << " ifinal = " << pack_td_ptr(partidx,local_subpartidx+1) << " r0 = " << r0 << " " << part2packrowidx0_sub(partidx,local_subpartidx) << " nrows = " << nrows << std::endl;
 
 
         const local_ordinal_type local_subpartidx_schur = (local_subpartidx-1)/2;
@@ -2834,7 +2834,7 @@ namespace Ifpack2 {
         internal_vector_scratch_type_3d_view
           WW(member.team_scratch(0), blocksize, blocksize, vector_loop_size);
         
-        printf("FactorizeSchurTag rank = %d, i0 = %d, nrows = %d;\n", member.league_rank(), i0, nrows);
+        //printf("FactorizeSchurTag rank = %d, i0 = %d, nrows = %d;\n", member.league_rank(), i0, nrows);
         //printf("vector_loop_size = %d\n", vector_loop_size);
 
         if (vector_loop_size == 1) {
@@ -2870,10 +2870,10 @@ namespace Ifpack2 {
           writeBTDValuesToFile(n_parts, scalar_values, "before.mm");
 
           policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
-          std::cout << " Start ExtractAndFactorizeSubLineTag nteams = " << packindices_sub.extent(0) << std::endl;
+          //std::cout << " Start ExtractAndFactorizeSubLineTag nteams = " << packindices_sub.extent(0) << std::endl;
           Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<ExtractAndFactorizeSubLineTag>",
                               policy, *this);
-          std::cout << " End ExtractAndFactorizeSubLineTag " << std::endl;
+          //std::cout << " End ExtractAndFactorizeSubLineTag " << std::endl;
 
           writeBTDValuesToFile(n_parts, scalar_values, "after.mm");
         }
@@ -2927,10 +2927,10 @@ namespace Ifpack2 {
               policy(packindices_sub.extent(0), team_size, vector_loop_size);
 
             policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
-            std::cout << " Start ComputeETag nteams = " << packindices_sub.extent(0) << std::endl;
+            //std::cout << " Start ComputeETag nteams = " << packindices_sub.extent(0) << std::endl;
             Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<ComputeETag>",
                                 policy, *this);
-            std::cout << " End ComputeETag " << std::endl;
+            //std::cout << " End ComputeETag " << std::endl;
 
             writeMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), e_scalar_values, "e_scalar_values_after_compute.mm");
           }
@@ -3446,8 +3446,8 @@ namespace Ifpack2 {
         auto A = D_internal_vector_values.data();
         auto X = X_internal_vector_values.data();
 
-        std::cout << "r0 = " << r0 << std::endl;
-        std::cout << "X_internal_vector_values.extent(0) = " << X_internal_vector_values.extent(0) << std::endl;
+        //std::cout << "r0 = " << r0 << std::endl;
+        //std::cout << "X_internal_vector_values.extent(0) = " << X_internal_vector_values.extent(0) << std::endl;
 
         // constant
         const auto one = Kokkos::ArithTraits<btdm_magnitude_type>::one();
@@ -3579,8 +3579,8 @@ namespace Ifpack2 {
         const auto one = Kokkos::ArithTraits<btdm_magnitude_type>::one();
         const auto zero = Kokkos::ArithTraits<btdm_magnitude_type>::zero();
 
-        std::cout << "r0 = " << r0 << std::endl;
-        std::cout << "X_internal_vector_values.extent(0) = " << X_internal_vector_values.extent(0) << std::endl;
+        //std::cout << "r0 = " << r0 << std::endl;
+        //std::cout << "X_internal_vector_values.extent(0) = " << X_internal_vector_values.extent(0) << std::endl;
 
         // subview pattern
         auto A  = Kokkos::subview(D_internal_vector_values, i0, Kokkos::ALL(), Kokkos::ALL(), v);
@@ -3828,7 +3828,7 @@ namespace Ifpack2 {
       const local_ordinal_type num_vectors = Y.getNumVectors();
       const local_ordinal_type num_blockrows = interf.part2packrowidx0_back;
 
-      std::cout << "num_blockrows = " << num_blockrows << std::endl;
+      //std::cout << "num_blockrows = " << num_blockrows << std::endl;
 
       const impl_scalar_type zero(0.0);
 
