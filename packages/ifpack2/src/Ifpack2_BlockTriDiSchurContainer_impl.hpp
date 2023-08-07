@@ -2034,7 +2034,17 @@ namespace Ifpack2 {
         if (nrows > 1) {
           // solve Lx = x
           if (skip_first_pass) {
-            
+            i += (nrows-2) * 3;
+            r += (nrows-2);
+            A.assign_data( &D_internal_vector_values(i+2,0,0,v) );
+            X2.assign_data( &X_internal_vector_values(++r,0,0,v) );
+            A.assign_data( &D_internal_vector_values(i+3,0,0,v) );
+            KB::Trsm<member_type,
+                    KB::Side::Left,KB::Uplo::Lower,KB::Trans::NoTranspose,KB::Diag::Unit,
+                    default_mode_type,default_algo_type>
+              ::invoke(member, one, A, X2);
+            X1.assign_data( X2.data() );
+            i+=3;
           }
           else {
             KB::Trsm<member_type,
@@ -2101,9 +2111,8 @@ namespace Ifpack2 {
       std::ofstream myfile;
       myfile.open (fileName);
 
-      local_ordinal_type nnz = scalar_values.extent(0) * scalar_values.extent(1) * scalar_values.extent(2) * scalar_values.extent(3);
-
-      const local_ordinal_type n_parts_per_pack = scalar_values.extent(3);
+      const local_ordinal_type n_parts_per_pack = n_parts < scalar_values.extent(3) ? n_parts : scalar_values.extent(3);
+      local_ordinal_type nnz = scalar_values.extent(0) * scalar_values.extent(1) * scalar_values.extent(2) * n_parts_per_pack;
       const local_ordinal_type n_blocks = scalar_values.extent(0)*n_parts_per_pack;
       const local_ordinal_type n_blocks_per_part = n_blocks/n_parts;
 
@@ -2112,7 +2121,7 @@ namespace Ifpack2 {
       const local_ordinal_type n_rows_per_part = (n_blocks_per_part+2)/3 * block_size;
       const local_ordinal_type n_rows = n_rows_per_part*n_parts;
 
-      const local_ordinal_type n_packs = n_parts/n_parts_per_pack;
+      const local_ordinal_type n_packs = ceil(float(n_parts)/n_parts_per_pack);
 
       myfile << "%%MatrixMarket matrix coordinate real general"<< std::endl;
       myfile << "%%nnz = " << nnz; 
@@ -2168,7 +2177,7 @@ namespace Ifpack2 {
       std::ofstream myfile;
       myfile.open (fileName);
 
-      const local_ordinal_type n_parts_per_pack = scalar_values.extent(4);
+      const local_ordinal_type n_parts_per_pack = n_parts < scalar_values.extent(3) ? n_parts : scalar_values.extent(3);
       const local_ordinal_type n_blocks = scalar_values.extent(1)*n_parts_per_pack;
       const local_ordinal_type n_blocks_per_part = n_blocks/n_parts;
 
@@ -2179,7 +2188,7 @@ namespace Ifpack2 {
       const local_ordinal_type n_rows_per_part = n_blocks_per_part * block_size;
       const local_ordinal_type n_rows = n_rows_per_part*n_parts;
 
-      const local_ordinal_type n_packs = n_parts/n_parts_per_pack;
+      const local_ordinal_type n_packs = ceil(float(n_parts)/n_parts_per_pack);
 
       myfile << "%%MatrixMarket matrix array real general"<< std::endl;
       myfile << "%%block size = " << block_size;
@@ -2680,7 +2689,7 @@ namespace Ifpack2 {
         if (local_subpartidx == 0) {
           Kokkos::parallel_for
             (Kokkos::ThreadVectorRange(member, vector_loop_size),[&](const int &v) {
-              solveMultiVector<impl_type, internal_vector_scratch_type_3d_view> (member, blocksize, i0, r0, nrows, v, internal_vector_values, Kokkos::subview(e_internal_vector_values, 0, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), WW, false); // TO DO -> true
+              solveMultiVector<impl_type, internal_vector_scratch_type_3d_view> (member, blocksize, i0, r0, nrows, v, internal_vector_values, Kokkos::subview(e_internal_vector_values, 0, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), WW, true);
             });
         }
         else if (local_subpartidx == part2packrowidx0_sub.extent(1) - 2) {
@@ -2692,7 +2701,7 @@ namespace Ifpack2 {
         else {
           Kokkos::parallel_for
             (Kokkos::ThreadVectorRange(member, vector_loop_size),[&](const int &v) {
-              solveMultiVector<impl_type, internal_vector_scratch_type_3d_view> (member, blocksize, i0, r0, nrows, v, internal_vector_values, Kokkos::subview(e_internal_vector_values, 0, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), WW, false); // TO DO -> true
+              solveMultiVector<impl_type, internal_vector_scratch_type_3d_view> (member, blocksize, i0, r0, nrows, v, internal_vector_values, Kokkos::subview(e_internal_vector_values, 0, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), WW, true);
               solveMultiVector<impl_type, internal_vector_scratch_type_3d_view> (member, blocksize, i0, r0, nrows, v, internal_vector_values, Kokkos::subview(e_internal_vector_values, 1, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), WW); 
             });
         }
