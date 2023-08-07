@@ -2181,7 +2181,7 @@ namespace Ifpack2 {
 
       const local_ordinal_type n_packs = n_parts/n_parts_per_pack;
 
-      myfile << "%%MatrixMarket matrix coordinate real general"<< std::endl;
+      myfile << "%%MatrixMarket matrix array real general"<< std::endl;
       myfile << "%%block size = " << block_size;
       myfile << " number of blocks = " << n_blocks;
       myfile << " number of parts = " << n_parts;
@@ -2193,24 +2193,22 @@ namespace Ifpack2 {
       myfile << n_rows << " " << n_cols << std::endl;     
 
       local_ordinal_type current_part_idx, current_block_idx, current_row_offset;
-      for (local_ordinal_type i_pack=0;i_pack<n_packs;++i_pack) {
-        for (local_ordinal_type i_part_in_pack=0;i_part_in_pack<n_parts_per_pack;++i_part_in_pack) {
-          current_part_idx = i_part_in_pack + i_pack * n_parts_per_pack;
-          for (local_ordinal_type i_block_in_part=0;i_block_in_part<n_blocks_per_part;++i_block_in_part) {
-            current_block_idx = i_block_in_part + i_pack * n_blocks_per_part;
+      for (local_ordinal_type i_block_col=0;i_block_col<n_blocks_cols;++i_block_col) {
+        for (local_ordinal_type j_in_block=0;j_in_block<block_size;++j_in_block) {      
+          for (local_ordinal_type i_pack=0;i_pack<n_packs;++i_pack) {
+            for (local_ordinal_type i_part_in_pack=0;i_part_in_pack<n_parts_per_pack;++i_part_in_pack) {
+              current_part_idx = i_part_in_pack + i_pack * n_parts_per_pack;
+              for (local_ordinal_type i_block_in_part=0;i_block_in_part<n_blocks_per_part;++i_block_in_part) {
+                current_block_idx = i_block_in_part + i_pack * n_blocks_per_part;
 
-            for (local_ordinal_type i_in_block=0;i_in_block<block_size;++i_in_block) {
-              for (local_ordinal_type i_block_col=0;i_block_col<n_blocks_cols;++i_block_col) {
-                for (local_ordinal_type j_in_block=0;j_in_block<block_size;++j_in_block) {
-                  myfile << scalar_values(i_block_col,current_block_idx,i_in_block,j_in_block,i_part_in_pack) << " ";
+                for (local_ordinal_type i_in_block=0;i_in_block<block_size;++i_in_block) {
+                  myfile << scalar_values(i_block_col,current_block_idx,i_in_block,j_in_block,i_part_in_pack) << std::endl;
                 }
               }
-              myfile << std::endl;;
             }
           }
         }
       }
-
       myfile.close();
     }
     
@@ -2581,7 +2579,6 @@ namespace Ifpack2 {
       void
       operator() (const ExtractAndFactorizeSubLineTag &, const member_type &member) const {
         // btdm is packed and sorted from largest one
-        if (member.league_rank() > -1){
         const local_ordinal_type packidx = packindices_sub(member.league_rank());
 
         const local_ordinal_type subpartidx = packptr_sub(packidx);
@@ -2615,7 +2612,6 @@ namespace Ifpack2 {
               member.team_barrier();
               factorize_subline(member, i0, nrows, v, internal_vector_values, WW);
             });
-        }
         }
       }
 
@@ -2820,7 +2816,28 @@ namespace Ifpack2 {
       KOKKOS_INLINE_FUNCTION
       void
       operator() (const FactorizeSchurTag &, const member_type &member) const {
-        std::cout << "FactorizeSchurTag" << std::endl;
+        const local_ordinal_type packidx = packindices_sub(member.league_rank());
+
+        const local_ordinal_type partidx = packptr_sub(packidx);
+
+        const local_ordinal_type i0 = pack_td_ptr_schur(partidx,0);
+        const local_ordinal_type nrows = 2*(pack_td_ptr_schur.extent(1)-1);
+
+        internal_vector_scratch_type_3d_view
+          WW(member.team_scratch(0), blocksize, blocksize, vector_loop_size);
+        
+        printf("FactorizeSchurTag rank = %d, i0 = %d, nrows = %d;\n", member.league_rank(), i0, nrows);
+        //printf("vector_loop_size = %d\n", vector_loop_size);
+
+        if (vector_loop_size == 1) {
+          factorize_subline(member, i0, nrows, 0, internal_vector_values_schur, WW);
+        } else {
+          Kokkos::parallel_for
+            (Kokkos::ThreadVectorRange(member, vector_loop_size),
+	     [&](const local_ordinal_type &v) {
+              factorize_subline(member, i0, nrows, v, internal_vector_values_schur, WW);
+            });
+        }
       }
 
       void run() {
