@@ -452,20 +452,20 @@ void MassSpringDamperModel::evalModelImpl(
     W_out_crs->resumeFill();
     W_out_crs->setAllToScalar(0.0);
 
-    double beta = inArgs.get_beta();
     double val;
-
-    for (int row=0; row<myVecLength; ++row) {
-      for (int col=0; col<myVecLength; ++col) {
-        if ( row == 0 && col == 0)
-          val = 0.0;                // d(f0)/d(x0_n)
-        if ( row == 0 && col == 1)
-          val = +beta;              // d(f0)/d(x1_n)
-        if ( row == 1 && col == 0)
-          val = -beta*(k/m);        // d(f1)/d(x0_n)
-        if ( row == 1 && col == 1)
-          val = -beta*2*sqrt(k/m);  // d(f1)/d(x1_n) // alpha ??
-        W_out_crs->replaceLocalValues(row, 1, &val, &col);
+    if (comm->getRank() == 0) {
+      for (int row=0; row<myVecLength; ++row) {
+        for (int col=0; col<myVecLength; ++col) {
+          if ( row == 0 && col == 0)
+            val = 0.0;                // d(f0)/d(x0_n)
+          if ( row == 0 && col == 1)
+            val = 1.0;                // d(f0)/d(x1_n)
+          if ( row == 1 && col == 0)
+            val = -(k/m);             // d(f1)/d(x0_n)
+          if ( row == 1 && col == 1)
+            val = -2*sqrt(k/m);       // d(f1)/d(x1_n) // alpha ??
+          W_out_crs->replaceLocalValues(row, 1, &val, &col);
+        }
       }
     }
     W_out_crs->fillComplete();
@@ -596,8 +596,10 @@ void MassSpringDamperModel::evalModelImpl(
     if (f_out != Teuchos::null) {
       // f(x, x_dot) = f(x) - x_dot
       auto f_out_data = f_out->getDataNonConst();
-      for (int i=0; i<myVecLength; i++) {
-        f_out_data[i] = -x_dot_in->getData()[i] + f_out->getData()[i];
+      if (comm->getRank() == 0) {
+        for (int i=0; i<myVecLength; i++) {
+          f_out_data[i] -= x_dot_in->getData()[i];
+        }
       }
     }
     if (W_out != Teuchos::null) {
@@ -607,9 +609,11 @@ void MassSpringDamperModel::evalModelImpl(
       W_out_crs->resumeFill();
       W_out_crs->scale(beta);
 
-      const double diag = -alpha;
-      for (int i=0; i<myVecLength; i++) {
-        W_out_crs->sumIntoLocalValues(i, 1, &diag, &i);
+      if (comm->getRank() == 0) {
+        const double diag = -alpha;
+        for (int i=0; i<myVecLength; i++) {
+          W_out_crs->sumIntoLocalValues(i, 1, &diag, &i);
+        }
       }
       W_out_crs->fillComplete();
     }
