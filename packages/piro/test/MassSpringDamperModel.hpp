@@ -45,155 +45,149 @@
 
 #include "Teuchos_Assert.hpp"
 #include "Teuchos_RCP.hpp"
+#include "Thyra_ModelEvaluatorDefaultBase.hpp"
 #include "Tpetra_MultiVector.hpp"
 #include "Tpetra_CrsMatrix.hpp"
 #include "Thyra_TpetraThyraWrappers.hpp"
-#include "Thyra_ModelEvaluator.hpp" // Interface
-#include "Thyra_StateFuncModelEvaluatorBase.hpp" // Implementation
+#include "MatrixBased_LOWS.hpp"
 
-#include "Teuchos_ParameterListAcceptorDefaultBase.hpp"
-#include "Teuchos_ParameterList.hpp"
-
-
-/** \brief Mass-spring-damper model problem from Tempus.
-  * This is a mass-spring-damper differential equation
-  *   \f[
-  *   m \ddot{x} + 2 \sqrt{m\,k} \dot{x} + k x - F = 0
-  *   \f]
-  * . 
-*/
 
 using LO = Tpetra::Map<>::local_ordinal_type;
 using GO = Tpetra::Map<>::global_ordinal_type;
-using Scalar = double; 
 typedef Tpetra::Map<LO,GO>  Tpetra_Map;
-typedef Tpetra::Vector<Scalar,LO,GO>  Tpetra_Vector;
-typedef Tpetra::MultiVector<Scalar,LO,GO>  Tpetra_MultiVector;
-typedef Tpetra::Operator<Scalar,LO,GO>  Tpetra_Operator;
+typedef Tpetra::Vector<double,LO,GO>  Tpetra_Vector;
+typedef Tpetra::MultiVector<double,LO,GO>  Tpetra_MultiVector;
+typedef Tpetra::Operator<double,LO,GO>  Tpetra_Operator;
 typedef Tpetra::CrsGraph<LO,GO>  Tpetra_CrsGraph;
-typedef Tpetra::CrsMatrix<Scalar,LO,GO>  Tpetra_CrsMatrix;
-typedef Thyra::TpetraOperatorVectorExtraction<Scalar, LO, GO> ConverterT;
+typedef Tpetra::CrsMatrix<double,LO,GO>  Tpetra_CrsMatrix;
+typedef Thyra::TpetraOperatorVectorExtraction<
+    double, LO, GO> ConverterT;
 
-
+/** \brief Concrete Tpetra-based Model Evaluator
+ *
+ * Concrete model evaluator for the solution of the following PDE-Constrained problem:
+ *
+ * find (p_0,p_1) that minimizes
+ * g = 0.5*(p0-6)^2 + 0.5*c*(p1-4)^2 + 0.5*(p0+p1-10)^2
+ * subject to:
+ * f_i = x_i = 0
+ *
+ * solution is p = (6,4).
+ */
 
 class MassSpringDamperModel
-    : public Thyra::StateFuncModelEvaluatorBase<Scalar>,
-      public Teuchos::ParameterListAcceptorDefaultBase
-
+    : public Thyra::ModelEvaluatorDefaultBase<double>
 {
   public:
 
-  // Constructor
-  MassSpringDamperModel(Teuchos::RCP<Teuchos::ParameterList> pList = Teuchos::null);
-
-  // Exact solution
-  Thyra::ModelEvaluatorBase::InArgs<Scalar> getExactSolution(double t) const;
-
-  // Exact sensitivity solution
-  Thyra::ModelEvaluatorBase::InArgs<Scalar> getExactSensSolution(int j, double t) const;
-
-  /** \name Public functions overridden from ModelEvaluator. */
+  /** \name Constructors/initializers */
   //@{
 
-  Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> > get_x_space() const;
-  Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> > get_f_space() const;
-  Thyra::ModelEvaluatorBase::InArgs<Scalar> getNominalValues() const;
-  Teuchos::RCP<Thyra::LinearOpWithSolveBase<Scalar> > create_W() const;
-  Teuchos::RCP<Thyra::LinearOpBase<Scalar> > create_W_op() const;
-  Teuchos::RCP<const Thyra::LinearOpWithSolveFactoryBase<Scalar> > get_W_factory() const;
-  Thyra::ModelEvaluatorBase::InArgs<Scalar> createInArgs() const;
+  /** \brief Takes the number of elements in the discretization . */
+  MassSpringDamperModel(const Teuchos::RCP<const Teuchos::Comm<int> >  appComm, bool adjoint = false, const Teuchos::RCP<Teuchos::ParameterList>& problemList = Teuchos::null, bool hessianSupport = false);
 
-  Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> > get_p_space(int l) const;
+  //@}
+
+  ~MassSpringDamperModel();
+
+
+  /** \name Overridden from EpetraExt::ModelEvaluator . */
+  //@{
+
+  /** \brief . */
+  Thyra::ModelEvaluatorBase::InArgs<double> getNominalValues() const;
+  /** \brief . */
+  Thyra::ModelEvaluatorBase::InArgs<double> getLowerBounds() const;
+  /** \brief . */
+  Thyra::ModelEvaluatorBase::InArgs<double> getUpperBounds() const;
+
+  /** \brief . */
+  Teuchos::RCP<Thyra::LinearOpBase<double>>
+  create_W_op() const;
+
+  /** \brief . */
+  Teuchos::RCP<Thyra::PreconditionerBase<double>>
+  create_W_prec() const;
+
+  /** \brief . */
+  Teuchos::RCP<const Thyra::LinearOpWithSolveFactoryBase<double>>
+  get_W_factory() const;
+
+  /** \brief . */
+  Teuchos::RCP<Thyra::LinearOpBase<double>>
+  create_hess_g_pp( int j, int l1, int l2 ) const;
+
+  /** \brief . */
+  Thyra::ModelEvaluatorBase::InArgs<double>
+  createInArgs() const;
+
+  /** \brief . */
+  void
+  reportFinalPoint(
+      const Thyra::ModelEvaluatorBase::InArgs<double>& finalPoint,
+      const bool wasSolved);
+
+  /** \brief . */
+  Teuchos::RCP<const Thyra::VectorSpaceBase<double>>  get_x_space() const;
+  /** \brief . */
+  Teuchos::RCP<const Thyra::VectorSpaceBase<double>>  get_f_space() const;
+  /** \brief . */
+  Teuchos::RCP<const Thyra::VectorSpaceBase<double>> get_p_space(int l) const;
+  /** \brief . */
+  Teuchos::RCP<const Thyra::VectorSpaceBase<double>> get_g_space(int j) const;
+  /** \brief . */
   Teuchos::RCP<const Teuchos::Array<std::string> > get_p_names(int l) const;
-  Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> > get_g_space(int j) const;
-
+  /** \brief . */
+  Teuchos::ArrayView<const std::string> get_g_names(int j) const {
+    TEUCHOS_TEST_FOR_EXCEPTION(true, std::logic_error, "not implemented");
+  }
   //@}
 
-  /** \name Public functions overridden from ParameterListAcceptor. */
+  protected:
+
   //@{
-  void setParameterList(Teuchos::RCP<Teuchos::ParameterList> const& paramList);
-  Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const;
+
+  /** \brief . */
+  Thyra::ModelEvaluatorBase::OutArgs<double>
+  createOutArgsImpl() const;
+
+  /** \brief . */
+  void
+  evalModelImpl(
+      const Thyra::ModelEvaluatorBase::InArgs<double>& inArgs,
+      const Thyra::ModelEvaluatorBase::OutArgs<double>& outArgs) const;
   //@}
 
-private:
 
-  void setupInOutArgs_() const;
+  private:
 
-  /** \name Private functions overridden from ModelEvaluatorDefaultBase. */
-  //@{
-  Thyra::ModelEvaluatorBase::OutArgs<Scalar> createOutArgsImpl() const;
-  void evalModelImpl(
-    const Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs_bar,
-    const Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs_bar
-    ) const;
-  //@}
+  /** \brief . */
+  Thyra::ModelEvaluatorBase::InArgs<double>
+  createInArgsImpl() const;
 
-  void calculateCoeffFromIC_();
+   //These are set in the constructor and used in evalModel
+  Teuchos::RCP<const Tpetra_Map> x_map;
+  Teuchos::RCP<const Tpetra_Map> p_map;
+  Teuchos::RCP<const Tpetra_Map> g_map;
+  Teuchos::RCP<Tpetra_CrsGraph> crs_graph;
+  Teuchos::RCP<Tpetra_CrsGraph> hess_crs_graph;
+  Teuchos::RCP<const Teuchos::Comm<int> > comm;
 
-protected:
-  int dim_;         ///< Number of state unknowns (1)
-  int Np_;          ///< Number of parameter vectors (1)
-  int np_;          ///< Number of parameters in this vector (2)
-  int Ng_;          ///< Number of observation functions (1)
-  int ng_;          ///< Number of elements in this observation function (1)
-  bool haveIC_;     ///< false => no nominal values are provided (default=true)
-  bool acceptModelParams_; ///< Changes inArgs to require parameters
-  bool useDfDpAsTangent_; ///< Treat DfDp OutArg as tangent (df/dx*dx/dp+df/dp)
-  mutable bool isInitialized_;
-  mutable Thyra::ModelEvaluatorBase::InArgs<Scalar>  inArgs_;
-  mutable Thyra::ModelEvaluatorBase::OutArgs<Scalar> outArgs_;
-  mutable Thyra::ModelEvaluatorBase::InArgs<Scalar>  nominalValues_;
-  Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> > x_space_;
-  Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> > f_space_;
-  Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> > p_space_;
-  Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> > g_space_;
-  Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> > DxDp_space_;
+  Teuchos::RCP<Tpetra_Vector> p_vec;
+  Teuchos::RCP<Tpetra_Vector> x_vec;
+  Teuchos::RCP<Tpetra_Vector> x_dot_vec;
 
-  double k_, m_, F_, target_time_, c1_, c2_, c3_, lambda_, target_x_, target_x_dot_, scaling_;
+   //! Cached nominal values and lower/upper bounds
+   Thyra::ModelEvaluatorBase::InArgs<double> nominalValues;
+   Thyra::ModelEvaluatorBase::InArgs<double> lowerBounds;
+   Thyra::ModelEvaluatorBase::InArgs<double> upperBounds;
+
+   //whether hessian is supported 
+   bool hessSupport;
+
+   //Problem parameter list
+   Teuchos::RCP<Teuchos::ParameterList> probList_;
+
 };
 
-
-/// Non-member constructor
-//Teuchos::RCP<MassSpringDamperModel> sineCosineModel(
-//  Teuchos::RCP<Teuchos::ParameterList> pList_)
-//{
-//  Teuchos::RCP<MassSpringDamperModel> model = rcp(new MassSpringDamperModel(pList_));
-//  return(model);
-//}
-
-//! Adjoint for MassSpringDamperModel
-/*!
- * This model evaluator modifies evalModel() to compute the adjoint operator
- * instead of the forward operator.
- */
-class MassSpringDamperModelAdjoint
-  : public MassSpringDamperModel
-{
-  public:
-
-  // Constructor
-  MassSpringDamperModelAdjoint(Teuchos::RCP<Teuchos::ParameterList> pList = Teuchos::null) : MassSpringDamperModel(pList) {}
-
-  /** \name Public functions overridden from ModelEvaluator. */
-  //@{
-
-  Thyra::ModelEvaluatorBase::InArgs<Scalar> createInArgs() const;
-  Teuchos::RCP<Thyra::LinearOpWithSolveBase<Scalar> > create_W() const;
-  Teuchos::RCP<Thyra::LinearOpBase<Scalar> > create_W_op() const;
-
-  //@}
-
-private:
-
-  /** \name Private functions overridden from ModelEvaluatorDefaultBase. */
-  //@{
-  Thyra::ModelEvaluatorBase::OutArgs<Scalar> createOutArgsImpl() const;
-  void evalModelImpl(
-    const Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs_bar,
-    const Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs_bar
-    ) const;
-  //@}
-};
-
-
-#endif // MASSSPRINGDAMPERMODEL
+#endif // MASSSPRINGDAMPERMODEL_H

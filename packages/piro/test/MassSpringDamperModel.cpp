@@ -41,720 +41,555 @@
 // @HEADER
 
 #include "MassSpringDamperModel.hpp"
+#include "Thyra_LinearOpWithSolveBase_decl.hpp"
 
-#include "Teuchos_StandardParameterEntryValidators.hpp"
-
-#include "Thyra_DefaultSpmdVectorSpace.hpp"
-#include "Thyra_DetachedVectorView.hpp"
-#include "Thyra_DetachedMultiVectorView.hpp"
-#include "Thyra_DefaultSerialDenseLinearOpWithSolveFactory.hpp"
-#include "Thyra_DefaultMultiVectorLinearOpWithSolve.hpp"
-#include "Thyra_DefaultLinearOpSource.hpp"
-#include "Thyra_VectorStdOps.hpp"
-#include "Thyra_MultiVectorStdOps.hpp"
-#include "Thyra_DefaultMultiVectorProductVector.hpp"
+#include "Thyra_ProductVectorBase.hpp"
+#include "Thyra_DefaultProductVectorSpace.hpp"
 
 #include <iostream>
 
 using Teuchos::RCP;
 using Teuchos::rcp;
 
-MassSpringDamperModel::
-MassSpringDamperModel(Teuchos::RCP<Teuchos::ParameterList> pList_)
-{
-  isInitialized_ = false;
-  dim_ = 2;
-  Np_ = 3; // Number of parameter vectors (p, dx/dp, dx_dot/dp)
-  np_ = 2; // Number of parameters in this vector (2) k and m
-  Ng_ = 1; // Number of observation functions (1)
-  ng_ = 1; // Number of elements in this observation function ( == x )
-  acceptModelParams_ = false;
-  useDfDpAsTangent_ = false;
-  haveIC_ = true;
-  k_ = 1.;
-  m_ = 1.;
-  F_ = 1.;
-  target_time_ = 5.;
-  target_x_ = 1.;
-  target_x_dot_ = 0.;
-  scaling_ = 10.;
+MassSpringDamperModel::MassSpringDamperModel(const Teuchos::RCP<const Teuchos::Comm<int> >  appComm, bool /*adjoint*/, const Teuchos::RCP<Teuchos::ParameterList>& problemList, bool hessianSupport) //problem is self-adjoint
+ {
+    comm = appComm;
+    hessSupport = hessianSupport;
 
-  // Create x_space and f_space
-  x_space_ = Thyra::defaultSpmdVectorSpace<Scalar>(dim_);
-  f_space_ = Thyra::defaultSpmdVectorSpace<Scalar>(dim_);
-  // Create p_space and g_space
-  p_space_ = Thyra::defaultSpmdVectorSpace<Scalar>(np_);
-  g_space_ = Thyra::defaultSpmdVectorSpace<Scalar>(ng_);
+    //set up map and initial guess for solution vector
+    const int vecLength = 4;
+    x_map = rcp(new Tpetra_Map(vecLength, 0, comm));
+    x_vec = rcp(new Tpetra_Vector(x_map));
+    x_dot_vec = rcp(new Tpetra_Vector(x_map));
+    x_vec->putScalar(3.0);
+    x_dot_vec->putScalar(1.0);
 
-  setParameterList(pList_);
+    Teuchos::RCP<const Thyra::VectorSpaceBase<double>> x_space =
+        Thyra::createVectorSpace<double>(x_map);
 
-  // Create DxDp product space
-  DxDp_space_ = Thyra::multiVectorProductVectorSpace(x_space_, np_);
-}
+    //set up responses
+    const int numResponses = 1;
+    g_map = rcp(new const Tpetra_Map(numResponses , 0, comm, Tpetra::LocallyReplicated));
 
-Thyra::ModelEvaluatorBase::InArgs<Scalar> 
-MassSpringDamperModel::
-getExactSolution(Scalar t) const
-{
-  TEUCHOS_TEST_FOR_EXCEPTION( !isInitialized_, std::logic_error,
-      "Error, setupInOutArgs_ must be called first!\n");
-  Thyra::ModelEvaluatorBase::InArgs<Scalar> inArgs = inArgs_;
-  Scalar exact_t = t;
-  inArgs.set_t(exact_t);
-  Teuchos::RCP<Thyra::VectorBase<Scalar> > exact_x = createMember(x_space_);
-  { // scope to delete DetachedVectorView
-    Thyra::DetachedVectorView<Scalar> exact_x_view(*exact_x);
-    exact_x_view[0] = (c1_+c2_ * t) * exp(lambda_ * t) + c3_;
-  }
-  inArgs.set_x(exact_x);
-  Teuchos::RCP<Thyra::VectorBase<Scalar> > exact_x_dot = createMember(x_space_);
-  { // scope to delete DetachedVectorView
-    Thyra::DetachedVectorView<Scalar> exact_x_dot_view(*exact_x_dot);
-    exact_x_dot_view[0] = (c1_*lambda_+c2_*(1+t*lambda_)) * exp(lambda_ * t);
-  }
-  inArgs.set_x_dot(exact_x_dot);
-  return(inArgs);
-}
+    //set up parameters
+    const int numParameters= 2;
+    p_map = rcp(new const Tpetra_Map(numParameters, 0, comm, Tpetra::LocallyReplicated));
+
+    Teuchos::RCP<const Thyra::VectorSpaceBase<double>> p_space =
+        Thyra::createVectorSpace<double>(p_map);
 
 
-Thyra::ModelEvaluatorBase::InArgs<Scalar>
-MassSpringDamperModel::
-getExactSensSolution(int j, Scalar t) const
-{
-  TEUCHOS_TEST_FOR_EXCEPTION( !isInitialized_, std::logic_error,
-      "Error, setupInOutArgs_ must be called first!\n");
-  Thyra::ModelEvaluatorBase::InArgs<Scalar> inArgs = inArgs_;
-  if (!acceptModelParams_) {
-    return inArgs;
-  }
-  TEUCHOS_ASSERT_IN_RANGE_UPPER_EXCLUSIVE( j, 0, np_ );
-  Scalar exact_t = t;
-
-  Scalar dc1_dk = F_/std::pow(k_,2);
-  Scalar dc1_dm = 0;
-  Scalar dc2_dk = m_*F_/(2*std::pow(m_*k_, 1.5));
-  Scalar dc2_dm = F_/std::pow(k_,2);
-  Scalar dlambda_dk = -1/(2*sqrt(m_*k_));
-  Scalar dlambda_dm = sqrt(k_)/(2*std::pow(m_,1.5));
-  Scalar dc3_dk = -F_/std::pow(k_,2);
-  Scalar dc3_dm = 0;
-
-  inArgs.set_t(exact_t);
-  Teuchos::RCP<Thyra::VectorBase<Scalar> > exact_s = createMember(x_space_);
-   { // scope to delete DetachedVectorView
-    Thyra::DetachedVectorView<Scalar> exact_s_view(*exact_s);
-    if (j == 0) { // dx/dk
-      exact_s_view[0] = (dc1_dk + t * dc2_dk) * exp(lambda_ * t) + t * exp(lambda_ * t) * dlambda_dk * (c1_ + c2_ * t) + dc3_dk;
-    } else if (j == 1) { // dx/dm
-      exact_s_view[0] = (dc1_dm + t * dc2_dm) * exp(lambda_ * t) + t * exp(lambda_ * t) * dlambda_dm * (c1_ + c2_ * t) + dc3_dm;
+    Teuchos::RCP<Tpetra_Vector> p_init = rcp(new Tpetra_Vector(p_map));
+    Teuchos::RCP<Tpetra_Vector> p_lo = rcp(new Tpetra_Vector(p_map));
+    Teuchos::RCP<Tpetra_Vector> p_up = rcp(new Tpetra_Vector(p_map));
+    for (int i=0; i<numParameters; i++) {
+      p_init->getDataNonConst()[i]= 1.0;
+      p_lo->getDataNonConst()[i]= 0.1;
+      p_up->getDataNonConst()[i]= 10.0;
     }
-  }
-  inArgs.set_x(exact_s);
-  Teuchos::RCP<Thyra::VectorBase<Scalar> > exact_s_dot = createMember(x_space_);
-  { // scope to delete DetachedVectorView
-    Thyra::DetachedVectorView<Scalar> exact_s_dot_view(*exact_s_dot);
-    if (j == 0) { // dxdot/dk
-      exact_s_dot_view[0] = (dc1_dk * lambda_ + c1_ * dlambda_dk + dc2_dk * (1 + lambda_ * t) + c2_ * t * dlambda_dk) * exp(lambda_ * t) + t * exp(lambda_ * t) * dlambda_dk * (c1_ * lambda_ + c2_ * (1 + lambda_ * t));
-    } else if (j == 1) { // dxdot/dm
-      exact_s_dot_view[0] = (dc1_dm * lambda_ + c1_ * dlambda_dm + dc2_dm * (1 + lambda_ * t) + c2_ * t * dlambda_dm) * exp(lambda_ * t) + t * exp(lambda_ * t) * dlambda_dm * (c1_ * lambda_ + c2_ * (1 + lambda_ * t));
-    }
-  }
-  inArgs.set_x_dot(exact_s_dot);
-  return(inArgs);
-}
 
+    p_vec = rcp(new Tpetra_Vector(p_map));
+    p_vec->assign(*p_init);
 
-
-Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> >
-MassSpringDamperModel::
-get_x_space() const
-{
-  return x_space_;
-}
-
-Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> >
-MassSpringDamperModel::
-get_f_space() const
-{
-  return f_space_;
-}
-
-Thyra::ModelEvaluatorBase::InArgs<Scalar>
-MassSpringDamperModel::
-getNominalValues() const
-{
-  TEUCHOS_TEST_FOR_EXCEPTION( !isInitialized_, std::logic_error,
-      "Error, setupInOutArgs_ must be called first!\n");
-  return nominalValues_;
-}
-
-Teuchos::RCP<Thyra::LinearOpWithSolveBase<Scalar> >
-MassSpringDamperModel::
-create_W() const
-{
-  using Teuchos::RCP;
-  RCP<const Thyra::LinearOpWithSolveFactoryBase<Scalar> > W_factory = this->get_W_factory();
-  RCP<Thyra::LinearOpBase<Scalar> > matrix = this->create_W_op();
-  {
-    // 01/20/09 tscoffe:  This is a total hack to provide a full rank matrix to
-    // linearOpWithSolve because it ends up factoring the matrix during
-    // initialization, which it really shouldn't do, or I'm doing something
-    // wrong here.   The net effect is that I get exceptions thrown in
-    // optimized mode due to the matrix being rank deficient unless I do this.
-    RCP<Thyra::MultiVectorBase<Scalar> > multivec = Teuchos::rcp_dynamic_cast<Thyra::MultiVectorBase<Scalar> >(matrix,true);
+    //set up jacobian graph
+    crs_graph = rcp(new Tpetra_CrsGraph(x_map, vecLength));
     {
-      RCP<Thyra::VectorBase<Scalar> > vec = Thyra::createMember(x_space_);
-      {
-        Thyra::DetachedVectorView<Scalar> vec_view( *vec );
-        vec_view[0] = 0.0;
-        vec_view[1] = 1.0;
-      }
-      V_V(multivec->col(0).ptr(),*vec);
-      {
-        Thyra::DetachedVectorView<Scalar> vec_view( *vec );
-        vec_view[0] = 1.0;
-        vec_view[1] = 0.0;
-      }
-      V_V(multivec->col(1).ptr(),*vec);
+      std::vector<typename Tpetra_CrsGraph::global_ordinal_type> indices(vecLength);
+      for (int i=0; i<vecLength; i++) indices[i]=i;
+      const int nodeNumElements = x_map->getLocalNumElements();
+      for (int i=0; i<nodeNumElements; i++)
+        crs_graph->insertGlobalIndices(x_map->getGlobalElement(i), vecLength, &indices[0]);
     }
-  }
-  RCP<Thyra::LinearOpWithSolveBase<Scalar> > W =
-    Thyra::linearOpWithSolve<Scalar>(*W_factory, matrix);
-  return W;
+    crs_graph->fillComplete();
+
+    //set up hessian graph
+    hess_crs_graph = rcp(new Tpetra_CrsGraph(p_map, numParameters));
+    if (comm->getRank() == 0)
+    {
+      std::vector<typename Tpetra_CrsGraph::global_ordinal_type> indices(numParameters);
+      for (int i=0; i<numParameters; i++) indices[i]=i;
+      const int nodeNumElements = p_map->getLocalNumElements();
+      for (int i=0; i<nodeNumElements; i++)
+        hess_crs_graph->insertGlobalIndices(p_map->getGlobalElement(i), numParameters, &indices[0]);
+    }
+    hess_crs_graph->fillComplete();
+
+    // Setup nominal values, lower and upper bounds
+    nominalValues = this->createInArgsImpl();
+    lowerBounds = this->createInArgsImpl();
+    upperBounds = this->createInArgsImpl();
+
+    nominalValues.set_x(Thyra::createVector(x_vec, x_space));
+    nominalValues.set_x_dot(Thyra::createVector(x_dot_vec, x_space));
+
+    nominalValues.set_p(0, Thyra::createVector(p_init, p_space));
+    lowerBounds.set_p(0, Thyra::createVector(p_lo, p_space));
+    upperBounds.set_p(0, Thyra::createVector(p_up, p_space));
+
+    probList_ = problemList;
 }
 
-Teuchos::RCP<Thyra::LinearOpBase<Scalar> >
-MassSpringDamperModel::
-create_W_op() const
+MassSpringDamperModel::~MassSpringDamperModel()
 {
-  Teuchos::RCP<Thyra::MultiVectorBase<Scalar> > matrix = Thyra::createMembers(x_space_, dim_);
-  return(matrix);
 }
 
-Teuchos::RCP<const Thyra::LinearOpWithSolveFactoryBase<Scalar> >
-MassSpringDamperModel::
-get_W_factory() const
+Teuchos::RCP<const Thyra::VectorSpaceBase<double>>
+MassSpringDamperModel::get_x_space() const
 {
-  Teuchos::RCP<Thyra::LinearOpWithSolveFactoryBase<Scalar> > W_factory =
-    Thyra::defaultSerialDenseLinearOpWithSolveFactory<Scalar>();
-  return W_factory;
+  Teuchos::RCP<const Thyra::VectorSpaceBase<double>> x_space =
+      Thyra::createVectorSpace<double>(x_map);
+  return x_space;
 }
 
-
-Thyra::ModelEvaluatorBase::InArgs<Scalar>
-MassSpringDamperModel::
-createInArgs() const
+Teuchos::RCP<const Thyra::VectorSpaceBase<double>>
+MassSpringDamperModel::get_f_space() const
 {
-  setupInOutArgs_();
-  return inArgs_;
+  Teuchos::RCP<const Thyra::VectorSpaceBase<double>> f_space =
+      Thyra::createVectorSpace<double>(x_map);
+  return f_space;
 }
 
-Thyra::ModelEvaluatorBase::OutArgs<Scalar>
-MassSpringDamperModel::
-createOutArgsImpl() const
+Teuchos::RCP<const Thyra::VectorSpaceBase<double>>
+MassSpringDamperModel::get_p_space(int l) const
 {
-  setupInOutArgs_();
-  return outArgs_;
+  TEUCHOS_TEST_FOR_EXCEPTION(l != 0, std::logic_error,
+                     std::endl <<
+                     "Error!  App::ModelEval::get_p_map() only " <<
+                     " supports 1 parameter vector.  Supplied index l = " <<
+                     l << std::endl);
+  Teuchos::RCP<const Thyra::VectorSpaceBase<double>> p_space =
+        Thyra::createVectorSpace<double>(p_map);
+  return p_space;
 }
 
-void
-MassSpringDamperModel::
-evalModelImpl( const Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs,
-               const Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs) const
+Teuchos::RCP<const Thyra::VectorSpaceBase<double>>
+MassSpringDamperModel::get_g_space(int l) const
 {
-  typedef Thyra::DefaultMultiVectorProductVector<Scalar> DMVPV;
-  using Teuchos::RCP;
-  using Thyra::VectorBase;
-  using Thyra::MultiVectorBase;
-  using Teuchos::rcp_dynamic_cast;
-  TEUCHOS_TEST_FOR_EXCEPTION( !isInitialized_, std::logic_error,
-      "Error, setupInOutArgs_ must be called first!\n");
+  TEUCHOS_TEST_FOR_EXCEPTION(l != 0, std::logic_error,
+                     std::endl <<
+                     "Error!  MassSpringDamperModel::get_g_map() only " <<
+                     " supports 1 response.  Supplied index l = " <<
+                     l << std::endl);
+  Teuchos::RCP<const Thyra::VectorSpaceBase<double>> g_space =
+        Thyra::createVectorSpace<double>(g_map);
+  return g_space;
+}
 
-  const RCP<const VectorBase<Scalar> > x_in = inArgs.get_x().assert_not_null();
-  Thyra::ConstDetachedVectorView<Scalar> x_in_view( *x_in );
+RCP<const  Teuchos::Array<std::string> > MassSpringDamperModel::get_p_names(int l) const
+{
+  TEUCHOS_TEST_FOR_EXCEPTION(l != 0, std::logic_error,
+                     std::endl <<
+                     "Error!  App::ModelEval::get_p_names() only " <<
+                     " supports 1 parameter vector.  Supplied index l = " <<
+                     l << std::endl);
 
-  //Scalar t = inArgs.get_t();
-  Scalar k = k_;
-  Scalar m = m_;
-  Scalar F = F_;
-  if (acceptModelParams_) {
-    const RCP<const VectorBase<Scalar> > p_in =
-      inArgs.get_p(0).assert_not_null();
-    Thyra::ConstDetachedVectorView<Scalar> p_in_view( *p_in );
-    k = p_in_view[0];
-    m = p_in_view[1];
+  Teuchos::Ordinal num_p = p_map->getLocalNumElements();
+  RCP<Teuchos::Array<std::string> > p_names =
+      rcp(new Teuchos::Array<std::string>(num_p) );
+  for (int i=0; i<num_p; i++) {
+    std::stringstream ss;
+    ss << "Parameter " << i;
+    const std::string name = ss.str();
+    (*p_names)[i] = name;
   }
-  RCP<const MultiVectorBase<Scalar> > DxDp_in, DxdotDp_in;
-  if (acceptModelParams_) {
-    if (inArgs.get_p(1) != Teuchos::null)
-      DxDp_in =
-        rcp_dynamic_cast<const DMVPV>(inArgs.get_p(1))->getMultiVector();
-    if (inArgs.get_p(2) != Teuchos::null)
-      DxdotDp_in =
-        rcp_dynamic_cast<const DMVPV>(inArgs.get_p(2))->getMultiVector();
-  }
-
-
-  //Scalar dc1_dk = F/std::pow(k,2);
-  //Scalar dc1_dm = 0;
-  //Scalar dc2_dk = m*F/(2*std::pow(m*k, 1.5));
-  //Scalar dc2_dm = F/std::pow(k,2);
-  //Scalar dlambda_dk = -1/(2*sqrt(m*k));
-  //Scalar dlambda_dm = sqrt(k)/(2*std::pow(m,1.5));
-  //Scalar dc3_dk = -F/std::pow(k,2);
-  //Scalar dc3_dm = 0;
-
-  //Scalar c1 = -F/k;
-  //Scalar c2 = -F/sqrt(k*m);
-  //Scalar c3 = F/k;
-  //Scalar lambda = - sqrt(k/m);
-
-  Scalar beta = inArgs.get_beta();
-  //Scalar alpha = inArgs.get_alpha();
-
-  const RCP<VectorBase<Scalar> > f_out = outArgs.get_f();
-  const RCP<Thyra::LinearOpBase<Scalar> > W_out = outArgs.get_W_op();
-  RCP<Thyra::MultiVectorBase<Scalar> > DfDp_out;
-  if (acceptModelParams_) {
-    Thyra::ModelEvaluatorBase::Derivative<Scalar> DfDp = outArgs.get_DfDp(0);
-    DfDp_out = DfDp.getMultiVector();
-  }
-  if (inArgs.get_x_dot().is_null()) {
-
-    // Evaluate the Explicit ODE f(x,t) [= 0]
-    if (!is_null(f_out)) {
-      Thyra::DetachedVectorView<Scalar> f_out_view( *f_out );
-      f_out_view[0] = x_in_view[1];
-      f_out_view[1] = - (2*sqrt(m*k)*x_in_view[1] + k*x_in_view[0] - F ) / m;
-    }
-    if (!is_null(W_out)) {
-      RCP<Thyra::MultiVectorBase<Scalar> > matrix =
-        Teuchos::rcp_dynamic_cast<Thyra::MultiVectorBase<Scalar> >(W_out,true);
-      Thyra::DetachedMultiVectorView<Scalar> matrix_view( *matrix );
-      matrix_view(0,0) = 0.0;                // d(f0)/d(x0_n)
-      matrix_view(0,1) = +beta;              // d(f0)/d(x1_n)
-      matrix_view(1,0) = -beta*(k/m);        // d(f1)/d(x0_n)
-      matrix_view(1,1) = -beta*2*sqrt(k/m);  // d(f1)/d(x1_n) // alpha ??
-      // Note: alpha = d(xdot)/d(x_n) and beta = d(x)/d(x_n)
-    }
-    if (!is_null(DfDp_out)) {
-      Thyra::DetachedMultiVectorView<Scalar> DfDp_out_view( *DfDp_out );
-      DfDp_out_view(0,0) = 0.0;
-      DfDp_out_view(0,1) = 0.0;
-      DfDp_out_view(1,0) = -1/sqrt(m*k) * x_in_view[1] - 1/m * x_in_view[0];
-      DfDp_out_view(1,1) = sqrt(m*k)/std::pow(m,2) * x_in_view[1] + k/std::pow(m,2) * x_in_view[0] - F/std::pow(m,2);
-      // Compute df/dp + (df/dx) * (dx/dp)
-      if (useDfDpAsTangent_ && !is_null(DxDp_in)) {
-        Thyra::ConstDetachedMultiVectorView<Scalar> DxDp( *DxDp_in );
-        DfDp_out_view(0,0) +=  DxDp(1,0);
-        DfDp_out_view(0,1) +=  DxDp(1,1);
-        DfDp_out_view(1,0) += - (2*sqrt(m*k)*DxDp(1,0) + k*DxDp(0,0) - F ) / m;
-        DfDp_out_view(1,1) += - (2*sqrt(m*k)*DxDp(1,1) + k*DxDp(0,1) - F ) / m;
-      }
-    }
-  } else {
-
-    // Evaluate the implicit ODE f(xdot, x, t) [= 0]
-    RCP<const VectorBase<Scalar> > x_dot_in;
-    x_dot_in = inArgs.get_x_dot().assert_not_null();
-    Scalar alpha = inArgs.get_alpha();
-    if (!is_null(f_out)) {
-      Thyra::DetachedVectorView<Scalar> f_out_view( *f_out );
-      Thyra::ConstDetachedVectorView<Scalar> x_dot_in_view( *x_dot_in );
-      f_out_view[0] = x_dot_in_view[0] - x_in_view[1];
-      f_out_view[1] = x_dot_in_view[1] + (2*sqrt(m*k)*x_in_view[1] + k*x_in_view[0] - F ) / m;
-    }
-    if (!is_null(W_out)) {
-      RCP<Thyra::MultiVectorBase<Scalar> > matrix =
-      Teuchos::rcp_dynamic_cast<Thyra::MultiVectorBase<Scalar> >(W_out,true);
-      Thyra::DetachedMultiVectorView<Scalar> matrix_view( *matrix );
-      matrix_view(0,0) = alpha;                  // d(f0)/d(x0_n)
-      matrix_view(0,1) = -beta;                  // d(f0)/d(x1_n)
-      matrix_view(1,0) = +beta*(k/m);            // d(f1)/d(x0_n)
-      matrix_view(1,1) = alpha+beta*2*sqrt(k/m); // d(f1)/d(x1_n)
-      // Note: alpha = d(xdot)/d(x_n) and beta = d(x)/d(x_n)
-    }
-    if (!is_null(DfDp_out)) {
-      Thyra::DetachedMultiVectorView<Scalar> DfDp_out_view( *DfDp_out );
-      DfDp_out_view(0,0) = 0.0;
-      DfDp_out_view(0,1) = 0.0;
-      DfDp_out_view(1,0) = 1/sqrt(m*k) * x_in_view[1] + 1/m * x_in_view[0];
-      DfDp_out_view(1,1) = -sqrt(m*k)/std::pow(m,2) * x_in_view[1] - k/std::pow(m,2) * x_in_view[0] + F/std::pow(m,2);
-
-      // Compute df/dp + (df/dx_dot) * (dx_dot/dp) + (df/dx) * (dx/dp)
-      if (useDfDpAsTangent_ && !is_null(DxdotDp_in)) {
-        Thyra::ConstDetachedMultiVectorView<Scalar> DxdotDp( *DxdotDp_in );
-        DfDp_out_view(0,0) += DxdotDp(0,0);
-        DfDp_out_view(0,1) += DxdotDp(0,1);
-        DfDp_out_view(1,0) += DxdotDp(1,0);
-        DfDp_out_view(1,1) += DxdotDp(1,1);
-      }
-      if (useDfDpAsTangent_ && !is_null(DxDp_in)) {
-        Thyra::ConstDetachedMultiVectorView<Scalar> DxDp( *DxDp_in );
-        DfDp_out_view(0,0) += -DxDp(1,0);
-        DfDp_out_view(0,1) += -DxDp(1,1);
-        DfDp_out_view(1,0) += (2*sqrt(m*k)*DxDp(1,0) + k*DxDp(0,0) - F ) / m;
-        DfDp_out_view(1,1) += (2*sqrt(m*k)*DxDp(1,1) + k*DxDp(0,1) - F ) / m;
-      }
-    }
-  }
-
-  // Responses:  g = ( x - target_x )^2 + scaling ( x_dot - target_x_dot )^2
-  if (acceptModelParams_) {
-    RCP<VectorBase<Scalar> > g_out = outArgs.get_g(0);
-    if (g_out != Teuchos::null) {
-      Thyra::DetachedVectorView<Scalar> g_out_view( *g_out );
-      Scalar diff_x = (x_in_view[0] - target_x_);
-      Scalar diff_x_dot = (x_in_view[1] - target_x_dot_);
-      g_out_view[0] = std::pow(diff_x, 2) + scaling_ * std::pow(diff_x_dot, 2);
-    }
-
-    for (int i_param = 0; i_param < np_; ++i_param) {
-      RCP<Thyra::MultiVectorBase<Scalar> > DgDp_out =
-        outArgs.get_DgDp(0,i_param).getMultiVector();
-      if (DgDp_out != Teuchos::null)
-        Thyra::assign(DgDp_out.ptr(), Scalar(0.0));
-    }
-    RCP<Thyra::MultiVectorBase<Scalar> > DgDx_out =
-      outArgs.get_DgDx(0).getMultiVector();
-    if (DgDx_out != Teuchos::null) {
-      Thyra::DetachedMultiVectorView<Scalar> DgDx_out_view( *DgDx_out );
-      DgDx_out_view(0,0) = 2*x_in_view[0];
-      DgDx_out_view(0,1) = scaling_*2*x_in_view[1];
-    }
-  }
+  return p_names;
 }
 
 
-Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> >
-MassSpringDamperModel::
-get_p_space(int l) const
+Teuchos::RCP<Thyra::LinearOpBase<double>>
+MassSpringDamperModel::create_W_op() const
 {
-  if (!acceptModelParams_) {
-    return Teuchos::null;
-  }
-  TEUCHOS_ASSERT_IN_RANGE_UPPER_EXCLUSIVE( l, 0, Np_ );
-  if (l == 0)
-    return p_space_;
-  else if (l == 1 || l == 2)
-    return DxDp_space_;
+  const Teuchos::RCP<Tpetra_Operator> W =
+      Teuchos::rcp(new Tpetra_CrsMatrix(crs_graph));
+  return Thyra::createLinearOp(W);
+}
+
+//! Create preconditioner operator
+Teuchos::RCP<Thyra::PreconditionerBase<double>>
+MassSpringDamperModel::create_W_prec() const
+{
   return Teuchos::null;
 }
 
-Teuchos::RCP<const Teuchos::Array<std::string> >
-MassSpringDamperModel::
-get_p_names(int l) const
+Teuchos::RCP<const Thyra::LinearOpWithSolveFactoryBase<double>>
+MassSpringDamperModel::get_W_factory() const
 {
-  if (!acceptModelParams_) {
-    return Teuchos::null;
-  }
-  TEUCHOS_ASSERT_IN_RANGE_UPPER_EXCLUSIVE( l, 0, Np_ );
-  Teuchos::RCP<Teuchos::Array<std::string> > p_strings =
-    Teuchos::rcp(new Teuchos::Array<std::string>());
-  if (l == 0) {
-    p_strings->push_back("Model Coefficient:  a");
-    p_strings->push_back("Model Coefficient:  f");
-    p_strings->push_back("Model Coefficient:  L");
-  }
-  else if (l == 1)
-    p_strings->push_back("DxDp");
-  else if (l == 2)
-    p_strings->push_back("Dx_dotDp");
-  return p_strings;
+  return Teuchos::null;
 }
 
-Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> >
-MassSpringDamperModel::
-get_g_space(int j) const
+Teuchos::RCP<Thyra::LinearOpBase<double>>
+MassSpringDamperModel::create_hess_g_pp( int j, int l1, int l2 ) const
 {
-  TEUCHOS_ASSERT_IN_RANGE_UPPER_EXCLUSIVE( j, 0, Ng_ );
-  return g_space_;
+  const Teuchos::RCP<Tpetra_Operator> H =
+      Teuchos::rcp(new Tpetra_CrsMatrix(hess_crs_graph));
+  return Teuchos::rcp(new MatrixBased_LOWS(Thyra::createLinearOp(H)));
+}
+
+Thyra::ModelEvaluatorBase::InArgs<double>
+MassSpringDamperModel::getNominalValues() const
+{
+  return nominalValues;
+}
+
+Thyra::ModelEvaluatorBase::InArgs<double>
+MassSpringDamperModel::getLowerBounds() const
+{
+  return lowerBounds;
+}
+
+Thyra::ModelEvaluatorBase::InArgs<double>
+MassSpringDamperModel::getUpperBounds() const
+{
+  return upperBounds;
+}
+
+
+Thyra::ModelEvaluatorBase::InArgs<double>
+MassSpringDamperModel::createInArgs() const
+{
+  return this->createInArgsImpl();
 }
 
 void
-MassSpringDamperModel::
-setupInOutArgs_() const
+MassSpringDamperModel::reportFinalPoint(
+    const Thyra::ModelEvaluatorBase::InArgs<double>& /* finalPoint */,
+    const bool /* wasSolved */) {
+  // Do nothing  
+}
+
+Thyra::ModelEvaluatorBase::OutArgs<double>
+MassSpringDamperModel::createOutArgsImpl() const
 {
-   if (isInitialized_) {
-    return;
-  }
+  Thyra::ModelEvaluatorBase::OutArgsSetup<double> result;
+  result.setModelEvalDescription(this->description());
+  result.set_Np_Ng(1, 1);
 
-  using Teuchos::RCP;
-  typedef Thyra::ModelEvaluatorBase MEB;
-  {
-    // Set up prototypical InArgs
-    MEB::InArgsSetup<Scalar> inArgs;
-    inArgs.setModelEvalDescription(this->description());
-    inArgs.setSupports( MEB::IN_ARG_t );
-    inArgs.setSupports( MEB::IN_ARG_x );
-    inArgs.setSupports( MEB::IN_ARG_beta );
-    inArgs.setSupports( MEB::IN_ARG_x_dot );
-    inArgs.setSupports( MEB::IN_ARG_alpha );
-    if (acceptModelParams_) {
-      inArgs.set_Np(Np_);
-    }
-    inArgs_ = inArgs;
-  }
+  result.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_f, true);
+  result.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_W_op, true);
+  result.set_W_properties(Thyra::ModelEvaluatorBase::DerivativeProperties(
+      Thyra::ModelEvaluatorBase::DERIV_LINEARITY_UNKNOWN,
+      Thyra::ModelEvaluatorBase::DERIV_RANK_FULL,
+      true));
 
-  {
-    // Set up prototypical OutArgs
-    MEB::OutArgsSetup<Scalar> outArgs;
-    outArgs.setModelEvalDescription(this->description());
-    outArgs.setSupports( MEB::OUT_ARG_f );
-    outArgs.setSupports( MEB::OUT_ARG_W_op );
-    if (acceptModelParams_) {
-      outArgs.set_Np_Ng(Np_,Ng_);
-      outArgs.setSupports( MEB::OUT_ARG_DfDp,0,
-                           MEB::DERIV_MV_JACOBIAN_FORM );
-      outArgs.setSupports( MEB::OUT_ARG_DgDp,0,0,
-                           MEB::DERIV_MV_JACOBIAN_FORM );
-      outArgs.setSupports( MEB::OUT_ARG_DgDx,0,
-                           MEB::DERIV_MV_GRADIENT_FORM );
-    }
-    outArgs_ = outArgs;
-  }
-   // Set up nominal values
-  nominalValues_ = inArgs_;
-  if (haveIC_)
-  {
-    nominalValues_.set_t(0);
-    const RCP<Thyra::VectorBase<Scalar> > x_ic = createMember(x_space_);
-    { // scope to delete DetachedVectorView
-      Thyra::DetachedVectorView<Scalar> x_ic_view( *x_ic );
-      x_ic_view[0] = 0;
-      x_ic_view[1] = 0;
-    }
-    nominalValues_.set_x(x_ic);
-    if (acceptModelParams_) {
-      const RCP<Thyra::VectorBase<Scalar> > p_ic = createMember(p_space_);
-      {
-        Thyra::DetachedVectorView<Scalar> p_ic_view( *p_ic );
-        p_ic_view[0] = k_;
-        p_ic_view[1] = m_;
+  result.setSupports(
+      Thyra::ModelEvaluatorBase::OUT_ARG_DfDp, 0, Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM);
+  result.setSupports(
+      Thyra::ModelEvaluatorBase::OUT_ARG_DgDx, 0, Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM);
+  result.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDp, 0, 0, Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM);
+
+  result.setSupports(
+        Thyra::ModelEvaluatorBase::OUT_ARG_DgDx, 0, Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM);
+
+  result.setHessianSupports(hessSupport);
+
+  return result;
+}
+
+void MassSpringDamperModel::evalModelImpl(
+    const Thyra::ModelEvaluatorBase::InArgs<double>&  inArgs,
+    const Thyra::ModelEvaluatorBase::OutArgs<double>& outArgs) const
+{
+
+  // Parse InArgs
+
+  const Teuchos::RCP<const Tpetra_Vector> x_in =
+      ConverterT::getConstTpetraVector(inArgs.get_x());
+  if (!Teuchos::nonnull(x_in)) std::cerr << "ERROR: MassSpringDamperModel requires x as inargs\n";
+
+  const Teuchos::RCP<const Tpetra_Vector> x_dot_in =
+      Teuchos::nonnull(inArgs.get_x_dot()) ?
+          ConverterT::getConstTpetraVector(inArgs.get_x_dot()) :
+          Teuchos::null;
+
+  const Teuchos::RCP<const Thyra::VectorBase<double>> p_in = inArgs.get_p(0);
+  if (Teuchos::nonnull(p_in)) {
+    Teuchos::RCP<const Thyra::ProductVectorBase<double>> p_prod_in =
+      Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<double>>(p_in);
+    if(Teuchos::nonnull(p_prod_in)) {
+      if(p_prod_in->productSpace()->numBlocks() == 1) {
+        p_vec->assign(*ConverterT::getConstTpetraVector(p_prod_in->getVectorBlock(0)));
+      } else {
+        std::cerr << "ERROR: MassSpringDamperModel has a parameter with " << p_prod_in->productSpace()->numBlocks() << " blocks \n";
       }
-      nominalValues_.set_p(0,p_ic);
+    } else {
+      p_vec->assign(*ConverterT::getConstTpetraVector(p_in));
     }
-    const RCP<Thyra::VectorBase<Scalar> > x_dot_ic = createMember(x_space_);
-    { // scope to delete DetachedVectorView
-      Thyra::DetachedVectorView<Scalar> x_dot_ic_view( *x_dot_ic );
-      x_dot_ic_view[0] = 0;
-      x_dot_ic_view[1] = F_/m_;
+  }
+
+  int myVecLength = x_in->getLocalLength();
+
+  // Parse OutArgs
+
+  const Teuchos::RCP<Tpetra_Vector> f_out =
+      Teuchos::nonnull(outArgs.get_f()) ?
+          ConverterT::getTpetraVector(outArgs.get_f()) :
+          Teuchos::null;
+
+  const Teuchos::RCP<Thyra::VectorBase<double>> g_base = outArgs.get_g(0);
+  Teuchos::RCP<Tpetra_Vector> g_out = Teuchos::nonnull(g_base) ?
+      ConverterT::getTpetraVector(g_base) :
+      Teuchos::null;
+
+  const Teuchos::RCP<Tpetra_Operator> W_out =
+      Teuchos::nonnull(outArgs.get_W_op()) ?
+          ConverterT::getTpetraOperator(outArgs.get_W_op()) :
+          Teuchos::null;
+
+  const Teuchos::RCP<Thyra::MultiVectorBase<double>> dfdp_base =
+      outArgs.get_DfDp(0).getMultiVector();
+
+  const Teuchos::RCP<Tpetra_MultiVector> dfdp_out =
+      Teuchos::nonnull(dfdp_base) ?
+          ConverterT::getTpetraMultiVector(dfdp_base) :
+          Teuchos::null;
+
+  const Teuchos::RCP<Thyra::MultiVectorBase<double>> dgdp_base =
+      outArgs.get_DgDp(0, 0).getMultiVector();
+  const Teuchos::RCP<Tpetra_MultiVector> dgdp_out =
+      Teuchos::nonnull(dgdp_base) ?
+          ConverterT::getTpetraMultiVector(dgdp_base) :
+          Teuchos::null;
+
+  const Teuchos::RCP<Thyra::MultiVectorBase<double>> dgdx_base =
+        outArgs.get_DgDx(0).getMultiVector();
+  const Teuchos::RCP<Tpetra_MultiVector> dgdx_out =
+      Teuchos::nonnull(dgdx_base) ?
+          ConverterT::getTpetraMultiVector(dgdx_base) :
+          Teuchos::null;
+
+  const Teuchos::RCP<const Tpetra_MultiVector> p_direction =
+      Teuchos::nonnull(inArgs.get_p_direction(0)) ?
+        ConverterT::getConstTpetraMultiVector(inArgs.get_p_direction(0)):
+        Teuchos::null;
+
+
+  const Teuchos::RCP<const Tpetra_Vector> lag_multiplier_f_in =
+      Teuchos::nonnull(inArgs.get_f_multiplier()) ?
+        ConverterT::getConstTpetraVector(inArgs.get_f_multiplier()) :
+        Teuchos::null;
+
+  auto f_hess_xx_v = outArgs.supports(Thyra::ModelEvaluator<double>::OUT_ARG_hess_vec_prod_f_xx) ? outArgs.get_hess_vec_prod_f_xx() : Teuchos::null;
+  const Teuchos::RCP<Tpetra_MultiVector> f_hess_xx_v_out =
+      Teuchos::nonnull(f_hess_xx_v) ?
+        ConverterT::getTpetraMultiVector(f_hess_xx_v) :
+        Teuchos::null;
+
+  auto f_hess_xp_v = outArgs.supports(Thyra::ModelEvaluator<double>::OUT_ARG_hess_vec_prod_f_xp,0) ? outArgs.get_hess_vec_prod_f_xp(0) : Teuchos::null;
+  const Teuchos::RCP<Tpetra_MultiVector> f_hess_xp_v_out =
+      Teuchos::nonnull(f_hess_xp_v) ?
+        ConverterT::getTpetraMultiVector(f_hess_xp_v) :
+        Teuchos::null;
+
+  auto f_hess_px_v = outArgs.supports(Thyra::ModelEvaluator<double>::OUT_ARG_hess_vec_prod_f_px,0) ? outArgs.get_hess_vec_prod_f_px(0) : Teuchos::null;
+  const Teuchos::RCP<Tpetra_MultiVector> f_hess_px_v_out =
+      Teuchos::nonnull(f_hess_px_v) ?
+        ConverterT::getTpetraMultiVector(f_hess_px_v) :
+        Teuchos::null;
+
+  auto f_hess_pp_v = outArgs.supports(Thyra::ModelEvaluator<double>::OUT_ARG_hess_vec_prod_f_pp,0,0) ? outArgs.get_hess_vec_prod_f_pp(0,0) : Teuchos::null;
+  const Teuchos::RCP<Tpetra_MultiVector> f_hess_pp_v_out =
+      Teuchos::nonnull(f_hess_pp_v) ?
+        ConverterT::getTpetraMultiVector(f_hess_pp_v) :
+        Teuchos::null;
+
+  const Teuchos::RCP<const Tpetra_MultiVector> x_direction =
+      Teuchos::nonnull(inArgs.get_x_direction()) ?
+        ConverterT::getConstTpetraMultiVector(inArgs.get_x_direction()):
+        Teuchos::null;
+
+
+  const Teuchos::RCP<const Tpetra_Vector> lag_multiplier_g_in =
+      Teuchos::nonnull(inArgs.get_g_multiplier(0)) ?
+        ConverterT::getConstTpetraVector(inArgs.get_g_multiplier(0)) :
+        Teuchos::null;
+
+  auto g_hess_xx_v = outArgs.supports(Thyra::ModelEvaluator<double>::OUT_ARG_hess_vec_prod_g_xx,0) ? outArgs.get_hess_vec_prod_g_xx(0) : Teuchos::null;
+  const Teuchos::RCP<Tpetra_MultiVector> g_hess_xx_v_out =
+      Teuchos::nonnull(g_hess_xx_v) ?
+        ConverterT::getTpetraMultiVector(g_hess_xx_v) :
+        Teuchos::null;
+
+  auto g_hess_xp_v = outArgs.supports(Thyra::ModelEvaluator<double>::OUT_ARG_hess_vec_prod_g_xp,0,0) ? outArgs.get_hess_vec_prod_g_xp(0,0) : Teuchos::null;
+  const Teuchos::RCP<Tpetra_MultiVector> g_hess_xp_v_out =
+      Teuchos::nonnull(g_hess_xp_v) ?
+        ConverterT::getTpetraMultiVector(g_hess_xp_v) :
+        Teuchos::null;
+
+  auto g_hess_px_v = outArgs.supports(Thyra::ModelEvaluator<double>::OUT_ARG_hess_vec_prod_g_px,0,0) ? outArgs.get_hess_vec_prod_g_px(0,0) : Teuchos::null;
+  const Teuchos::RCP<Tpetra_MultiVector> g_hess_px_v_out =
+      Teuchos::nonnull(g_hess_px_v) ?
+        ConverterT::getTpetraMultiVector(g_hess_px_v) :
+        Teuchos::null;
+
+  auto g_hess_pp_v = outArgs.supports(Thyra::ModelEvaluator<double>::OUT_ARG_hess_vec_prod_g_pp,0,0,0) ? outArgs.get_hess_vec_prod_g_pp(0,0,0) : Teuchos::null;
+  const Teuchos::RCP<Tpetra_MultiVector> g_hess_pp_v_out =
+      Teuchos::nonnull(g_hess_pp_v) ?
+        ConverterT::getTpetraMultiVector(g_hess_pp_v) :
+        Teuchos::null;
+
+  auto x = x_in->getData();
+  auto p = p_vec->getData();
+
+  if (f_out != Teuchos::null) {
+    f_out->putScalar(0.0);
+    auto f_out_data = f_out->getDataNonConst();
+    for (int i=0; i<myVecLength; i++)
+      f_out_data[i] = x[i];
+  }
+  if (W_out != Teuchos::null) {
+    Teuchos::RCP<Tpetra_CrsMatrix> W_out_crs =
+      Teuchos::rcp_dynamic_cast<Tpetra_CrsMatrix>(W_out, true);
+    W_out_crs->resumeFill();
+    W_out_crs->setAllToScalar(0.0);
+
+    double diag=1.0;
+    for (int i=0; i<myVecLength; i++)
+      W_out_crs->replaceLocalValues(i, 1, &diag, &i);
+    W_out_crs->fillComplete();
+  }
+
+  auto hess_g_pp = outArgs.supports(Thyra::ModelEvaluator<double>::OUT_ARG_hess_g_pp,0,0,0) ? outArgs.get_hess_g_pp(0,0,0) : Teuchos::null; 
+  const Teuchos::RCP<MatrixBased_LOWS> H_pp_out =
+    Teuchos::nonnull(hess_g_pp) ?
+      Teuchos::rcp_dynamic_cast<MatrixBased_LOWS>(outArgs.get_hess_g_pp(0,0,0)):
+      Teuchos::null;
+
+  // Response: g = 0.5*(p0-6)^2 + 0.5*c*(p1-4)^2 + 0.5*(p0+p1-10)^2
+  // min g(x(p), p) s.t. f(x, p) = 0 reached for p0 = 6, p1 = 4
+
+  double term1, term2, term3, c;
+  term1 = p[0]-6;
+  term2 = p[1]-4;
+  term3 = p[0]+p[1]-10;
+  c = 5;
+
+  if (Teuchos::nonnull(H_pp_out)) {
+    Teuchos::RCP<Tpetra_CrsMatrix> H_pp_out_crs =
+      Teuchos::rcp_dynamic_cast<Tpetra_CrsMatrix>(ConverterT::getTpetraOperator(H_pp_out->getMatrix()), true);
+    H_pp_out_crs->resumeFill();
+    H_pp_out_crs->setAllToScalar(0.0);
+
+    if (comm->getRank() == 0) {
+      std::vector<double> vals = {2, 1};
+      std::vector<typename Tpetra_CrsGraph::global_ordinal_type> indices = {0, 1};
+      H_pp_out_crs->replaceGlobalValues(0, 2, &vals[0], &indices[0]);
+      vals[0] = 1;
+      vals[1] = 1+c;
+      H_pp_out_crs->replaceGlobalValues(1, 2, &vals[0], &indices[0]);
     }
-    nominalValues_.set_x_dot(x_dot_ic);
-  }
+    H_pp_out_crs->fillComplete();
 
-  isInitialized_ = true;
-
-}
-
-void
-MassSpringDamperModel::
-setParameterList(Teuchos::RCP<Teuchos::ParameterList> const& paramList)
-{
-  using Teuchos::get;
-  using Teuchos::ParameterList;
-  Teuchos::RCP<ParameterList> tmpPL = Teuchos::rcp(new ParameterList("MassSpringDamperModel"));
-  if (paramList != Teuchos::null) tmpPL = paramList;
-  tmpPL->validateParametersAndSetDefaults(*this->getValidParameters());
-  this->setMyParamList(tmpPL);
-  Teuchos::RCP<ParameterList> pl = this->getMyNonconstParamList();
-  bool acceptModelParams = get<bool>(*pl,"Accept model parameters");
-  bool haveIC = get<bool>(*pl,"Provide nominal values");
-  bool useDfDpAsTangent = get<bool>(*pl, "Use DfDp as Tangent");
-  if ( (acceptModelParams != acceptModelParams_) ||
-       (haveIC != haveIC_)
-     ) {
-    isInitialized_ = false;
-  }
-  acceptModelParams_ = acceptModelParams;
-  haveIC_ = haveIC;
-  useDfDpAsTangent_ = useDfDpAsTangent;
-  k_ = get<Scalar>(*pl,"stifness");
-  m_ = get<Scalar>(*pl,"mass");
-  F_ = get<Scalar>(*pl,"Force");
-  target_time_ = get<Scalar>(*pl,"target time");
-  target_x_ = get<Scalar>(*pl,"target x");
-  target_x_dot_ = get<Scalar>(*pl,"target dot x");
-  calculateCoeffFromIC_();
-  setupInOutArgs_();
-}
-
-Teuchos::RCP<const Teuchos::ParameterList>
-MassSpringDamperModel::
-getValidParameters() const
-{
-  static Teuchos::RCP<const Teuchos::ParameterList> validPL;
-  if (is_null(validPL)) {
-    Teuchos::RCP<Teuchos::ParameterList> pl = Teuchos::parameterList();
-    pl->set("Accept model parameters", false);
-    pl->set("Provide nominal values", true);
-    pl->set("Use DfDp as Tangent", false);
-    pl->set<std::string>("Output File Name", "Tempus_BDF2_SinCos");
-    Teuchos::setDoubleParameter(
-        "stifness", 1.0, "Stifness", &*pl);
-    Teuchos::setDoubleParameter(
-        "mass", 1.0, "Mass", &*pl);
-    Teuchos::setDoubleParameter(
-        "Force", 1.0, "External force", &*pl);
-    Teuchos::setDoubleParameter(
-        "target time", 5.0, "Target time", &*pl);
-    Teuchos::setDoubleParameter(
-        "target x", 1.0, "Target of the position", &*pl);
-    Teuchos::setDoubleParameter(
-        "target dot x", 0.0, "Target of the velocity", &*pl);
-    Teuchos::setIntParameter(
-        "Number of Time Step Sizes", 1, "Number time step sizes for convergence study", &*pl);
-    validPL = pl;
-  }
-  return validPL;
-}
-
-void
-MassSpringDamperModel::
-calculateCoeffFromIC_()
-{
-  c1_ = -F_/k_;
-  c2_ = -F_/sqrt(k_*m_);
-  c3_ = F_/k_;
-  lambda_ = - sqrt(k_/m_);
-}
-
-Teuchos::RCP<Thyra::LinearOpWithSolveBase<Scalar> >
-MassSpringDamperModelAdjoint::
-create_W() const
-{
-  using Teuchos::RCP;
-  RCP<const Thyra::LinearOpWithSolveFactoryBase<Scalar> > W_factory = this->get_W_factory();
-  RCP<Thyra::LinearOpBase<Scalar> > matrix = this->create_W_op();
-  {
-    // 01/20/09 tscoffe:  This is a total hack to provide a full rank matrix to
-    // linearOpWithSolve because it ends up factoring the matrix during
-    // initialization, which it really shouldn't do, or I'm doing something
-    // wrong here.   The net effect is that I get exceptions thrown in
-    // optimized mode due to the matrix being rank deficient unless I do this.
-    RCP<Thyra::MultiVectorBase<Scalar> > multivec = Teuchos::rcp_dynamic_cast<Thyra::MultiVectorBase<Scalar> >(matrix,true);
-    {
-      RCP<Thyra::VectorBase<Scalar> > vec = Thyra::createMember(this->f_space_);
-      {
-        Thyra::DetachedVectorView<Scalar> vec_view( *vec );
-        vec_view[0] = 0.0;
-        vec_view[1] = 1.0;
+      if(probList_->sublist("Hessian").sublist("Response 0").sublist("Parameter 0").isSublist("H_pp Solver")) {
+        auto pl = probList_->sublist("Hessian").sublist("Response 0").sublist("Parameter 0").sublist("H_pp Solver");
+        H_pp_out->initializeSolver(Teuchos::rcpFromRef(pl));
       }
-      V_V(multivec->col(0).ptr(),*vec);
-      {
-        Thyra::DetachedVectorView<Scalar> vec_view( *vec );
-        vec_view[0] = 1.0;
-        vec_view[1] = 0.0;
+  }
+
+  if (Teuchos::nonnull(dfdp_out)) {
+    dfdp_out->putScalar(0.0);
+    auto dfdp_out_data_0 = dfdp_out->getVectorNonConst(0)->getDataNonConst();
+    auto dfdp_out_data_1 = dfdp_out->getVectorNonConst(1)->getDataNonConst();
+    for (int i=0; i<myVecLength; i++)
+      dfdp_out_data_1[i] = 0.0;
+  }
+
+  if (Teuchos::nonnull(g_out)) {
+    g_out->getDataNonConst()[0] = 0.5*term1*term1 + 0.5*c*term2*term2 + 0.5*term3*term3;
+  }
+
+  if (dgdx_out != Teuchos::null) {
+    dgdx_out->putScalar(0);
+  }
+  if (dgdp_out != Teuchos::null) {
+    dgdp_out->putScalar(0.0);
+    dgdp_out->getVectorNonConst(0)->getDataNonConst()[0] = term1+term3;
+    dgdp_out->getVectorNonConst(0)->getDataNonConst()[1] = c*term2+term3;
+  }
+
+  if (Teuchos::nonnull(f_hess_xx_v_out)) {
+    f_hess_xx_v_out->getVectorNonConst(0)->putScalar(0);
+  }
+
+  if (Teuchos::nonnull(f_hess_xp_v_out)) {
+    f_hess_xp_v_out->getVectorNonConst(0)->putScalar(0);
+  }
+
+  if (Teuchos::nonnull(f_hess_px_v_out)) {
+    f_hess_px_v_out->getVectorNonConst(0)->putScalar(0);
+  }
+
+  if (Teuchos::nonnull(f_hess_pp_v_out)) {
+    f_hess_pp_v_out->getVectorNonConst(0)->putScalar(0);
+  }
+
+  if (Teuchos::nonnull(g_hess_xx_v_out)) {
+    g_hess_xx_v_out->getVectorNonConst(0)->putScalar(0);
+  }
+
+  if (Teuchos::nonnull(g_hess_xp_v_out)) {
+    g_hess_xp_v_out->getVectorNonConst(0)->putScalar(0);
+  }
+
+  if (Teuchos::nonnull(g_hess_px_v_out)) {
+    g_hess_px_v_out->getVectorNonConst(0)->putScalar(0);
+  }
+
+  if (Teuchos::nonnull(g_hess_pp_v_out)) {
+    TEUCHOS_ASSERT(Teuchos::nonnull(p_direction));
+    const auto direction_p = p_direction->getVector(0)->getData();
+    g_hess_pp_v_out->getVectorNonConst(0)->getDataNonConst()[0] = 2*direction_p[0]+direction_p[1];
+    g_hess_pp_v_out->getVectorNonConst(0)->getDataNonConst()[1] = direction_p[0]+(c+1)*direction_p[1];
+  }
+
+  // Modify for time dependent (implicit time integration or eigensolves)
+  if (Teuchos::nonnull(x_dot_in)) {
+    // Velocity provided: Time dependent problem
+    double alpha = inArgs.get_alpha();
+    double beta = inArgs.get_beta();
+    if (alpha==0.0 && beta==0.0) {
+      std::cerr << "MockModelEval Warning: alpha=beta=0 -- setting beta=1\n";
+      beta = 1.0;
+    }
+
+    if (f_out != Teuchos::null) {
+      // f(x, x_dot) = f(x) - x_dot
+      auto f_out_data = f_out->getDataNonConst();
+      for (int i=0; i<myVecLength; i++) {
+        f_out_data[i] = -x_dot_in->getData()[i] + f_out->getData()[i];
       }
-      V_V(multivec->col(1).ptr(),*vec);
+    }
+    if (W_out != Teuchos::null) {
+      // W(x, x_dot) = beta * W(x) - alpha * Id
+      const Teuchos::RCP<Tpetra_CrsMatrix> W_out_crs =
+        Teuchos::rcp_dynamic_cast<Tpetra_CrsMatrix>(W_out, true);
+      W_out_crs->resumeFill();
+      W_out_crs->scale(beta);
+
+      const double diag = -alpha;
+      for (int i=0; i<myVecLength; i++) {
+        W_out_crs->sumIntoLocalValues(i, 1, &diag, &i);
+      }
+      W_out_crs->fillComplete();
     }
   }
-  RCP<Thyra::LinearOpWithSolveBase<Scalar> > W =
-    Thyra::linearOpWithSolve<Scalar>(
-      *W_factory,
-      matrix
-      );
-  return W;
 }
 
-Teuchos::RCP<Thyra::LinearOpBase<Scalar> >
-MassSpringDamperModelAdjoint::
-create_W_op() const
+Thyra::ModelEvaluatorBase::InArgs<double>
+MassSpringDamperModel::createInArgsImpl() const
 {
-  Teuchos::RCP<Thyra::MultiVectorBase<Scalar> > matrix = Thyra::createMembers(this->f_space_, this->dim_);
-  return(matrix);
-}
+  Thyra::ModelEvaluatorBase::InArgsSetup<double> result;
+  result.setModelEvalDescription(this->description());
 
-Thyra::ModelEvaluatorBase::InArgs<Scalar>
-MassSpringDamperModelAdjoint::
-createInArgs() const
-{
-  // This ME should use the same InArgs as the base MassSpringDamperModel.  However
-  // we can't just use it's InArgs directly because the description won't
-  // match (which is checked in debug builds).  Instead create a new InArgsSetup
-  // initialized by MassSpringDamperModel::createInArgs() and set the description
-  // appropriately.
-  typedef Thyra::ModelEvaluatorBase MEB;
-  MEB::InArgsSetup<Scalar> inArgs = MassSpringDamperModel::createInArgs();
-  inArgs.setModelEvalDescription(this->description());
-  return inArgs;
-}
+  result.setSupports(Thyra::ModelEvaluatorBase::IN_ARG_x, true);
 
-Thyra::ModelEvaluatorBase::OutArgs<Scalar>
-MassSpringDamperModelAdjoint::
-createOutArgsImpl() const
-{
-  typedef Thyra::ModelEvaluatorBase MEB;
-  MEB::OutArgsSetup<Scalar> outArgs;
-  outArgs.setModelEvalDescription(this->description());
-  outArgs.setSupports( MEB::OUT_ARG_f ); // Apparently all models have to support f
-  outArgs.setSupports( MEB::OUT_ARG_W_op );
-  outArgs.set_Np_Ng(this->Np_,0);
-  return outArgs;
-}
 
-void
-MassSpringDamperModelAdjoint::
-evalModelImpl(
-  const Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs,
-  const Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs
-  ) const
-{
-  typedef Thyra::DefaultMultiVectorProductVector<Scalar> DMVPV;
-  using Teuchos::RCP;
-  using Thyra::VectorBase;
-  using Thyra::MultiVectorBase;
-  using Teuchos::rcp_dynamic_cast;
-  TEUCHOS_TEST_FOR_EXCEPTION( !this->isInitialized_, std::logic_error,
-      "Error, setupInOutArgs_ must be called first!\n");
+  result.setSupports(Thyra::ModelEvaluatorBase::IN_ARG_x_dot, true);
+  result.setSupports(Thyra::ModelEvaluatorBase::IN_ARG_t, true);
+  result.setSupports(Thyra::ModelEvaluatorBase::IN_ARG_alpha, true);
+  result.setSupports(Thyra::ModelEvaluatorBase::IN_ARG_beta, true);
 
-  const RCP<const VectorBase<Scalar> > x_in = inArgs.get_x().assert_not_null();
-  Thyra::ConstDetachedVectorView<Scalar> x_in_view( *x_in );
+  result.set_Np_Ng(1,1);
 
-  //double t = inArgs.get_t();
-  //Scalar F = this->F_;
-  Scalar k = this->k_;
-  Scalar m = this->m_;
-  if (this->acceptModelParams_) {
-    const RCP<const VectorBase<Scalar> > p_in =
-      inArgs.get_p(0).assert_not_null();
-    Thyra::ConstDetachedVectorView<Scalar> p_in_view( *p_in );
-    k = p_in_view[0];
-    m = p_in_view[1];
-  }
-
-  Scalar beta = inArgs.get_beta();
-
-  const RCP<Thyra::LinearOpBase<Scalar> > W_out = outArgs.get_W_op();
-  if (inArgs.get_x_dot().is_null()) {
-
-    // Evaluate the Explicit ODE f(x,t) [= 0]
-    if (!is_null(W_out)) {
-      RCP<Thyra::MultiVectorBase<Scalar> > matrix =
-        Teuchos::rcp_dynamic_cast<Thyra::MultiVectorBase<Scalar> >(W_out,true);
-      Thyra::DetachedMultiVectorView<Scalar> matrix_view( *matrix );
-      matrix_view(0,0) = 0.0;                // d(f0)/d(x0_n)
-      matrix_view(1,0) = +beta;              // d(f0)/d(x1_n)
-      matrix_view(0,1) = -beta*(k/m);        // d(f1)/d(x0_n)
-      matrix_view(1,1) = -beta*2*sqrt(k/m);  // d(f1)/d(x1_n) // alpha ??
-      // Note: alpha = d(xdot)/d(x_n) and beta = d(x)/d(x_n)
-    }
-  } else {
-
-    // Evaluate the implicit ODE f(xdot, x, t) [= 0]
-    RCP<const VectorBase<Scalar> > x_dot_in;
-    x_dot_in = inArgs.get_x_dot().assert_not_null();
-    Scalar alpha = inArgs.get_alpha();
-    if (!is_null(W_out)) {
-      RCP<Thyra::MultiVectorBase<Scalar> > matrix =
-        Teuchos::rcp_dynamic_cast<Thyra::MultiVectorBase<Scalar> >(W_out,true);
-      Thyra::DetachedMultiVectorView<Scalar> matrix_view( *matrix );
-      matrix_view(0,0) = alpha;                  // d(f0)/d(x0_n)
-      matrix_view(1,0) = -beta;                  // d(f0)/d(x1_n)
-      matrix_view(0,1) = +beta*(k/m);            // d(f1)/d(x0_n)
-      matrix_view(1,1) = alpha+beta*2*sqrt(k/m); // d(f1)/d(x1_n)
-      // Note: alpha = d(xdot)/d(x_n) and beta = d(x)/d(x_n)
-    }
-  }
+  return result;
 }
 

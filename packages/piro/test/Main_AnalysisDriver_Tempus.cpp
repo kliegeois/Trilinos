@@ -233,10 +233,10 @@ int main(int argc, char *argv[]) {
           modelName = "B_2";
         }
         else if (mockModel=="MassSpringDamperModel") {
-          RCP<Thyra::ModelEvaluator<double>> model_tmp = rcp(new MassSpringDamperModel(probParams));
+          RCP<Thyra::ModelEvaluator<double>> model_tmp = rcp(new MassSpringDamperModel(appComm,false,probParams,true));
           model = rcp(new Piro::ProductModelEvaluator<double>(model_tmp,p_indices));
           if(explicitAdjointME) {
-            RCP<Thyra::ModelEvaluator<double>> adjointModel_tmp = rcp(new MassSpringDamperModelAdjoint(probParams));
+            RCP<Thyra::ModelEvaluator<double>> adjointModel_tmp = rcp(new MassSpringDamperModel(appComm,true));
             adjointModel = rcp(new Piro::ProductModelEvaluator<double>(adjointModel_tmp,p_indices));
           }
           modelName = "MSD";
