@@ -63,17 +63,13 @@ typedef Tpetra::CrsMatrix<double,LO,GO>  Tpetra_CrsMatrix;
 typedef Thyra::TpetraOperatorVectorExtraction<
     double, LO, GO> ConverterT;
 
-/** \brief Concrete Tpetra-based Model Evaluator
- *
- * Concrete model evaluator for the solution of the following PDE-Constrained problem:
- *
- * find (p_0,p_1) that minimizes
- * g = 0.5*(p0-6)^2 + 0.5*c*(p1-4)^2 + 0.5*(p0+p1-10)^2
- * subject to:
- * f_i = x_i = 0
- *
- * solution is p = (6,4).
- */
+/** \brief Mass-spring-damper model problem from Tempus.
+  * This is a mass-spring-damper differential equation
+  *   \f[
+  *   m \ddot{x} + 2 \sqrt{m\,k} \dot{x} + k x - F = 0
+  *   \f]
+  * . 
+*/
 
 class MassSpringDamperModel
     : public Thyra::ModelEvaluatorDefaultBase<double>

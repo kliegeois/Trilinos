@@ -57,11 +57,15 @@ MassSpringDamperModel::MassSpringDamperModel(const Teuchos::RCP<const Teuchos::C
     hessSupport = hessianSupport;
 
     //set up map and initial guess for solution vector
-    const int vecLength = 4;
-    x_map = rcp(new Tpetra_Map(vecLength, 0, comm));
+    const int vecLength = 3;
+    x_map = rcp(new Tpetra_Map(vecLength, comm->getRank() == 0 ? vecLength : 0, 0, comm));
     x_vec = rcp(new Tpetra_Vector(x_map));
     x_dot_vec = rcp(new Tpetra_Vector(x_map));
-    x_vec->putScalar(3.0);
+
+    if(x_map->isNodeGlobalElement(0))
+      x_vec->getDataNonConst()[x_map->getLocalElement(0)]= 0.0;
+    if(x_map->isNodeGlobalElement(1))
+      x_vec->getDataNonConst()[x_map->getLocalElement(1)]= 1.0;                                  // F/m with F == m == 1
     x_dot_vec->putScalar(1.0);
 
     Teuchos::RCP<const Thyra::VectorSpaceBase<double>> x_space =
@@ -78,14 +82,14 @@ MassSpringDamperModel::MassSpringDamperModel(const Teuchos::RCP<const Teuchos::C
     Teuchos::RCP<const Thyra::VectorSpaceBase<double>> p_space =
         Thyra::createVectorSpace<double>(p_map);
 
-
+    std::cout << "MassSpringDamperModel::MassSpringDamperModel c " << std::endl;
     Teuchos::RCP<Tpetra_Vector> p_init = rcp(new Tpetra_Vector(p_map));
     Teuchos::RCP<Tpetra_Vector> p_lo = rcp(new Tpetra_Vector(p_map));
     Teuchos::RCP<Tpetra_Vector> p_up = rcp(new Tpetra_Vector(p_map));
     for (int i=0; i<numParameters; i++) {
       p_init->getDataNonConst()[i]= 1.0;
-      p_lo->getDataNonConst()[i]= 0.1;
-      p_up->getDataNonConst()[i]= 10.0;
+      p_lo->getDataNonConst()[i]= 0.5;
+      p_up->getDataNonConst()[i]= 1.5;
     }
 
     p_vec = rcp(new Tpetra_Vector(p_map));
@@ -289,7 +293,6 @@ void MassSpringDamperModel::evalModelImpl(
     const Thyra::ModelEvaluatorBase::InArgs<double>&  inArgs,
     const Thyra::ModelEvaluatorBase::OutArgs<double>& outArgs) const
 {
-
   // Parse InArgs
 
   const Teuchos::RCP<const Tpetra_Vector> x_in =
@@ -430,11 +433,18 @@ void MassSpringDamperModel::evalModelImpl(
   auto x = x_in->getData();
   auto p = p_vec->getData();
 
+  auto k = p[0];
+  auto m = p[1];
+
+  double F = 1;
+
   if (f_out != Teuchos::null) {
     f_out->putScalar(0.0);
-    auto f_out_data = f_out->getDataNonConst();
-    for (int i=0; i<myVecLength; i++)
-      f_out_data[i] = x[i];
+
+    if(x_map->isNodeGlobalElement(0) && x_map->isNodeGlobalElement(1)) {
+      f_out->getDataNonConst()[x_map->getLocalElement(0)]= x[x_map->getLocalElement(1)];
+      f_out->getDataNonConst()[x_map->getLocalElement(1)]= - (2*sqrt(m*k)*x[x_map->getLocalElement(1)] + k*x[x_map->getLocalElement(0)] - F ) / m;
+    }
   }
   if (W_out != Teuchos::null) {
     Teuchos::RCP<Tpetra_CrsMatrix> W_out_crs =
@@ -442,9 +452,22 @@ void MassSpringDamperModel::evalModelImpl(
     W_out_crs->resumeFill();
     W_out_crs->setAllToScalar(0.0);
 
-    double diag=1.0;
-    for (int i=0; i<myVecLength; i++)
-      W_out_crs->replaceLocalValues(i, 1, &diag, &i);
+    double beta = inArgs.get_beta();
+    double val;
+
+    for (int row=0; row<myVecLength; ++row) {
+      for (int col=0; col<myVecLength; ++col) {
+        if ( row == 0 && col == 0)
+          val = 0.0;                // d(f0)/d(x0_n)
+        if ( row == 0 && col == 1)
+          val = +beta;              // d(f0)/d(x1_n)
+        if ( row == 1 && col == 0)
+          val = -beta*(k/m);        // d(f1)/d(x0_n)
+        if ( row == 1 && col == 1)
+          val = -beta*2*sqrt(k/m);  // d(f1)/d(x1_n) // alpha ??
+        W_out_crs->replaceLocalValues(row, 1, &val, &col);
+      }
+    }
     W_out_crs->fillComplete();
   }
 
@@ -454,13 +477,17 @@ void MassSpringDamperModel::evalModelImpl(
       Teuchos::rcp_dynamic_cast<MatrixBased_LOWS>(outArgs.get_hess_g_pp(0,0,0)):
       Teuchos::null;
 
-  // Response: g = 0.5*(p0-6)^2 + 0.5*c*(p1-4)^2 + 0.5*(p0+p1-10)^2
-  // min g(x(p), p) s.t. f(x, p) = 0 reached for p0 = 6, p1 = 4
+  // Response:  g = ( x - target_x )^2 + scaling ( x_dot - target_x_dot )^2
 
-  double term1, term2, term3, c;
-  term1 = p[0]-6;
-  term2 = p[1]-4;
-  term3 = p[0]+p[1]-10;
+  double target_x_ = 1.;
+  double target_x_dot_ = 0.;
+  double scaling_ = 10.;
+
+  double diff_x, diff_x_dot, c;
+  if(x_map->isNodeGlobalElement(0) && x_map->isNodeGlobalElement(1)) {
+    diff_x = (x[0] - target_x_);
+    diff_x_dot = (x[1] - target_x_dot_);
+  }
   c = 5;
 
   if (Teuchos::nonnull(H_pp_out)) {
@@ -489,21 +516,39 @@ void MassSpringDamperModel::evalModelImpl(
     dfdp_out->putScalar(0.0);
     auto dfdp_out_data_0 = dfdp_out->getVectorNonConst(0)->getDataNonConst();
     auto dfdp_out_data_1 = dfdp_out->getVectorNonConst(1)->getDataNonConst();
-    for (int i=0; i<myVecLength; i++)
-      dfdp_out_data_1[i] = 0.0;
+
+    if (comm->getRank() == 0) {
+      dfdp_out_data_0[0] = 0.0;
+      dfdp_out_data_1[0] = 0.0;
+      dfdp_out_data_0[1] = -1/sqrt(m*k) * x[1] - 1/m * x[0];
+      dfdp_out_data_1[0] = sqrt(m*k)/std::pow(m,2) * x[1] + k/std::pow(m,2) * x[0] - F/std::pow(m,2);
+    }
+
+/*
+    if (!is_null(DxDp_in)) {
+      Thyra::ConstDetachedMultiVectorView<Scalar> DxDp( *DxDp_in );
+      dfdp_out_data_0[0] +=  DxDp(1,0);
+      dfdp_out_data_1[0] +=  DxDp(1,1);
+      dfdp_out_data_0[1] += - (2*sqrt(m*k)*DxDp(1,0) + k*DxDp(0,0) - F ) / m;
+      dfdp_out_data_1[0] += - (2*sqrt(m*k)*DxDp(1,1) + k*DxDp(0,1) - F ) / m;
+    }
+*/
   }
 
   if (Teuchos::nonnull(g_out)) {
-    g_out->getDataNonConst()[0] = 0.5*term1*term1 + 0.5*c*term2*term2 + 0.5*term3*term3;
+    if (comm->getRank() == 0) {
+      g_out->getDataNonConst()[0] = std::pow(diff_x, 2) + scaling_ * std::pow(diff_x_dot, 2);
+    }
   }
 
   if (dgdx_out != Teuchos::null) {
-    dgdx_out->putScalar(0);
+    if (comm->getRank() == 0) {
+      dgdx_out->getVectorNonConst(0)->getDataNonConst()[0] = 2*x[0];
+      dgdx_out->getVectorNonConst(0)->getDataNonConst()[1] = scaling_*2*x[1];
+    }
   }
   if (dgdp_out != Teuchos::null) {
     dgdp_out->putScalar(0.0);
-    dgdp_out->getVectorNonConst(0)->getDataNonConst()[0] = term1+term3;
-    dgdp_out->getVectorNonConst(0)->getDataNonConst()[1] = c*term2+term3;
   }
 
   if (Teuchos::nonnull(f_hess_xx_v_out)) {
@@ -535,10 +580,7 @@ void MassSpringDamperModel::evalModelImpl(
   }
 
   if (Teuchos::nonnull(g_hess_pp_v_out)) {
-    TEUCHOS_ASSERT(Teuchos::nonnull(p_direction));
-    const auto direction_p = p_direction->getVector(0)->getData();
-    g_hess_pp_v_out->getVectorNonConst(0)->getDataNonConst()[0] = 2*direction_p[0]+direction_p[1];
-    g_hess_pp_v_out->getVectorNonConst(0)->getDataNonConst()[1] = direction_p[0]+(c+1)*direction_p[1];
+    g_hess_pp_v_out->getVectorNonConst(0)->putScalar(0);
   }
 
   // Modify for time dependent (implicit time integration or eigensolves)
