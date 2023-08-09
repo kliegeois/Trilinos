@@ -65,8 +65,11 @@ MassSpringDamperModel::MassSpringDamperModel(const Teuchos::RCP<const Teuchos::C
     if(x_map->isNodeGlobalElement(0))
       x_vec->getDataNonConst()[x_map->getLocalElement(0)]= 0.0;
     if(x_map->isNodeGlobalElement(1))
-      x_vec->getDataNonConst()[x_map->getLocalElement(1)]= 1.0;                                  // F/m with F == m == 1
-    x_dot_vec->putScalar(1.0);
+      x_vec->getDataNonConst()[x_map->getLocalElement(1)]= 0.0;
+    if(x_map->isNodeGlobalElement(0))
+      x_dot_vec->getDataNonConst()[x_map->getLocalElement(0)]= 0.0;
+    if(x_map->isNodeGlobalElement(1))
+      x_dot_vec->getDataNonConst()[x_map->getLocalElement(1)]= 1.0;                                  // F/m with F == m == 1
 
     Teuchos::RCP<const Thyra::VectorSpaceBase<double>> x_space =
         Thyra::createVectorSpace<double>(x_map);

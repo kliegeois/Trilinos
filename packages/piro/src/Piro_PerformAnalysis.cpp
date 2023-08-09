@@ -955,10 +955,17 @@ Piro::PerformROLTransientAnalysis(
     ROL::Ptr<ROL::ReducedDynamicObjective<double> > reduced_obj_ptr = ROL::makePtrFromRef(reduced_obj);
     ROL::ReducedDynamicStationaryControlsObjective<double> reduced_stationarycontrols_obj(reduced_obj_ptr, rol_p_ptr, nt);
 
-    *out << "Piro::PerformROLTransientAnalysis: Solving Reduced Space Unconstrained Optimization Problem" << std::endl;
-    auto algo = ROL::TypeU::AlgorithmFactory<double>(rolParams.sublist("ROL Options"));
-    algo->run(rol_p_primal, reduced_stationarycontrols_obj, *rolOutput);
-    return_status = algo->getState()->statusFlag;
+    if(boundConstrained) {
+      *out << "Piro::PerformROLTransientAnalysis: Solving Reduced Space Bound Constrained Optimization Problem" << std::endl;
+      auto algo = ROL::TypeB::AlgorithmFactory<double>(rolParams.sublist("ROL Options"));
+      algo->run(rol_p_primal, reduced_stationarycontrols_obj, *boundConstraint, *rolOutput); 
+      return_status = algo->getState()->statusFlag;
+    }  else {
+      *out << "Piro::PerformROLTransientAnalysis: Solving Reduced Space Unconstrained Optimization Problem" << std::endl;
+      auto algo = ROL::TypeU::AlgorithmFactory<double>(rolParams.sublist("ROL Options"));
+      algo->run(rol_p_primal, reduced_stationarycontrols_obj, *rolOutput);
+      return_status = algo->getState()->statusFlag;
+    }
     if (return_status == ROL::EExitStatus::EXITSTATUS_STEPTOL) return_status = 0;
 
     //! check correctness of Gradient prvided by Model Evaluator
