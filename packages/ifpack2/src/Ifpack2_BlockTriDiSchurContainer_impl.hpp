@@ -931,7 +931,7 @@ namespace Ifpack2 {
       const auto rowidx2part = Kokkos::create_mirror_view(interf.rowidx2part);
 
       const auto part2rowidx0_sub = Kokkos::create_mirror_view(interf.part2rowidx0_sub);
-      const auto part2packrowidx0_sub = Kokkos::create_mirror_view(interf.part2packrowidx0_sub);
+      const auto part2packrowidx0_sub = Kokkos::create_mirror_view(Kokkos::HostSpace(), interf.part2packrowidx0_sub);
       const auto rowidx2part_sub = Kokkos::create_mirror_view(interf.rowidx2part_sub);
 
       // Determine parts.
@@ -1117,7 +1117,6 @@ namespace Ifpack2 {
             }
           }
         }
-}
 
         //std::cout << "part2packrowidx0_sub = " << std::endl;
         for (local_ordinal_type i=0;i<part2packrowidx0_sub.extent(0);++i) {
@@ -1128,6 +1127,8 @@ namespace Ifpack2 {
         }
         //std::cout << "[part2packrowidx0_sub]" << std::endl;
 
+        Kokkos::deep_copy(interf.part2packrowidx0_sub, part2packrowidx0_sub);
+}
         //std::cout << "partptr_sub = " << std::endl;
         for (local_ordinal_type i=0;i<partptr_sub.extent(0);++i) {
           for (local_ordinal_type j=0;j<partptr_sub.extent(1);++j) {
@@ -2169,6 +2170,22 @@ namespace Ifpack2 {
       myfile.close();
     }
 
+    
+    template<typename local_ordinal_type, typename member_type, typename ViewType1, typename ViewType2>
+    KOKKOS_INLINE_FUNCTION
+    void
+    copy3DView(const member_type &member, const ViewType1 &view1, const ViewType2 &view2) {
+      // Kokkos::Experimental::local_deep_copy
+      auto teamVectorRange =
+          Kokkos::TeamVectorMDRange<Kokkos::Rank<3>, member_type>(
+              member, view1.extent(0), view1.extent(1), view1.extent(2));
+
+      Kokkos::parallel_for
+        (teamVectorRange,
+      [&](const local_ordinal_type &i, const local_ordinal_type &j, const local_ordinal_type &k) {
+        view1(i,j,k) = view2(i,j,k);
+      });
+    }
 
     template<typename local_ordinal_type, typename ViewType>
     void writeMultiVectorValuesToFile (const local_ordinal_type &n_parts, const ViewType &scalar_values_device, std::string fileName) {
@@ -2359,8 +2376,8 @@ namespace Ifpack2 {
         local_ordinal_type ri0[vector_length] = {};
         local_ordinal_type nrows[vector_length] = {};
 
-        TEUCHOS_TEST_FOR_EXCEPT_MSG(npacks > vector_length,
-                  "npacks is too big.");
+        //TEUCHOS_TEST_FOR_EXCEPT_MSG(npacks > vector_length,
+        //          "npacks is too big.");
 
         for (local_ordinal_type vi=0;vi<npacks;++vi,++partidx) {
           kfs[vi] = flat_td_ptr(partidx,local_subpartidx);
@@ -2643,8 +2660,17 @@ namespace Ifpack2 {
           extract(partidx, local_subpartidx, npacks);
         }
         else {
-          TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Not implemented yet.");
+          Kokkos::parallel_for
+            (Kokkos::ThreadVectorRange(member, vector_loop_size),
+	     [&](const local_ordinal_type &v) {
+              const local_ordinal_type vbeg = v*internal_vector_length;
+              //printf("i0 = %d, npacks = %d, vbeg = %d;\n", i0, npacks, vbeg);
+              if (vbeg < npacks)
+                extract(member, partidx+vbeg, npacks, vbeg);
+            });
         }
+
+        member.team_barrier();
 
         const size_type kps1 = pack_td_ptr(partidx, local_subpartidx);
         const size_type kps2 = pack_td_ptr(partidx, local_subpartidx+1)-1;
@@ -2652,13 +2678,13 @@ namespace Ifpack2 {
         const local_ordinal_type r1 = part2packrowidx0_sub(partidx,local_subpartidx)-1;
         const local_ordinal_type r2 = part2packrowidx0_sub(partidx,local_subpartidx)+2;
 
-        //printf("Copy for Schur complement part id = %d from kps1 = %d to r1 = %d and from kps2 = %d to r2 = %d;\n", packidx, kps1, r1, kps2, r2);
+        //printf("Copy for Schur complement part id = %d from kps1 = %d to r1 = %d and from kps2 = %d to r2 = %d partidx = %d local_subpartidx = %d;\n", packidx, kps1, r1, kps2, r2, partidx, local_subpartidx);
 
         // Need to copy D to e_internal_vector_values.
-        Kokkos::deep_copy(Kokkos::subview(e_internal_vector_values, 0, r1, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), 
+        copy3DView<local_ordinal_type>(member, Kokkos::subview(e_internal_vector_values, 0, r1, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), 
                           Kokkos::subview(internal_vector_values, kps1, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()));
 
-        Kokkos::deep_copy(Kokkos::subview(e_internal_vector_values, 1, r2, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), 
+        copy3DView<local_ordinal_type>(member, Kokkos::subview(e_internal_vector_values, 1, r2, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), 
                           Kokkos::subview(internal_vector_values, kps2, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()));
 
       }
@@ -2739,7 +2765,7 @@ namespace Ifpack2 {
         const local_ordinal_type i0_offset = local_subpartidx_schur == 0 ? i0+2 : i0+2;
 
         for  (local_ordinal_type i = 0; i < 4; ++i) { //pack_td_ptr_schur(partidx,local_subpartidx_schur+1)-i0_schur
-          Kokkos::deep_copy(Kokkos::subview(internal_vector_values_schur, i0_schur+i, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), 
+          copy3DView<local_ordinal_type>(member, Kokkos::subview(internal_vector_values_schur, i0_schur+i, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), 
                             Kokkos::subview(internal_vector_values, i0_offset+i, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()));
         }
 
@@ -2873,6 +2899,7 @@ namespace Ifpack2 {
           //std::cout << " Start ExtractAndFactorizeSubLineTag nteams = " << packindices_sub.extent(0) << std::endl;
           Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<ExtractAndFactorizeSubLineTag>",
                               policy, *this);
+          execution_space().fence();
           //std::cout << " End ExtractAndFactorizeSubLineTag " << std::endl;
 
           writeBTDValuesToFile(n_parts, scalar_values, "after.mm");
@@ -2882,32 +2909,7 @@ namespace Ifpack2 {
         {
           {
 
-
-            for (local_ordinal_type i1=0;i1<e_scalar_values.extent(0);++i1) {
-              for (local_ordinal_type i2=0;i2<e_scalar_values.extent(1);++i2) {
-                for (local_ordinal_type i3=0;i3<e_scalar_values.extent(2);++i3) {
-                  for (local_ordinal_type i4=0;i4<e_scalar_values.extent(3);++i4) {
-                    for (local_ordinal_type i5=0;i5<e_scalar_values.extent(4);++i5) {
-                      e_scalar_values(i1,i2,i3,i4,i5) = i1 == 0 ? -i2 : i2;
-                    }
-                  }
-                }
-              }
-            }
-
             writeMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), e_scalar_values, "e_scalar_values_before_extract.mm");
-
-            for (local_ordinal_type i1=0;i1<e_scalar_values.extent(0);++i1) {
-              for (local_ordinal_type i2=0;i2<e_scalar_values.extent(1);++i2) {
-                for (local_ordinal_type i3=0;i3<e_scalar_values.extent(2);++i3) {
-                  for (local_ordinal_type i4=0;i4<e_scalar_values.extent(3);++i4) {
-                    for (local_ordinal_type i5=0;i5<e_scalar_values.extent(4);++i5) {
-                      e_scalar_values(i1,i2,i3,i4,i5) = 0;
-                    }
-                  }
-                }
-              }
-            }
 
             {
               //std::cout << " Start ExtractBCDTag " << std::endl;
@@ -2917,21 +2919,24 @@ namespace Ifpack2 {
               policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
               Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<ExtractBCDTag>",
                                   policy, *this);
+              execution_space().fence();
             }
 
             writeBTDValuesToFile(part2packrowidx0_sub.extent(0), scalar_values, "after_extraction_of_BCD.mm");
 
             writeMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), e_scalar_values, "e_scalar_values_after_extract.mm");
+            {
 
-            Kokkos::TeamPolicy<execution_space,ComputeETag>
-              policy(packindices_sub.extent(0), team_size, vector_loop_size);
+              Kokkos::TeamPolicy<execution_space,ComputeETag>
+                policy(packindices_sub.extent(0), team_size, vector_loop_size);
 
-            policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
-            //std::cout << " Start ComputeETag nteams = " << packindices_sub.extent(0) << std::endl;
-            Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<ComputeETag>",
-                                policy, *this);
-            //std::cout << " End ComputeETag " << std::endl;
-
+              policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
+              //std::cout << " Start ComputeETag nteams = " << packindices_sub.extent(0) << std::endl;
+              Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<ComputeETag>",
+                                  policy, *this);
+              execution_space().fence();
+              //std::cout << " End ComputeETag " << std::endl;
+            }
             writeMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), e_scalar_values, "e_scalar_values_after_compute.mm");
           }
 
@@ -2945,6 +2950,7 @@ namespace Ifpack2 {
             Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<ComputeSchurTag>",
                                 policy, *this);
             writeBTDValuesToFile(part2packrowidx0_sub.extent(0), scalar_values_schur, "after_schur.mm");
+            execution_space().fence();
           }
 
           {
@@ -2953,6 +2959,7 @@ namespace Ifpack2 {
             policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
             Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<FactorizeSchurTag>",
                                 policy, *this);
+            execution_space().fence();
             writeBTDValuesToFile(part2packrowidx0_sub.extent(0), scalar_values_schur, "after_factor_schur.mm");
           }
         }
