@@ -199,7 +199,7 @@ namespace Ifpack2 {
       const auto blocksize = A->getBlockSize();
       const auto src = Teuchos::rcp(new tpetra_map_type(tpetra_mv_type::makePointMap(*g.getDomainMap(), blocksize)));
       const auto tgt = Teuchos::rcp(new tpetra_map_type(tpetra_mv_type::makePointMap(*g.getColMap()   , blocksize)));
-
+      IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
       return Teuchos::rcp(new tpetra_import_type(src, tgt));
     }
 
@@ -586,6 +586,7 @@ namespace Ifpack2 {
           MPI_Iprobe(pids.recv[i], 42, comm, &flag, &stat);
         }
 #endif // HAVE_IFPACK2_MPI
+        IFPACK2_BLOCKHELPER_TIMER_FENCE(execution_space)
       }
 
       void syncRecvVar1() {
@@ -611,6 +612,7 @@ namespace Ifpack2 {
         // 2. cleanup all open comm
         waitall(reqs.send.size(), reqs.send.data());
 #endif // HAVE_IFPACK2_MPI
+        IFPACK2_BLOCKHELPER_TIMER_FENCE(execution_space)
       }
 #endif //defined(KOKKOS_ENABLE_CUDA|HIP|SYCL)
 
@@ -718,6 +720,7 @@ namespace Ifpack2 {
           MPI_Iprobe(pids.recv[i], 42, comm, &flag, &stat);
         }
 #endif
+        IFPACK2_BLOCKHELPER_TIMER_FENCE(execution_space)
       }
 
       void syncRecvVar0() {
@@ -733,6 +736,7 @@ namespace Ifpack2 {
         // wait on the sends to match all Isends with a cleanup operation.
         waitall(reqs.send.size(), reqs.send.data());
 #endif
+        IFPACK2_BLOCKHELPER_TIMER_FENCE(execution_space)
       }
 
       ///
@@ -765,6 +769,7 @@ namespace Ifpack2 {
         IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchur::AsyncableImport::SyncExchange");
         asyncSendRecv(mv);
         syncRecv();
+        IFPACK2_BLOCKHELPER_TIMER_FENCE(execution_space)
       }
 
       impl_scalar_type_2d_view_tpetra getRemoteMultiVectorLocalView() const { return remote_multivector; }
@@ -1853,6 +1858,7 @@ namespace Ifpack2 {
 
         Kokkos::deep_copy(btdm.e_values, zero);
       }
+      IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
     }
 
 
@@ -2863,6 +2869,7 @@ namespace Ifpack2 {
           shmem_size(blocksize, blocksize, vector_loop_size);
 
         {
+          IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchur::NumericPhase::ExtractAndFactorizeSubLineTag");
           //std::cout << " Start ExtractAndFactorizeSubLineTag " << std::endl;
           //std::cout << " packptr.extent(0)-1 = " << packptr.extent(0)-1 << std::endl;
           //for  (int i = 0; i < packptr.extent(0); ++i)
@@ -2876,7 +2883,7 @@ namespace Ifpack2 {
           writeBTDValuesToFile(n_parts, scalar_values, "before.mm");
 
           policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
-          //std::cout << " Start ExtractAndFactorizeSubLineTag nteams = " << packindices_sub.extent(0) << std::endl;
+          std::cout << " Start ExtractAndFactorizeSubLineTag nteams = " << packindices_sub.extent(0) << std::endl;
           Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<ExtractAndFactorizeSubLineTag>",
                               policy, *this);
           execution_space().fence();
@@ -2892,6 +2899,7 @@ namespace Ifpack2 {
             writeMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), e_scalar_values, "e_scalar_values_before_extract.mm");
 
             {
+              IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchur::NumericPhase::ExtractBCDTag");
               //std::cout << " Start ExtractBCDTag " << std::endl;
               Kokkos::TeamPolicy<execution_space,ExtractBCDTag>
                 policy(packindices_schur.extent(0), team_size, vector_loop_size);
@@ -2906,7 +2914,7 @@ namespace Ifpack2 {
 
             writeMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), e_scalar_values, "e_scalar_values_after_extract.mm");
             {
-
+              IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchur::NumericPhase::ComputeETag");
               Kokkos::TeamPolicy<execution_space,ComputeETag>
                 policy(packindices_sub.extent(0), team_size, vector_loop_size);
 
@@ -2921,6 +2929,7 @@ namespace Ifpack2 {
           }
 
           {
+            IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchur::NumericPhase::ComputeSchurTag");
             writeBTDValuesToFile(part2packrowidx0_sub.extent(0), scalar_values_schur, "before_schur.mm");
             //std::cout << " Start ComputeSchurTag " << std::endl;
             Kokkos::TeamPolicy<execution_space,ComputeSchurTag>
@@ -2934,6 +2943,7 @@ namespace Ifpack2 {
           }
 
           {
+            IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchur::NumericPhase::FactorizeSchurTag");
             Kokkos::TeamPolicy<execution_space,FactorizeSchurTag>
               policy(part2packrowidx0_sub.extent(0), team_size, vector_loop_size);
             policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
@@ -2961,6 +2971,7 @@ namespace Ifpack2 {
       IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchur::NumericPhase");
       ExtractAndFactorizeTridiags<MatrixType> function(btdm, interf, A, tiny);
       function.run();
+      IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
     }
 
     ///
@@ -3096,6 +3107,7 @@ namespace Ifpack2 {
             ("MultiVectorConverter::RangePolicy", policy, *this);
         }
         IFPACK2_BLOCKTRIDISCHURCONTAINER_PROFILER_REGION_END;
+        IFPACK2_BLOCKHELPER_TIMER_FENCE(execution_space)
       }
     };
 
@@ -3754,6 +3766,7 @@ namespace Ifpack2 {
 #undef BLOCKTRIDISCHURCONTAINER_DETAILS_SOLVETRIDIAGS
 
         IFPACK2_BLOCKTRIDISCHURCONTAINER_PROFILER_REGION_END;
+        IFPACK2_BLOCKHELPER_TIMER_FENCE(execution_space)
       }
     };
 
