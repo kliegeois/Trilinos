@@ -201,6 +201,7 @@ namespace Ifpack2 {
   BlockTriDiSchurContainer<MatrixType, BlockTriDiSchurContainerDetails::ImplSimdTag>
   ::initialize ()
   {
+    IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchurContainer::initialize");
     this->IsInitialized_ = true;
     // We assume that if you called this method, you intend to recompute
     // everything.
@@ -213,6 +214,7 @@ namespace Ifpack2 {
          impl_->a_minus_d, 
          impl_->overlap_communication_and_computation);    
     }
+    IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
   }
 
   template <typename MatrixType>
@@ -220,6 +222,7 @@ namespace Ifpack2 {
   BlockTriDiSchurContainer<MatrixType, BlockTriDiSchurContainerDetails::ImplSimdTag>
   ::compute ()
   {
+    IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchurContainer::compute");
     this->IsComputed_ = false;
     if (!this->isInitialized())
       this->initialize();
@@ -230,6 +233,7 @@ namespace Ifpack2 {
          Kokkos::ArithTraits<magnitude_type>::zero());
     }
     this->IsComputed_ = true;
+    IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
   }
 
   template <typename MatrixType>
@@ -281,6 +285,7 @@ namespace Ifpack2 {
   BlockTriDiSchurContainer<MatrixType, BlockTriDiSchurContainerDetails::ImplSimdTag>
   ::compute (const ComputeParameters& in)
   {
+    IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchurContainer::compute");
     this->IsComputed_ = false;
     if (!this->isInitialized())
       this->initialize();
@@ -291,6 +296,7 @@ namespace Ifpack2 {
          in.addRadiallyToDiagonal);
     }
     this->IsComputed_ = true;
+    IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
   }
 
   template <typename MatrixType>
