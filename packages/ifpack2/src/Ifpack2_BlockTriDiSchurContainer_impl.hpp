@@ -845,6 +845,7 @@ namespace Ifpack2 {
     createPartInterface(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A,
                         const Teuchos::Array<Teuchos::Array<typename BlockHelperDetails::ImplType<MatrixType>::local_ordinal_type> > &partitions,
                         const typename BlockHelperDetails::ImplType<MatrixType>::local_ordinal_type n_subparts_per_part) {
+      IFPACK2_BLOCKHELPER_TIMER("createPartInterface");
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using local_ordinal_type = typename impl_type::local_ordinal_type;
       using local_ordinal_type_1d_view = typename impl_type::local_ordinal_type_1d_view;
@@ -1225,6 +1226,7 @@ namespace Ifpack2 {
           //std::cout << "packptr_sub(" << k << ") = " << packptr_sub(k) << std::endl;
         Kokkos::deep_copy(interf.packptr_sub, packptr_sub);
       }
+      IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
 
       return interf;
     }
@@ -1287,6 +1289,7 @@ namespace Ifpack2 {
     template<typename MatrixType>
     BlockTridiags<MatrixType>
     createBlockTridiags(const BlockHelperDetails::PartInterface<MatrixType> &interf) {
+      IFPACK2_BLOCKHELPER_TIMER("createBlockTridiags");
       //std::cout << " createBlockTridiags start " << std::endl;
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using execution_space = typename impl_type::execution_space;
@@ -1419,6 +1422,7 @@ namespace Ifpack2 {
       // values and A_colindsub are created in the symbolic phase
 
       //std::cout << " createBlockTridiags end " << std::endl;
+      IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
 
       return btdm;
     }

@@ -85,6 +85,7 @@ namespace Ifpack2 {
                   const bool overlapCommAndComp,
                   const bool useSeqMethod) 
   {
+    IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchurContainer::initInternal");
     n_subparts_per_part_ = n_subparts_per_part;
 
     // create pointer of impl
@@ -128,6 +129,7 @@ namespace Ifpack2 {
     impl_->part_interface  = BlockTriDiSchurContainerDetails::createPartInterface<MatrixType>(impl_->A, partitions, n_subparts_per_part_);
     impl_->block_tridiags  = BlockTriDiSchurContainerDetails::createBlockTridiags<MatrixType>(impl_->part_interface);
     impl_->norm_manager    = BlockHelperDetails::NormManager<MatrixType>(impl_->A->getComm());
+    IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
   }
 
   template <typename MatrixType>
@@ -135,6 +137,7 @@ namespace Ifpack2 {
   BlockTriDiSchurContainer<MatrixType, BlockTriDiSchurContainerDetails::ImplSimdTag>
   ::clearInternal ()
   {
+    IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchurContainer::clearInternal");
     using impl_type = BlockHelperDetails::ImplType<MatrixType>;
     using part_interface_type = BlockHelperDetails::PartInterface<MatrixType>;
     using block_tridiags_type = BlockTriDiSchurContainerDetails::BlockTridiags<MatrixType>;
@@ -155,6 +158,7 @@ namespace Ifpack2 {
     impl_->norm_manager    = norm_manager_type();
 
     impl_ = Teuchos::null;
+    IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
   }
 
   template <typename MatrixType>
@@ -165,9 +169,11 @@ namespace Ifpack2 {
                        bool pointIndexed)
     : Container<MatrixType>(matrix, partitions, pointIndexed)
   {
+    IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchurContainer::BlockTriDiSchurContainer");
     const bool useSeqMethod = false;
     const bool overlapCommAndComp = false;
     initInternal(matrix, partitions, importer, 2, overlapCommAndComp, useSeqMethod);
+    IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
   }
 
   template <typename MatrixType>
@@ -179,7 +185,9 @@ namespace Ifpack2 {
                        const bool useSeqMethod)
     : Container<MatrixType>(matrix, partitions, false)
   {
+    IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchurContainer::BlockTriDiSchurContainer");
     initInternal(matrix, partitions, Teuchos::null, n_subparts_per_part, overlapCommAndComp, useSeqMethod);
+    IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
   }
 
   template <typename MatrixType>
@@ -241,10 +249,12 @@ namespace Ifpack2 {
   BlockTriDiSchurContainer<MatrixType, BlockTriDiSchurContainerDetails::ImplSimdTag>
   ::clearBlocks ()
   {
+    IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchurContainer::clearBlocks");
     clearInternal();
     this->IsInitialized_ = false;
     this->IsComputed_ = false;
     Container<MatrixType>::clearBlocks();
+    IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
   }
 
   template <typename MatrixType>
@@ -253,6 +263,7 @@ namespace Ifpack2 {
   ::applyInverseJacobi (const mv_type& X, mv_type& Y, scalar_type dampingFactor,
                         bool zeroStartingSolution, int numSweeps) const
   {
+    IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchurContainer::applyInverseJacobi");
     const magnitude_type tol = Kokkos::ArithTraits<magnitude_type>::zero();
     const int check_tol_every = 1;
 
@@ -270,6 +281,7 @@ namespace Ifpack2 {
        numSweeps,
        tol,
        check_tol_every);
+    IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
   }
 
   template <typename MatrixType>
@@ -315,6 +327,7 @@ namespace Ifpack2 {
   ::applyInverseJacobi (const mv_type& X, mv_type& Y, 
                         const ApplyParameters& in) const
   {
+    IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchurContainer::applyInverseJacobi");
     int r_val = 0;
     {
       r_val = BlockTriDiSchurContainerDetails::applyInverseJacobi<MatrixType>
@@ -332,6 +345,7 @@ namespace Ifpack2 {
          in.tolerance,
          in.checkToleranceEvery);
     }
+    IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
     return r_val;
   }
 
