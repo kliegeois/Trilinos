@@ -949,6 +949,7 @@ namespace Ifpack2 {
       local_ordinal_type pack_nrows = 0;
       local_ordinal_type pack_nrows_sub = 0;
       if (jacobi) {
+        IFPACK2_BLOCKHELPER_TIMER("determine part Jacobi");
         for (local_ordinal_type ip=0;ip<nparts;++ip) {
           const local_ordinal_type ipnrows = 1;
           TEUCHOS_TEST_FOR_EXCEPT_MSG(ipnrows == 0,
@@ -977,9 +978,9 @@ namespace Ifpack2 {
           }
           partptr(ip+1) = os + ipnrows;
         }
+        IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
       } else {
-        //printf("Not use Jacobi\n");
-        //std::cout << " vector_length = " << vector_length << std::endl;
+        IFPACK2_BLOCKHELPER_TIMER("determine part");
         for (local_ordinal_type ip=0;ip<nparts;++ip) {
           const auto* part = &partitions[p[ip]];
           const local_ordinal_type ipnrows = part->size();
@@ -1125,25 +1126,9 @@ namespace Ifpack2 {
             }
           }
 
-          //std::cout << "part2packrowidx0_sub = " << std::endl;
-          for (size_type i=0;i<part2packrowidx0_sub.extent(0);++i) {
-            for (size_type j=0;j<part2packrowidx0_sub.extent(1);++j) {
-              //std::cout << part2packrowidx0_sub(i,j) << " ";
-            }
-            //std::cout << std::endl;
-          }
-          //std::cout << "[part2packrowidx0_sub]" << std::endl;
-
           Kokkos::deep_copy(interf.part2packrowidx0_sub, part2packrowidx0_sub);
         }
-        //std::cout << "partptr_sub = " << std::endl;
-        for (size_type i=0;i<partptr_sub.extent(0);++i) {
-          for (size_type j=0;j<partptr_sub.extent(1);++j) {
-            //std::cout << partptr_sub(i,j) << " ";
-          }
-          //std::cout << std::endl;
-        }
-        //std::cout << "[partptr_sub]" << std::endl;
+        IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
       }
 #if defined(BLOCKTRIDISCHURCONTAINER_DEBUG)
       TEUCHOS_ASSERT(partptr(nparts) == nrows);
@@ -1152,13 +1137,6 @@ namespace Ifpack2 {
 
       Kokkos::deep_copy(interf.partptr, partptr);
       Kokkos::deep_copy(interf.lclrow, lclrow);
-
-      //std::cout << "nrows = " << std::endl;
-      //std::cout << partptr(partptr.extent(0) - 1) << std::endl;
-      //std::cout << interf.partptr(interf.partptr.extent(0) - 1) << std::endl;
-      //std::cout << "nrows ends" << std::endl;
-
-      //std::cout << "partptr.extent(0) = " << partptr.extent(0) << std::endl;
 
       Kokkos::deep_copy(interf.partptr_sub, partptr_sub);
 
@@ -1171,6 +1149,7 @@ namespace Ifpack2 {
       Kokkos::deep_copy(interf.rowidx2part, rowidx2part);
 
       { // Fill packptr.
+        IFPACK2_BLOCKHELPER_TIMER("Fill packptr");
         local_ordinal_type npacks = ceil(float(nparts)/vector_length) * (part2packrowidx0_sub.extent(1)-1);
         //std::cout << "Number of packs is npacks 1 = " << npacks << std::endl;
         npacks = 0;
@@ -1222,9 +1201,8 @@ namespace Ifpack2 {
         for (local_ordinal_type k=0;k<npacks + 1;++k)
           packptr_sub(k) = packptr(k%npacks_per_subpart) + floor(float(k) / npacks_per_subpart) * packptr(npacks_per_subpart);
 
-        for (local_ordinal_type k=0;k<npacks + 1;++k)
-          //std::cout << "packptr_sub(" << k << ") = " << packptr_sub(k) << std::endl;
         Kokkos::deep_copy(interf.packptr_sub, packptr_sub);
+        IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
       }
       IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
 

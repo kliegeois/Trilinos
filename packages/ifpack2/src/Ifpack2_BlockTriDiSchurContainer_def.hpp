@@ -89,30 +89,42 @@ namespace Ifpack2 {
     n_subparts_per_part_ = n_subparts_per_part;
 
     // create pointer of impl
-    impl_ = Teuchos::rcp(new BlockTriDiSchurContainerDetails::ImplObject<MatrixType>());
+    {
+      IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchurContainer::createImpl");
+      impl_ = Teuchos::rcp(new BlockTriDiSchurContainerDetails::ImplObject<MatrixType>());
+      IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
+    }
 
     using impl_type = BlockHelperDetails::ImplType<MatrixType>;
     // using block_crs_matrix_type = typename impl_type::tpetra_block_crs_matrix_type;
 
-    impl_->A = Teuchos::rcp_dynamic_cast<const block_crs_matrix_type>(matrix);
-    TEUCHOS_TEST_FOR_EXCEPT_MSG
-      (impl_->A.is_null(), "BlockTriDiSchurContainer currently supports Tpetra::BlockCrsMatrix only.");
+    {
+      IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchurContainer::setA");
+      impl_->A = Teuchos::rcp_dynamic_cast<const block_crs_matrix_type>(matrix);
+      TEUCHOS_TEST_FOR_EXCEPT_MSG
+        (impl_->A.is_null(), "BlockTriDiSchurContainer currently supports Tpetra::BlockCrsMatrix only.");
+      IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
+    }
 
     impl_->tpetra_importer = Teuchos::null;
     impl_->async_importer  = Teuchos::null;
     
     if (useSeqMethod)
     {
+      IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchurContainer::createBlockCrsTpetraImporter useSeqMethod");
       if (importer.is_null()) // there is no given importer, then create one
         impl_->tpetra_importer = BlockTriDiSchurContainerDetails::createBlockCrsTpetraImporter<MatrixType>(impl_->A);
       else
         impl_->tpetra_importer = importer; // if there is a given importer, use it
+      IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
     }
     else
     {
+      IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchurContainer::createBlockCrsTpetraImporter");
       //Leave tpetra_importer null even if user provided an importer.
       //It is not used in the performant codepath (!useSeqMethod)
       impl_->async_importer = BlockTriDiSchurContainerDetails::createBlockCrsAsyncImporter<MatrixType>(impl_->A);
+      IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
     }
 
     // as a result, there are 
@@ -122,13 +134,25 @@ namespace Ifpack2 {
 
     // temporary disabling 
     impl_->overlap_communication_and_computation = overlapCommAndComp;
-    
-    impl_->Z = typename impl_type::tpetra_multivector_type();
-    impl_->W = typename impl_type::impl_scalar_type_1d_view();
 
-    impl_->part_interface  = BlockTriDiSchurContainerDetails::createPartInterface<MatrixType>(impl_->A, partitions, n_subparts_per_part_);
-    impl_->block_tridiags  = BlockTriDiSchurContainerDetails::createBlockTridiags<MatrixType>(impl_->part_interface);
-    impl_->norm_manager    = BlockHelperDetails::NormManager<MatrixType>(impl_->A->getComm());
+    {
+      IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchurContainer::createZ");
+      impl_->Z = typename impl_type::tpetra_multivector_type();
+      IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
+    }
+    {
+      IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchurContainer::createW");
+      impl_->W = typename impl_type::impl_scalar_type_1d_view();
+      IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
+    }
+
+    {
+      IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchurContainer::createPartInterfaceBlockTridiagsNormManager");
+      impl_->part_interface  = BlockTriDiSchurContainerDetails::createPartInterface<MatrixType>(impl_->A, partitions, n_subparts_per_part_);
+      impl_->block_tridiags  = BlockTriDiSchurContainerDetails::createBlockTridiags<MatrixType>(impl_->part_interface);
+      impl_->norm_manager    = BlockHelperDetails::NormManager<MatrixType>(impl_->A->getComm());
+      IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
+    }
     IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
   }
 
