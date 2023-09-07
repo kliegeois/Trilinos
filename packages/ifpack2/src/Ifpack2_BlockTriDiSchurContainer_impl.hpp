@@ -2095,7 +2095,7 @@ namespace Ifpack2 {
 
     }
 
-    template<typename impl_type, typename WWViewType>
+    template<typename impl_type, typename WWViewType, typename XViewType>
     KOKKOS_INLINE_FUNCTION
     void
     solveSingleVectorNew(const typename Kokkos::TeamPolicy<typename impl_type::execution_space>::member_type &member,
@@ -2105,7 +2105,7 @@ namespace Ifpack2 {
                       const typename impl_type::local_ordinal_type &nrows,
                       const typename impl_type::local_ordinal_type &v,
                       const ConstUnmanaged<typename impl_type::internal_vector_type_4d_view> D_internal_vector_values,
-                      const Unmanaged<typename impl_type::internal_vector_type_4d_view> X_internal_vector_values,
+                      const XViewType &X_internal_vector_values, //Unmanaged<typename impl_type::internal_vector_type_4d_view>
                       const WWViewType &WW) {
       std::cout << "Start solveSingleVector" << std::endl;
       using execution_space = typename impl_type::execution_space;
@@ -4027,15 +4027,15 @@ namespace Ifpack2 {
         typedef typename default_mode_and_algo_type::single_vector_algo_type default_algo_type;
 
         // base pointers
-        auto A_0 = D_internal_vector_values.data();
-        auto X_0 = X_internal_vector_values.data();
+        //auto A_0 = D_internal_vector_values.data();
+        //auto X_0 = X_internal_vector_values.data();
 
         // const local_ordinal_type blocksize = D_scalar_values.extent(1);
-        const local_ordinal_type astep = D_internal_vector_values.stride_0();
-        const local_ordinal_type as0 = D_internal_vector_values.stride_1(); //blocksize*vector_length;
-        const local_ordinal_type as1 = D_internal_vector_values.stride_2(); //vector_length;
-        const local_ordinal_type xstep = X_internal_vector_values.stride_0();
-        const local_ordinal_type xs0 = X_internal_vector_values.stride_1(); //vector_length;
+        //const local_ordinal_type astep = D_internal_vector_values.stride_0();
+        //const local_ordinal_type as0 = D_internal_vector_values.stride_1(); //blocksize*vector_length;
+        //const local_ordinal_type as1 = D_internal_vector_values.stride_2(); //vector_length;
+        //const local_ordinal_type xstep = X_internal_vector_values.stride_0();
+        //const local_ordinal_type xs0 = X_internal_vector_values.stride_1(); //vector_length;
 
         if (local_subpartidx == 0) {
           Kokkos::parallel_for
@@ -4131,10 +4131,10 @@ namespace Ifpack2 {
       operator() (const SingleVectorSchurTag<B> &, const member_type &member) const {
         const local_ordinal_type packidx = packindices_sub(member.league_rank());
 
-        const local_ordinal_type subpartidx = packptr_sub(packidx);
+        //const local_ordinal_type subpartidx = packptr_sub(packidx);
         const local_ordinal_type partidx = packptr_sub(packidx);
-        const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0);
-        const local_ordinal_type local_subpartidx = floor(float(subpartidx)/n_parts);
+        //const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0);
+        //const local_ordinal_type local_subpartidx = floor(float(subpartidx)/n_parts);
 
         //const local_ordinal_type i0 = pack_td_ptr_schur(partidx,0);
         //const local_ordinal_type r0 = part2packrowidx0_sub(partidx,local_subpartidx);
@@ -4165,10 +4165,10 @@ namespace Ifpack2 {
           }
         }
 
-        //Kokkos::parallel_for
-        //  (Kokkos::ThreadVectorRange(member, vector_loop_size),[&](const int &v) {
-        //    solveSingleVectorNew<impl_type, internal_vector_scratch_type_3d_view> (member, blocksize, i0_schur, 0, nrows, v, D_internal_vector_values_schur, VV, WW);
-        //  });
+        Kokkos::parallel_for
+          (Kokkos::ThreadVectorRange(member, vector_loop_size),[&](const int &v) {
+            solveSingleVectorNew<impl_type, internal_vector_scratch_type_3d_view> (member, blocksize, i0_schur, 0, nrows, v, D_internal_vector_values_schur, VV, WW);
+          });
 
         for (local_ordinal_type schur_sub_part = 0; schur_sub_part < n_subparts_per_part-1; ++schur_sub_part) {
           const local_ordinal_type r0 = part2packrowidx0_sub(partidx,2*schur_sub_part+1);
@@ -4244,15 +4244,15 @@ namespace Ifpack2 {
         typedef typename default_mode_and_algo_type::single_vector_algo_type default_algo_type;
 
         // base pointers
-        auto A_0 = D_internal_vector_values.data();
-        auto X_0 = X_internal_vector_values.data();
+        //auto A_0 = D_internal_vector_values.data();
+        //auto X_0 = X_internal_vector_values.data();
 
         // const local_ordinal_type blocksize = D_scalar_values.extent(1);
-        const local_ordinal_type astep = D_internal_vector_values.stride_0();
-        const local_ordinal_type as0 = D_internal_vector_values.stride_1(); //blocksize*vector_length;
-        const local_ordinal_type as1 = D_internal_vector_values.stride_2(); //vector_length;
-        const local_ordinal_type xstep = X_internal_vector_values.stride_0();
-        const local_ordinal_type xs0 = X_internal_vector_values.stride_1(); //vector_length;
+        //const local_ordinal_type astep = D_internal_vector_values.stride_0();
+        //const local_ordinal_type as0 = D_internal_vector_values.stride_1(); //blocksize*vector_length;
+        //const local_ordinal_type as1 = D_internal_vector_values.stride_2(); //vector_length;
+        //const local_ordinal_type xstep = X_internal_vector_values.stride_0();
+        //const local_ordinal_type xs0 = X_internal_vector_values.stride_1(); //vector_length;
 
         if (local_subpartidx == 0) {
           Kokkos::parallel_for
