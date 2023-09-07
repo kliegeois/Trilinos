@@ -4394,6 +4394,7 @@ namespace Ifpack2 {
               ("SolveTridiags::TeamPolicy::run<SingleVector>",            \
               policy, *this);                                            \
             write4DMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), X_internal_scalar_values, "x_scalar_values_after_SingleVectorSubLineTag.mm"); \
+            IFPACK2_BLOCKHELPER_TIMER_FENCE(execution_space) \
           } \
           if (packindices_schur.extent(0) != 0) \
           { \
@@ -4407,6 +4408,7 @@ namespace Ifpack2 {
                 ("SolveTridiags::TeamPolicy::run<SingleVector>",            \
                 policy, *this);                                            \
               write4DMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), X_internal_scalar_values, "x_scalar_values_after_SingleVectorApplyCTag.mm"); \
+              IFPACK2_BLOCKHELPER_TIMER_FENCE(execution_space) \
             } \
             { \
               IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchur::ApplyInverseJacobi::SingleVectorSchurTag"); \
@@ -4418,6 +4420,7 @@ namespace Ifpack2 {
                 ("SolveTridiags::TeamPolicy::run<SingleVector>",            \
                 policy, *this);                                            \
               write4DMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), X_internal_scalar_values, "x_scalar_values_after_SingleVectorSchurTag.mm"); \
+              IFPACK2_BLOCKHELPER_TIMER_FENCE(execution_space) \
             } \
             { \
               IFPACK2_BLOCKHELPER_TIMER("BlockTriDiSchur::ApplyInverseJacobi::SingleVectorApplyETag"); \
@@ -4429,6 +4432,7 @@ namespace Ifpack2 {
                 ("SolveTridiags::TeamPolicy::run<SingleVector>",            \
                 policy, *this);                                            \
               write4DMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), X_internal_scalar_values, "x_scalar_values_after_SingleVectorApplyETag.mm"); \
+              IFPACK2_BLOCKHELPER_TIMER_FENCE(execution_space) \
             } \
           } \
         } else {                                                        \
