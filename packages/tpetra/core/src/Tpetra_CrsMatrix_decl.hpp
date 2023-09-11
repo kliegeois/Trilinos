@@ -2414,6 +2414,9 @@ private:
     /// zeros count as "entries."
     size_t getLocalMaxNumRowEntries () const override;
 
+    //! The number of degrees of freedom per mesh point.
+    virtual LocalOrdinal getBlockSize () const override { return 1; }
+
     //! Whether the matrix has a well-defined column Map.
     bool hasColMap () const override;
 
@@ -3741,8 +3744,8 @@ public:
   protected:
     // useful typedefs
     typedef Teuchos::OrdinalTraits<LocalOrdinal> OTL;
-    typedef Kokkos::Details::ArithTraits<impl_scalar_type> STS;
-    typedef Kokkos::Details::ArithTraits<mag_type> STM;
+    typedef Kokkos::ArithTraits<impl_scalar_type> STS;
+    typedef Kokkos::ArithTraits<mag_type> STM;
     typedef MultiVector<Scalar, LocalOrdinal, GlobalOrdinal, Node> MV;
     typedef Vector<Scalar, LocalOrdinal, GlobalOrdinal, Node>      V;
     typedef crs_graph_type Graph;

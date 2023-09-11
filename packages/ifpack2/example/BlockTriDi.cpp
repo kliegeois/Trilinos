@@ -22,7 +22,7 @@ namespace { // (anonymous)
 
 // Values of command-line arguments.
 struct CmdLineArgs {
-  CmdLineArgs ():blockSize(-1),numIters(10),tol(1e-12),nx(172),ny(-1),nz(-1),mx(1),my(1),mz(1),sublinesPerLine(1),sublinesPerLineSchur(2),useStackedTimer(false),overlapCommAndComp(false){}
+  CmdLineArgs ():blockSize(-1),numIters(10),numRepeats(1),tol(1e-12),nx(172),ny(-1),nz(-1),mx(1),my(1),mz(1),sublinesPerLine(1),sublinesPerLineSchur(2),useStackedTimer(false),overlapCommAndComp(false){}
 
   std::string mapFilename;
   std::string matrixFilename;
@@ -30,6 +30,7 @@ struct CmdLineArgs {
   std::string lineFilename;
   int blockSize;
   int numIters;
+  int numRepeats;
   double tol;
   int nx;
   int ny;
@@ -59,7 +60,8 @@ getCmdLineArgs (CmdLineArgs& args, int argc, char* argv[])
   cmdp.setOption ("lineFilename", &args.lineFilename, "Name of Matrix Market "
                   "file with the lineid of each node listed");
   cmdp.setOption ("blockSize", &args.blockSize, "Size of block to use");
-  cmdp.setOption ("numIters", &args.numIters, "Number of iterations");
+  cmdp.setOption ("numIters", &args.numIters, "Number of iterations per Solve call");
+  cmdp.setOption ("numRepeats", &args.numRepeats, "Number of times to run preconditioner compute & solve.");
   cmdp.setOption ("tol", &args.tol, "Solver tolerance");
   cmdp.setOption ("nx", &args.nx, "If using inline meshing, number of nodes in the x direction");
   cmdp.setOption ("ny", &args.ny, "If using inline meshing, number of nodes in the y direction");
@@ -297,7 +299,6 @@ main (int argc, char* argv[])
   typedef Tpetra::MatrixMarket::Reader<crs_matrix_type> reader_type;
   typedef Tpetra::MatrixMarket::Reader<Tpetra::CrsMatrix<LO,LO,GO,NO> > LO_reader_type;
   typedef Ifpack2::BlockTriDiSchurContainer<row_matrix_type> BTDC;
-  typedef Ifpack2::BlockJacobiContainer<row_matrix_type> BJC;
 
   Tpetra::ScopeGuard tpetraScope (&argc, &argv);
 
@@ -318,6 +319,7 @@ main (int argc, char* argv[])
   RCP<Time> totalTime;
   RCP<Teuchos::TimeMonitor> totalTimeMon;
   RCP<Time> precSetupTime = Teuchos::TimeMonitor::getNewTimer ("Preconditioner setup");
+  RCP<Time> precComputeTime = Teuchos::TimeMonitor::getNewTimer ("Preconditioner compute");
   RCP<Time> solveTime = Teuchos::TimeMonitor::getNewTimer ("Solve");
   if(!args.useStackedTimer)
   {
@@ -364,8 +366,6 @@ main (int argc, char* argv[])
   RCP<block_crs_matrix_type> Ablock;
   RCP<MV> B,X;
   RCP<IV> line_info;
-
-  bool use_BlockJacobi = false;
 #if defined(HAVE_IFPACK2_XPETRA)
   if(args.matrixFilename == "") {
     // matrix
@@ -428,7 +428,6 @@ main (int argc, char* argv[])
     }
 
     int line_length = std::max(1, (int) std::ceil(args.nx  / args.sublinesPerLine));
-    if (line_length == 1) use_BlockJacobi = true;
     // We compute the number of lines oriented along the x direction of the mesh.
     // This number is called line_per_x_fiber where a fiber refers to an initial
     // x line in the mesh before dividing it in sublines.
@@ -579,41 +578,43 @@ main (int argc, char* argv[])
     Ablock->apply(*X,*temp);
   }
 
-  if(!use_BlockJacobi) {
-    // Create Ifpack2 preconditioner.
-    if(rank0) std::cout<<"Creating preconditioner..."<<std::endl;
-    RCP<BTDC> precond;
+  // Create Ifpack2 preconditioner.
+  if(rank0) std::cout<<"Creating preconditioner..."<<std::endl;
+  RCP<BTDC> precond;
 
+  {
+    Teuchos::TimeMonitor precSetupTimeMon (*precSetupTime);
+    precond = rcp(new BTDC(Ablock,parts,args.sublinesPerLineSchur,args.overlapCommAndComp));
+
+    if(rank0) std::cout<<"Initializing preconditioner..."<<std::endl;
+    precond->initialize ();
+    Kokkos::DefaultExecutionSpace().fence();
+  }
+
+  // Solver Parameters
+  auto ap                 = precond->createDefaultApplyParameters();
+  ap.zeroStartingSolution = true;
+  ap.tolerance            = args.tol;
+  ap.maxNumSweeps         = args.numIters;
+  ap.checkToleranceEvery  = 10;
+
+
+  // Solve
+  for(int repeat=0; repeat < args.numRepeats; ++repeat)
+  {
+    if(rank0) std::cout<<"Computing preconditioner..."<<std::endl;
     {
-      Teuchos::TimeMonitor precSetupTimeMon (*precSetupTime);
-      precond = rcp(new BTDC(Ablock,parts,args.sublinesPerLineSchur,args.overlapCommAndComp));
-
-        if(args.overlapCommAndComp) {
-          if(rank0) std::cout<<"With overlapCommAndComp..."<<std::endl;
-        }
-        else {
-          if(rank0) std::cout<<"Without overlapCommAndComp..."<<std::endl;
-        }
-
-      if(rank0) std::cout<<"Computing preconditioner..."<<std::endl;
+      Teuchos::TimeMonitor precComputeTimeMon (*precComputeTime);
       precond->compute ();
       Kokkos::DefaultExecutionSpace().fence();
     }
 
-    // Solver Parameters
-    auto ap                 = precond->createDefaultApplyParameters();
-    ap.zeroStartingSolution = true;
-    ap.tolerance            = args.tol;
-    ap.maxNumSweeps         = args.numIters;
-    ap.checkToleranceEvery  = 10;
- 
-
-    // Solve
     if(rank0) std::cout<<"Running solve..."<<std::endl;
     int nits;
     {
       Teuchos::TimeMonitor solveTimeMon (*solveTime);
-      nits = precond->applyInverseJacobi(*B,*X,ap); 
+      nits = precond->applyInverseJacobi(*B,*X,ap);
+      Kokkos::DefaultExecutionSpace().fence();
     }
 
     auto norm0 = precond->getNorms0();
@@ -623,60 +624,14 @@ main (int argc, char* argv[])
       std::cout<<"Solver run for "<<nits<<" iterations (asked for "<<args.numIters<<") with residual reduction "<<normF/norm0<<std::endl;
       std::cout<<"  Norm0 = "<<norm0<<" NormF = "<<normF<<std::endl;
     }
-  } else {
-    // Create Ifpack2 preconditioner.
-    if(rank0) std::cout<<"Creating preconditioner..."<<std::endl;
-    RCP<BJC> precond;
 
-    {
-      Teuchos::TimeMonitor precSetupTimeMon (*precSetupTime);
-      precond = rcp(new BJC(Ablock,parts,args.overlapCommAndComp));
 
-      if(args.overlapCommAndComp) {
-        if(rank0) std::cout<<"With overlapCommAndComp..."<<std::endl;
-      }
-      else {
-        if(rank0) std::cout<<"Without overlapCommAndComp..."<<std::endl;
-      }
-
-      if(rank0) std::cout<<"Initializing preconditioner..."<<std::endl;
-      precond->initialize ();
-
-      if(rank0) std::cout<<"Computing preconditioner..."<<std::endl;
-      precond->compute ();
-    }
-
-    // Solver Parameters
-    auto ap                 = precond->createDefaultApplyParameters();
-    ap.zeroStartingSolution = true;
-    ap.tolerance            = args.tol;
-    ap.maxNumSweeps         = args.numIters;
-    ap.checkToleranceEvery  = 1;
-  
-
-    // Solve
-    if(rank0) std::cout<<"Running solve..."<<std::endl;
-    int nits;
-    {
-      Teuchos::TimeMonitor solveTimeMon (*solveTime);
-      nits = precond->applyInverseJacobi(*B,*X,ap); 
-    }
-
-    auto norm0 = precond->getNorms0();
-    auto normF = precond->getNormsFinal();
-
+    X->norm2(normx);
+    B->norm2(normb);
     if(rank0) {
-      std::cout<<"Solver run for "<<nits<<" iterations (asked for "<<args.numIters<<") with residual reduction "<<normF/norm0<<std::endl;
-      std::cout<<"  Norm0 = "<<norm0<<" NormF = "<<normF<<std::endl;
+      std::cout<<"Final norm X = "<<normx[0]<<" norm B = "<<normb[0]<<std::endl;
     }
   }
-
-  X->norm2(normx);
-  B->norm2(normb);
-  if(rank0) {
-    std::cout<<"Final norm X = "<<normx[0]<<" norm B = "<<normb[0]<<std::endl;
-  }
-
 
   // Report timings.
   if(args.useStackedTimer)
