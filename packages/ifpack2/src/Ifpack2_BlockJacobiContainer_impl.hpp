@@ -114,7 +114,7 @@
 
 namespace Ifpack2 {
 
-  namespace BlockTriDiContainerDetails {
+  namespace BlockJacobiContainerDetails {
 
     namespace KB = KokkosBatched;
 
@@ -171,160 +171,6 @@ namespace Ifpack2 {
     //template<> struct SmallScalarType<Kokkos::complex<double> > { typedef Kokkos::complex<float> type; };
 #endif
 
-    ///
-    /// cuda specialization
-    ///
-    template<typename T> struct is_cuda                 { enum : bool { value = false }; };
-#if defined(KOKKOS_ENABLE_CUDA)
-    template<> struct is_cuda<Kokkos::Cuda>             { enum : bool { value = true  }; };
-#endif
-
-    ///
-    /// hip specialization
-    ///
-    template<typename T> struct is_hip                  { enum : bool { value = false }; };
-#if defined(KOKKOS_ENABLE_HIP)
-    template<> struct is_hip<Kokkos::Experimental::HIP> { enum : bool { value = true  }; };
-#endif
-
-    ///
-    /// sycl specialization
-    ///
-    template<typename T> struct is_sycl                  { enum : bool { value = false }; };
-#if defined(KOKKOS_ENABLE_SYCL)
-    template<> struct is_sycl<Kokkos::Experimental::SYCL> { enum : bool { value = true  }; };
-#endif
-
-    template<typename T> struct is_device                  { enum : bool { value = is_cuda<T>::value || is_hip<T>::value || is_sycl<T>::value }; };
-
-    
-    ///
-    /// execution space instance
-    ///
-    template<typename T>
-    struct ExecutionSpaceFactory {
-      static void createInstance(T &exec_instance) {
-        exec_instance = T();
-      }
-#if defined(KOKKOS_ENABLE_CUDA)
-      static void createInstance(const cudaStream_t &s, T &exec_instance) {
-        exec_instance = T();
-      }
-#endif
-    };
-
-#if defined(KOKKOS_ENABLE_CUDA)
-    template<>
-    struct ExecutionSpaceFactory<Kokkos::Cuda> {
-      static void createInstance(Kokkos::Cuda &exec_instance) {
-        exec_instance = Kokkos::Cuda();
-      }
-      static void createInstance(const cudaStream_t &s, Kokkos::Cuda &exec_instance) {
-        exec_instance = Kokkos::Cuda(s);
-      }      
-    };
-#endif
-
-#if defined(KOKKOS_ENABLE_HIP)
-    template<>
-    struct ExecutionSpaceFactory<Kokkos::Experimental::HIP> {
-      static void createInstance(Kokkos::Experimental::HIP &exec_instance) {
-	exec_instance = Kokkos::Experimental::HIP();
-      }
-    };
-#endif
-
-#if defined(KOKKOS_ENABLE_SYCL)
-    template<>
-    struct ExecutionSpaceFactory<Kokkos::Experimental::SYCL> {
-      static void createInstance(Kokkos::Experimental::SYCL &exec_instance) {
-	exec_instance = Kokkos::Experimental::SYCL();
-      }
-    };
-#endif
-
-
-    
-    ///
-    /// utility functions
-    ///
-    template<typename CommPtrType>
-    std::string get_msg_prefix (const CommPtrType &comm) {
-      const auto rank = comm->getRank();
-      const auto nranks = comm->getSize();
-      std::stringstream ss;
-      ss << "Rank " << rank << " of " << nranks << ": ";
-      return ss.str();
-    }
-
-    ///
-    /// custom multiple varilable reduce and scan
-    ///
-    template<typename T, int N>
-    struct ArrayValueType {
-      T v[N];
-      KOKKOS_INLINE_FUNCTION
-      ArrayValueType() {
-        for (int i=0;i<N;++i)
-          this->v[i] = 0;
-      }
-      KOKKOS_INLINE_FUNCTION
-      ArrayValueType(const ArrayValueType &b) {
-        for (int i=0;i<N;++i)
-          this->v[i] = b.v[i];
-      }
-    };
-    template<typename T, int N>
-    static
-    KOKKOS_INLINE_FUNCTION
-    void
-    operator+=(ArrayValueType<T,N> &a,
-               const ArrayValueType<T,N> &b) {
-      for (int i=0;i<N;++i)
-        a.v[i] += b.v[i];
-    }
-
-    ///
-    /// custom reducer functor for compile time array variable
-    ///
-    template<typename T, int N, typename ExecSpace>
-    struct SumReducer {
-      typedef SumReducer reducer;
-      typedef ArrayValueType<T,N> value_type;
-      typedef Kokkos::View<value_type,ExecSpace,Kokkos::MemoryTraits<Kokkos::Unmanaged> > result_view_type;
-      value_type *value;
-
-      KOKKOS_INLINE_FUNCTION
-      SumReducer(value_type &val) : value(&val) {}
-
-      KOKKOS_INLINE_FUNCTION
-      void join(value_type &dst, value_type const &src) const {
-        for (int i=0;i<N;++i)
-          dst.v[i] += src.v[i];
-      }
-      KOKKOS_INLINE_FUNCTION
-      void init(value_type &val) const {
-        for (int i=0;i<N;++i)
-          val.v[i] = Kokkos::reduction_identity<T>::sum();
-      }
-      KOKKOS_INLINE_FUNCTION
-      value_type& reference() {
-        return *value;
-      }
-      KOKKOS_INLINE_FUNCTION
-      result_view_type view() const {
-        return result_view_type(value);
-      }
-    };
-
-#if defined(HAVE_IFPACK2_BLOCKTRIDICONTAINER_TIMERS)
-#define IFPACK2_BLOCKTRIDICONTAINER_TIMER(label) TEUCHOS_FUNC_TIME_MONITOR(label);
-#define IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(execution_space) execution_space().fence();
-#else
-#define IFPACK2_BLOCKTRIDICONTAINER_TIMER(label)
-#define IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(execution_space)
-#endif
-
 #if defined(KOKKOS_ENABLE_CUDA) && defined(IFPACK2_BLOCKTRIDICONTAINER_ENABLE_PROFILE)
 #define IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_BEGIN \
     KOKKOS_IMPL_CUDA_SAFE_CALL(cudaProfilerStart());
@@ -343,7 +189,7 @@ namespace Ifpack2 {
     template<typename MatrixType>
     typename Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_import_type>
     createBlockCrsTpetraImporter(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A) {
-      IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::CreateBlockCrsTpetraImporter");
+      IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::CreateBlockCrsTpetraImporter");
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using tpetra_map_type = typename impl_type::tpetra_map_type;
       using tpetra_mv_type = typename impl_type::tpetra_block_multivector_type;
@@ -354,10 +200,7 @@ namespace Ifpack2 {
       const auto src = Teuchos::rcp(new tpetra_map_type(tpetra_mv_type::makePointMap(*g.getDomainMap(), blocksize)));
       const auto tgt = Teuchos::rcp(new tpetra_map_type(tpetra_mv_type::makePointMap(*g.getColMap()   , blocksize)));
 
-      auto blockCrsTpetraImporter = Teuchos::rcp(new tpetra_import_type(src, tgt));
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
-
-      return blockCrsTpetraImporter;
+      return Teuchos::rcp(new tpetra_import_type(src, tgt));
     }
 
     // Partial replacement for forward-mode MultiVector::doImport.
@@ -533,19 +376,7 @@ namespace Ifpack2 {
         reqs.send.resize(pids.send.extent(0)); memset(reqs.send.data(), 0, reqs.send.size()*sizeof(MPI_Request));
 
         // construct offsets
-#if 0
-        const auto lengths_to = distributor.getLengthsTo();
-        offset.send = size_type_1d_view(do_not_initialize_tag("offset send"), lengths_to.size() + 1);
 
-        const auto lengths_from = distributor.getLengthsFrom();
-        offset.recv = size_type_1d_view(do_not_initialize_tag("offset recv"), lengths_from.size() + 1);
-
-        setOffsetValues(lengths_to,   offset.send);
-        offset_host.send = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), offset.send);
-
-        setOffsetValues(lengths_from, offset.recv);
-        offset_host.recv = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), offset.recv);
-#else
         const auto lengths_to = distributor.getLengthsTo();
         offset_host.send = size_type_1d_view_host(do_not_initialize_tag("offset send"), lengths_to.size() + 1);
 
@@ -557,7 +388,7 @@ namespace Ifpack2 {
 
         setOffsetValuesHost(lengths_from, offset_host.recv);
         //offset.recv = Kokkos::create_mirror_view_and_copy(memory_space(), offset_host.recv);
-#endif
+
       }
 
       void createSendRecvIDs(const tpetra_import_type &import) {
@@ -692,7 +523,7 @@ namespace Ifpack2 {
       }
 
       void asyncSendRecvVar1(const impl_scalar_type_2d_view_tpetra &mv) {
-        IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::AsyncableImport::AsyncSendRecv");
+        IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::AsyncableImport::AsyncSendRecv");
 
 #ifdef HAVE_IFPACK2_MPI
         // constants and reallocate data buffers if necessary
@@ -743,11 +574,10 @@ namespace Ifpack2 {
           MPI_Iprobe(pids.recv[i], 42, comm, &flag, &stat);
         }
 #endif // HAVE_IFPACK2_MPI
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(execution_space)
       }
 
       void syncRecvVar1() {
-        IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::AsyncableImport::SyncRecv");
+        IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::AsyncableImport::SyncRecv");
 #ifdef HAVE_IFPACK2_MPI
         // 0. wait for receive async.
         for (local_ordinal_type i=0;i<static_cast<local_ordinal_type>(pids.recv.extent(0));++i) {
@@ -838,7 +668,7 @@ namespace Ifpack2 {
       /// standard comm
       ///
       void asyncSendRecvVar0(const impl_scalar_type_2d_view_tpetra &mv) {
-        IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::AsyncableImport::AsyncSendRecv");
+        IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::AsyncableImport::AsyncSendRecv");
 
 #ifdef HAVE_IFPACK2_MPI
         // constants and reallocate data buffers if necessary
@@ -876,11 +706,10 @@ namespace Ifpack2 {
           MPI_Iprobe(pids.recv[i], 42, comm, &flag, &stat);
         }
 #endif
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(execution_space)
       }
 
       void syncRecvVar0() {
-        IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::AsyncableImport::SyncRecv");
+        IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::AsyncableImport::SyncRecv");
 #ifdef HAVE_IFPACK2_MPI
         // receive async.
         for (local_ordinal_type i=0,iend=pids.recv.extent(0);i<iend;++i) {
@@ -921,10 +750,9 @@ namespace Ifpack2 {
       }
 
       void syncExchange(const impl_scalar_type_2d_view_tpetra &mv) {
-        IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::AsyncableImport::SyncExchange");
+        IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::AsyncableImport::SyncExchange");
         asyncSendRecv(mv);
         syncRecv();
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(execution_space)
       }
 
       impl_scalar_type_2d_view_tpetra getRemoteMultiVectorLocalView() const { return remote_multivector; }
@@ -1009,43 +837,13 @@ namespace Ifpack2 {
 
       BlockHelperDetails::PartInterface<MatrixType> interf;
 
-      const bool jacobi = partitions.size() == 0;
       const local_ordinal_type A_n_lclrows = A->getLocalNumRows();
-      const local_ordinal_type nparts = jacobi ? A_n_lclrows : partitions.size();
-
-#if defined(BLOCKTRIDICONTAINER_DEBUG)
-      local_ordinal_type nrows = 0;
-      if (jacobi)
-        nrows = nparts;
-      else
-        for (local_ordinal_type i=0;i<nparts;++i) nrows += partitions[i].size();
-
-      TEUCHOS_TEST_FOR_EXCEPT_MSG
-        (nrows != A_n_lclrows, BlockHelperDetails::get_msg_prefix(comm) << "The #rows implied by the local partition is not "
-         << "the same as getLocalNumRows: " << nrows << " vs " << A_n_lclrows);
-#endif
+      const local_ordinal_type nparts = A_n_lclrows;
 
       // permutation vector
       std::vector<local_ordinal_type> p;
-      if (jacobi) {
-        interf.max_partsz = 1;
-      } else {
-        // reorder parts to maximize simd packing efficiency
-        p.resize(nparts);
-
-        typedef std::pair<local_ordinal_type,local_ordinal_type> size_idx_pair_type;
-        std::vector<size_idx_pair_type> partsz(nparts);
-        for (local_ordinal_type i=0;i<nparts;++i)
-          partsz[i] = size_idx_pair_type(partitions[i].size(), i);
-        std::sort(partsz.begin(), partsz.end(),
-                  [] (const size_idx_pair_type& x, const size_idx_pair_type& y) {
-                    return x.first > y.first;
-                  });
-        for (local_ordinal_type i=0;i<nparts;++i)
-          p[i] = partsz[i].second;
-
-        interf.max_partsz = partsz[0].first;
-      }
+      
+      interf.max_partsz = 1;
 
       // allocate parts
       interf.partptr = local_ordinal_type_1d_view(do_not_initialize_tag("partptr"), nparts + 1);
@@ -1067,66 +865,34 @@ namespace Ifpack2 {
       part2rowidx0(0) = 0;
       part2packrowidx0(0) = 0;
       local_ordinal_type pack_nrows = 0;
-      if (jacobi) {
-	for (local_ordinal_type ip=0;ip<nparts;++ip) {
-	  const local_ordinal_type ipnrows = 1;
-	  TEUCHOS_TEST_FOR_EXCEPT_MSG(ipnrows == 0,
-				      BlockHelperDetails::get_msg_prefix(comm)
-				      << "partition " << p[ip]
-				      << " is empty, which is not allowed.");
-	  //assume No overlap.
-	  part2rowidx0(ip+1) = part2rowidx0(ip) + ipnrows;
-	  // Since parts are ordered in nonincreasing size, the size of the first
-	  // part in a pack is the size for all parts in the pack.
-	  if (ip % vector_length == 0) pack_nrows = ipnrows;
-	  part2packrowidx0(ip+1) = part2packrowidx0(ip) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows : 0);
-	  const local_ordinal_type os = partptr(ip);
-	  for (local_ordinal_type i=0;i<ipnrows;++i) {
-	    const auto lcl_row = ip;
-	    TEUCHOS_TEST_FOR_EXCEPT_MSG(lcl_row < 0 || lcl_row >= A_n_lclrows,
-					BlockHelperDetails::get_msg_prefix(comm)
-					<< "partitions[" << p[ip] << "]["
-					<< i << "] = " << lcl_row
-					<< " but input matrix implies limits of [0, " << A_n_lclrows-1
-					<< "].");
-	    lclrow(os+i) = lcl_row;
-	    rowidx2part(os+i) = ip;
-	    if (interf.row_contiguous && os+i > 0 && lclrow((os+i)-1) + 1 != lcl_row)
-	      interf.row_contiguous = false;
-	  }
-	  partptr(ip+1) = os + ipnrows;
-	}
-      } else {
-	for (local_ordinal_type ip=0;ip<nparts;++ip) {
-	  const auto* part = &partitions[p[ip]];
-	  const local_ordinal_type ipnrows = part->size();
-	  TEUCHOS_ASSERT(ip == 0 || (ipnrows <= static_cast<local_ordinal_type>(partitions[p[ip-1]].size())));
-	  TEUCHOS_TEST_FOR_EXCEPT_MSG(ipnrows == 0,
-				      BlockHelperDetails::get_msg_prefix(comm)
-				      << "partition " << p[ip]
-				      << " is empty, which is not allowed.");
-	  //assume No overlap.
-	  part2rowidx0(ip+1) = part2rowidx0(ip) + ipnrows;
-	  // Since parts are ordered in nonincreasing size, the size of the first
-	  // part in a pack is the size for all parts in the pack.
-	  if (ip % vector_length == 0) pack_nrows = ipnrows;
-	  part2packrowidx0(ip+1) = part2packrowidx0(ip) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows : 0);
-	  const local_ordinal_type os = partptr(ip);
-	  for (local_ordinal_type i=0;i<ipnrows;++i) {
-	    const auto lcl_row = (*part)[i];
-	    TEUCHOS_TEST_FOR_EXCEPT_MSG(lcl_row < 0 || lcl_row >= A_n_lclrows,
-					BlockHelperDetails::get_msg_prefix(comm)
-					<< "partitions[" << p[ip] << "]["
-					<< i << "] = " << lcl_row
-					<< " but input matrix implies limits of [0, " << A_n_lclrows-1
-					<< "].");
-	    lclrow(os+i) = lcl_row;
-	    rowidx2part(os+i) = ip;
-	    if (interf.row_contiguous && os+i > 0 && lclrow((os+i)-1) + 1 != lcl_row)
-	      interf.row_contiguous = false;
-	  }
-	  partptr(ip+1) = os + ipnrows;
-	}
+      
+      for (local_ordinal_type ip=0;ip<nparts;++ip) {
+        const local_ordinal_type ipnrows = 1;
+        TEUCHOS_TEST_FOR_EXCEPT_MSG(ipnrows == 0,
+                  BlockHelperDetails::get_msg_prefix(comm)
+                  << "partition " << p[ip]
+                  << " is empty, which is not allowed.");
+        //assume No overlap.
+        part2rowidx0(ip+1) = part2rowidx0(ip) + ipnrows;
+        // Since parts are ordered in nonincreasing size, the size of the first
+        // part in a pack is the size for all parts in the pack.
+        if (ip % vector_length == 0) pack_nrows = ipnrows;
+        part2packrowidx0(ip+1) = part2packrowidx0(ip) + ((ip+1) % vector_length == 0 || ip+1 == nparts ? pack_nrows : 0);
+        const local_ordinal_type os = partptr(ip);
+        for (local_ordinal_type i=0;i<ipnrows;++i) {
+          const auto lcl_row = ip;
+          TEUCHOS_TEST_FOR_EXCEPT_MSG(lcl_row < 0 || lcl_row >= A_n_lclrows,
+              BlockHelperDetails::get_msg_prefix(comm)
+              << "partitions[" << p[ip] << "]["
+              << i << "] = " << lcl_row
+              << " but input matrix implies limits of [0, " << A_n_lclrows-1
+              << "].");
+          lclrow(os+i) = lcl_row;
+          rowidx2part(os+i) = ip;
+          if (interf.row_contiguous && os+i > 0 && lclrow((os+i)-1) + 1 != lcl_row)
+            interf.row_contiguous = false;
+        }
+        partptr(ip+1) = os + ipnrows;
       }
 #if defined(BLOCKTRIDICONTAINER_DEBUG)
       TEUCHOS_ASSERT(partptr(nparts) == nrows);
@@ -1323,6 +1089,7 @@ namespace Ifpack2 {
         else if (blocksize <= 20) total_team_size = 160;
         else                      total_team_size = 160;
         const local_ordinal_type team_size = total_team_size/vector_loop_size;
+        std::cout << " Number of teams = " << packptr.extent(0)-1 << std::endl;
         const team_policy_type policy(packptr.extent(0)-1, team_size, vector_loop_size);
 #elif defined(KOKKOS_ENABLE_HIP)
 	// FIXME: HIP
@@ -1337,6 +1104,7 @@ namespace Ifpack2 {
         else if (blocksize <= 20) total_team_size = 160;
         else                      total_team_size = 160;
         const local_ordinal_type team_size = total_team_size/vector_loop_size;
+        std::cout << " Number of teams = " << packptr.extent(0)-1 << std::endl;
         const team_policy_type policy(packptr.extent(0)-1, team_size, vector_loop_size);
 #elif defined(KOKKOS_ENABLE_SYCL)
 	// SYCL: FIXME
@@ -1348,9 +1116,11 @@ namespace Ifpack2 {
         else if (blocksize <= 20) total_team_size = 160;
         else                      total_team_size = 160;
         const local_ordinal_type team_size = total_team_size/vector_loop_size;
+        std::cout << " Number of teams = " << packptr.extent(0)-1 << std::endl;
         const team_policy_type policy(packptr.extent(0)-1, team_size, vector_loop_size);
 #else
 	// Host architecture: team size is always one
+        std::cout << " Number of teams = " << packptr.extent(0)-1 << std::endl;
         const team_policy_type policy(packptr.extent(0)-1, 1, 1);
 #endif
         Kokkos::parallel_for
@@ -1383,7 +1153,7 @@ namespace Ifpack2 {
                          BlockTridiags<MatrixType> &btdm,
                          BlockHelperDetails::AmD<MatrixType> &amd,
                          const bool overlap_communication_and_computation) {
-      IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::SymbolicPhase");
+      IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::SymbolicPhase");
 
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       // using node_memory_space = typename impl_type::node_memory_space;
@@ -1667,7 +1437,6 @@ namespace Ifpack2 {
                                
         }
       }
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
     }
 
 
@@ -1989,7 +1758,6 @@ namespace Ifpack2 {
       void
       factorize(const member_type &member,
                 const local_ordinal_type &i0,
-                const local_ordinal_type &nrows,
                 const local_ordinal_type &v,
                 const AAViewType &AA,
                 const WWViewType &WW) const {
@@ -2009,33 +1777,7 @@ namespace Ifpack2 {
                default_mode_type,KB::Algo::LU::Unblocked>
           ::invoke(member, A , tiny);
 
-        if (nrows > 1) {
-          auto B = A;
-          auto C = A;
-          local_ordinal_type i = i0;
-          for (local_ordinal_type tr=1;tr<nrows;++tr,i+=3) {
-            B.assign_data( &AA(i+1,0,0,v) );
-            KB::Trsm<member_type,
-                     KB::Side::Left,KB::Uplo::Lower,KB::Trans::NoTranspose,KB::Diag::Unit,
-                     default_mode_type,default_algo_type>
-              ::invoke(member, one, A, B);
-            C.assign_data( &AA(i+2,0,0,v) );
-            KB::Trsm<member_type,
-                     KB::Side::Right,KB::Uplo::Upper,KB::Trans::NoTranspose,KB::Diag::NonUnit,
-                     default_mode_type,default_algo_type>
-              ::invoke(member, one, A, C);
-            A.assign_data( &AA(i+3,0,0,v) );
-
-            member.team_barrier();
-            KB::Gemm<member_type,
-                     KB::Trans::NoTranspose,KB::Trans::NoTranspose,
-                     default_mode_type,default_algo_type>
-              ::invoke(member, -one, C, B, one, A);
-            KB::LU<member_type,
-                   default_mode_type,KB::Algo::LU::Unblocked>
-              ::invoke(member, A, tiny);
-          }
-        } else {
+        {
           // for block jacobi invert a matrix here
           auto W = Kokkos::subview(WW, Kokkos::ALL(), Kokkos::ALL(), v);
           KB::Copy<member_type,KB::Trans::NoTranspose,default_mode_type>
@@ -2073,7 +1815,7 @@ namespace Ifpack2 {
           WW(member.team_scratch(0), blocksize, blocksize, vector_loop_size);
         if (vector_loop_size == 1) {
           extract(partidx, npacks);
-          factorize(member, i0, nrows, 0, internal_vector_values, WW);
+          factorize(member, i0, 0, internal_vector_values, WW);
         } else {
           Kokkos::parallel_for
             (Kokkos::ThreadVectorRange(member, vector_loop_size),
@@ -2084,7 +1826,7 @@ namespace Ifpack2 {
               // this is not safe if vector loop size is different from vector size of 
               // the team policy. we always make sure this when constructing the team policy
               member.team_barrier();
-              factorize(member, i0, nrows, v, internal_vector_values, WW);
+              factorize(member, i0, v, internal_vector_values, WW);
             });
         }
       }
@@ -2121,10 +1863,9 @@ namespace Ifpack2 {
                         const BlockHelperDetails::PartInterface<MatrixType> &interf,
                         BlockTridiags<MatrixType> &btdm,
                         const typename BlockHelperDetails::ImplType<MatrixType>::magnitude_type tiny) {
-      IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::NumericPhase");
+      IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::NumericPhase");
       ExtractAndFactorizeTridiags<MatrixType> function(btdm, interf, A, tiny);
       function.run();
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
     }
 
     ///
@@ -2226,27 +1967,20 @@ namespace Ifpack2 {
             const local_ordinal_type ri0 = part2rowidx0(partidx);
             const local_ordinal_type nrows = part2rowidx0(partidx+1) - ri0;
 
-            if (nrows == 1) {
+            {
               const local_ordinal_type pri = pri0;
               for (local_ordinal_type col=0;col<num_vectors;++col) {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(member, blocksize), [&](const local_ordinal_type &i) {
                     packed_multivector(pri, i, col)[v] = static_cast<btdm_scalar_type>(scalar_multivector(blocksize*lclrow(ri0)+i,col));
                   });
               }
-            } else {
-              Kokkos::parallel_for(Kokkos::TeamThreadRange(member, nrows), [&](const local_ordinal_type &j) {
-                  const local_ordinal_type pri = pri0 + j;
-                  for (local_ordinal_type col=0;col<num_vectors;++col)
-                    for (local_ordinal_type i=0;i<blocksize;++i)
-                      packed_multivector(pri, i, col)[v] = static_cast<btdm_scalar_type>(scalar_multivector(blocksize*lclrow(ri0+j)+i,col));
-                });
             }
           });
       }
 
       void run(const const_impl_scalar_type_2d_view_tpetra &scalar_multivector_) {
         IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_BEGIN;
-        IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::MultiVectorConverter");
+        IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::MultiVectorConverter");
 
         scalar_multivector = scalar_multivector_;
         if constexpr (BlockHelperDetails::is_device<execution_space>::value) {
@@ -2260,7 +1994,6 @@ namespace Ifpack2 {
             ("MultiVectorConverter::RangePolicy", policy, *this);
         }
         IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_END;
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(execution_space)
       }
     };
 
@@ -2268,10 +2001,10 @@ namespace Ifpack2 {
     /// solve tridiags
     ///
     template<typename ArgActiveExecutionMemorySpace>
-    struct SolveTridiagsDefaultModeAndAlgo;
+    struct SolveJacobiDefaultModeAndAlgo;
 
     template<>
-    struct SolveTridiagsDefaultModeAndAlgo<Kokkos::HostSpace> {
+    struct SolveJacobiDefaultModeAndAlgo<Kokkos::HostSpace> {
       typedef KB::Mode::Serial mode_type;
       typedef KB::Algo::Level2::Unblocked single_vector_algo_type;
 #if defined(__KOKKOSBATCHED_INTEL_MKL_COMPACT_BATCHED__)
@@ -2287,7 +2020,7 @@ namespace Ifpack2 {
     };
 
 #if defined(KOKKOS_ENABLE_CUDA)
-    static inline int SolveTridiagsRecommendedCudaTeamSize(const int blksize,
+    static inline int SolveJacobiRecommendedCudaTeamSize(const int blksize,
                                                            const int vector_length,
                                                            const int internal_vector_length) {
       const int vector_size = vector_length/internal_vector_length;
@@ -2302,31 +2035,31 @@ namespace Ifpack2 {
     }
 
     template<>
-    struct SolveTridiagsDefaultModeAndAlgo<Kokkos::CudaSpace> {
+    struct SolveJacobiDefaultModeAndAlgo<Kokkos::CudaSpace> {
       typedef KB::Mode::Team mode_type;
       typedef KB::Algo::Level2::Unblocked single_vector_algo_type;
       typedef KB::Algo::Level3::Unblocked multi_vector_algo_type;
       static int recommended_team_size(const int blksize,
                                        const int vector_length,
                                        const int internal_vector_length) {
-        return SolveTridiagsRecommendedCudaTeamSize(blksize, vector_length, internal_vector_length);
+        return SolveJacobiRecommendedCudaTeamSize(blksize, vector_length, internal_vector_length);
       }
     };
     template<>
-    struct SolveTridiagsDefaultModeAndAlgo<Kokkos::CudaUVMSpace> {
+    struct SolveJacobiDefaultModeAndAlgo<Kokkos::CudaUVMSpace> {
       typedef KB::Mode::Team mode_type;
       typedef KB::Algo::Level2::Unblocked single_vector_algo_type;
       typedef KB::Algo::Level3::Unblocked multi_vector_algo_type;
       static int recommended_team_size(const int blksize,
                                        const int vector_length,
                                        const int internal_vector_length) {
-        return SolveTridiagsRecommendedCudaTeamSize(blksize, vector_length, internal_vector_length);
+        return SolveJacobiRecommendedCudaTeamSize(blksize, vector_length, internal_vector_length);
       }
     };
 #endif
 
 #if defined(KOKKOS_ENABLE_HIP)
-    static inline int SolveTridiagsRecommendedHIPTeamSize(const int blksize,
+    static inline int SolveJacobiRecommendedHIPTeamSize(const int blksize,
 							  const int vector_length,
 							  const int internal_vector_length) {
       const int vector_size = vector_length/internal_vector_length;
@@ -2341,31 +2074,31 @@ namespace Ifpack2 {
     }
 
     template<>
-    struct SolveTridiagsDefaultModeAndAlgo<Kokkos::Experimental::HIPSpace> {
+    struct SolveJacobiDefaultModeAndAlgo<Kokkos::Experimental::HIPSpace> {
       typedef KB::Mode::Team mode_type;
       typedef KB::Algo::Level2::Unblocked single_vector_algo_type;
       typedef KB::Algo::Level3::Unblocked multi_vector_algo_type;
       static int recommended_team_size(const int blksize,
                                        const int vector_length,
                                        const int internal_vector_length) {
-        return SolveTridiagsRecommendedHIPTeamSize(blksize, vector_length, internal_vector_length);
+        return SolveJacobiRecommendedHIPTeamSize(blksize, vector_length, internal_vector_length);
       }
     };
     template<>
-    struct SolveTridiagsDefaultModeAndAlgo<Kokkos::Experimental::HIPHostPinnedSpace> {
+    struct SolveJacobiDefaultModeAndAlgo<Kokkos::Experimental::HIPHostPinnedSpace> {
       typedef KB::Mode::Team mode_type;
       typedef KB::Algo::Level2::Unblocked single_vector_algo_type;
       typedef KB::Algo::Level3::Unblocked multi_vector_algo_type;
       static int recommended_team_size(const int blksize,
                                        const int vector_length,
                                        const int internal_vector_length) {
-        return SolveTridiagsRecommendedHIPTeamSize(blksize, vector_length, internal_vector_length);
+        return SolveJacobiRecommendedHIPTeamSize(blksize, vector_length, internal_vector_length);
       }
     };
 #endif
 
 #if defined(KOKKOS_ENABLE_SYCL)
-    static inline int SolveTridiagsRecommendedSYCLTeamSize(const int blksize,
+    static inline int SolveJacobiRecommendedSYCLTeamSize(const int blksize,
                                                           const int vector_length,
                                                           const int internal_vector_length) {
       const int vector_size = vector_length/internal_vector_length;
@@ -2380,25 +2113,25 @@ namespace Ifpack2 {
     }
 
     template<>
-    struct SolveTridiagsDefaultModeAndAlgo<Kokkos::Experimental::SYCLSharedUSMSpace> {
+    struct SolveJacobiDefaultModeAndAlgo<Kokkos::Experimental::SYCLSharedUSMSpace> {
       typedef KB::Mode::Team mode_type;
       typedef KB::Algo::Level2::Unblocked single_vector_algo_type;
       typedef KB::Algo::Level3::Unblocked multi_vector_algo_type;
       static int recommended_team_size(const int blksize,
                                        const int vector_length,
                                        const int internal_vector_length) {
-        return SolveTridiagsRecommendedSYCLTeamSize(blksize, vector_length, internal_vector_length);
+        return SolveJacobiRecommendedSYCLTeamSize(blksize, vector_length, internal_vector_length);
       }
     };
     template<>
-    struct SolveTridiagsDefaultModeAndAlgo<Kokkos::Experimental::SYCLDeviceUSMSpace> {
+    struct SolveJacobiDefaultModeAndAlgo<Kokkos::Experimental::SYCLDeviceUSMSpace> {
       typedef KB::Mode::Team mode_type;
       typedef KB::Algo::Level2::Unblocked single_vector_algo_type;
       typedef KB::Algo::Level3::Unblocked multi_vector_algo_type;
       static int recommended_team_size(const int blksize,
                                        const int vector_length,
                                        const int internal_vector_length) {
-        return SolveTridiagsRecommendedSYCLTeamSize(blksize, vector_length, internal_vector_length);
+        return SolveJacobiRecommendedSYCLTeamSize(blksize, vector_length, internal_vector_length);
       }
     };
 #endif
@@ -2407,7 +2140,7 @@ namespace Ifpack2 {
 
     
     template<typename MatrixType>
-    struct SolveTridiags {
+    struct SolveJacobi {
     public:
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using execution_space = typename impl_type::execution_space;
@@ -2467,7 +2200,7 @@ namespace Ifpack2 {
       const bool compute_diff;
 
     public:
-      SolveTridiags(const BlockHelperDetails::PartInterface<MatrixType> &interf,
+      SolveJacobi(const BlockHelperDetails::PartInterface<MatrixType> &interf,
                     const BlockTridiags<MatrixType> &btdm,
                     const vector_type_3d_view &pmv,
                     const impl_scalar_type damping_factor,
@@ -2586,11 +2319,10 @@ namespace Ifpack2 {
                         const local_ordinal_type &blocksize,
                         const local_ordinal_type &i0,
                         const local_ordinal_type &r0,
-                        const local_ordinal_type &nrows,
                         const local_ordinal_type &v,
                         const WWViewType &WW) const {
 
-        typedef SolveTridiagsDefaultModeAndAlgo
+        typedef SolveJacobiDefaultModeAndAlgo
           <typename execution_space::memory_space> default_mode_and_algo_type;
 
         typedef typename default_mode_and_algo_type::mode_type default_mode_type;
@@ -2621,76 +2353,7 @@ namespace Ifpack2 {
         X += r0*xstep + v;
 
         //for (local_ordinal_type col=0;col<num_vectors;++col)
-        if (nrows > 1) {
-          // solve Lx = x
-          KOKKOSBATCHED_TRSV_LOWER_NO_TRANSPOSE_INTERNAL_INVOKE
-            (default_mode_type,default_algo_type,
-             member,
-             KB::Diag::Unit,
-             blocksize,blocksize,
-             one,
-             A, as0, as1,
-             X, xs0);
-
-          for (local_ordinal_type tr=1;tr<nrows;++tr) {
-            member.team_barrier();
-            KOKKOSBATCHED_GEMV_NO_TRANSPOSE_INTERNAL_INVOKE
-              (default_mode_type,default_algo_type,
-               member,
-               blocksize, blocksize,
-               -one,
-               A+2*astep, as0, as1,
-               X, xs0,
-               one,
-               X+1*xstep, xs0);
-            KOKKOSBATCHED_TRSV_LOWER_NO_TRANSPOSE_INTERNAL_INVOKE
-              (default_mode_type,default_algo_type,
-               member,
-               KB::Diag::Unit,
-               blocksize,blocksize,
-               one,
-               A+3*astep, as0, as1,
-               X+1*xstep, xs0);
-
-            A += 3*astep;
-            X += 1*xstep;
-          }
-
-          // solve Ux = x
-          KOKKOSBATCHED_TRSV_UPPER_NO_TRANSPOSE_INTERNAL_INVOKE
-            (default_mode_type,default_algo_type,
-             member,
-             KB::Diag::NonUnit,
-             blocksize, blocksize,
-             one,
-             A, as0, as1,
-             X, xs0);
-
-          for (local_ordinal_type tr=nrows;tr>1;--tr) {
-            A -= 3*astep;
-            member.team_barrier();
-            KOKKOSBATCHED_GEMV_NO_TRANSPOSE_INTERNAL_INVOKE
-              (default_mode_type,default_algo_type,
-               member,
-               blocksize, blocksize,
-               -one,
-               A+1*astep, as0, as1,
-               X, xs0,
-               one,
-               X-1*xstep, xs0);
-            KOKKOSBATCHED_TRSV_UPPER_NO_TRANSPOSE_INTERNAL_INVOKE
-              (default_mode_type,default_algo_type,
-               member,
-               KB::Diag::NonUnit,
-               blocksize, blocksize,
-               one,
-               A, as0, as1,
-               X-1*xstep,xs0);
-            X -= 1*xstep;
-          }
-          // for multiple rhs
-          //X += xs1;
-        } else {
+        {
           const local_ordinal_type ws0 = WW.stride_0();
           auto W = WW.data() + v;
           KOKKOSBATCHED_COPY_VECTOR_NO_TRANSPOSE_INTERNAL_INVOKE
@@ -2716,11 +2379,10 @@ namespace Ifpack2 {
                        const local_ordinal_type &/* blocksize */,
                        const local_ordinal_type &i0,
                        const local_ordinal_type &r0,
-                       const local_ordinal_type &nrows,
                        const local_ordinal_type &v,
                        const WWViewType &WW) const {
 
-        typedef SolveTridiagsDefaultModeAndAlgo
+        typedef SolveJacobiDefaultModeAndAlgo
           <typename execution_space::memory_space> default_mode_and_algo_type;
 
         typedef typename default_mode_and_algo_type::mode_type default_mode_type;
@@ -2738,51 +2400,7 @@ namespace Ifpack2 {
         local_ordinal_type i = i0, r = r0;
 
 
-        if (nrows > 1) {
-          // solve Lx = x
-          KB::Trsm<member_type,
-                   KB::Side::Left,KB::Uplo::Lower,KB::Trans::NoTranspose,KB::Diag::Unit,
-                   default_mode_type,default_algo_type>
-            ::invoke(member, one, A, X1);
-          for (local_ordinal_type tr=1;tr<nrows;++tr,i+=3) {
-            A.assign_data( &D_internal_vector_values(i+2,0,0,v) );
-            X2.assign_data( &X_internal_vector_values(++r,0,0,v) );
-            member.team_barrier();
-            KB::Gemm<member_type,
-                     KB::Trans::NoTranspose,KB::Trans::NoTranspose,
-                     default_mode_type,default_algo_type>
-              ::invoke(member, -one, A, X1, one, X2);
-            A.assign_data( &D_internal_vector_values(i+3,0,0,v) );
-            KB::Trsm<member_type,
-                     KB::Side::Left,KB::Uplo::Lower,KB::Trans::NoTranspose,KB::Diag::Unit,
-                     default_mode_type,default_algo_type>
-              ::invoke(member, one, A, X2);
-            X1.assign_data( X2.data() );
-          }
-
-          // solve Ux = x
-          KB::Trsm<member_type,
-                   KB::Side::Left,KB::Uplo::Upper,KB::Trans::NoTranspose,KB::Diag::NonUnit,
-                   default_mode_type,default_algo_type>
-            ::invoke(member, one, A, X1);
-          for (local_ordinal_type tr=nrows;tr>1;--tr) {
-            i -= 3;
-            A.assign_data( &D_internal_vector_values(i+1,0,0,v) );
-            X2.assign_data( &X_internal_vector_values(--r,0,0,v) );
-            member.team_barrier();
-            KB::Gemm<member_type,
-                     KB::Trans::NoTranspose,KB::Trans::NoTranspose,
-                     default_mode_type,default_algo_type>
-              ::invoke(member, -one, A, X1, one, X2);
-
-            A.assign_data( &D_internal_vector_values(i,0,0,v) );
-            KB::Trsm<member_type,
-                     KB::Side::Left,KB::Uplo::Upper,KB::Trans::NoTranspose,KB::Diag::NonUnit,
-                     default_mode_type,default_algo_type>
-              ::invoke(member, one, A, X2);
-            X1.assign_data( X2.data() );
-          }
-        } else {
+        {
           // matrix is already inverted
           auto W = Kokkos::subview(WW, Kokkos::ALL(), Kokkos::ALL(), v);
           KB::Copy<member_type,KB::Trans::NoTranspose,default_mode_type>
@@ -2808,7 +2426,6 @@ namespace Ifpack2 {
         const local_ordinal_type pri0 = part2packrowidx0(partidx);
         const local_ordinal_type i0 = pack_td_ptr(partidx);
         const local_ordinal_type r0 = part2packrowidx0(partidx);
-        const local_ordinal_type nrows = partptr(partidx+1) - partptr(partidx);
         const local_ordinal_type blocksize = (B == 0 ? D_internal_vector_values.extent(1) : B);
         const local_ordinal_type num_vectors = 1;
         internal_vector_scratch_type_3d_view
@@ -2818,7 +2435,7 @@ namespace Ifpack2 {
           });
         Kokkos::parallel_for
           (Kokkos::ThreadVectorRange(member, vector_loop_size),[&](const int &v) {
-            solveSingleVector(member, blocksize, i0, r0, nrows, v, WW);
+            solveSingleVector(member, blocksize, i0, r0, v, WW);
             copyToFlatMultiVector(member, partidx, npacks, pri0, v, blocksize, num_vectors);
           });
       }
@@ -2833,7 +2450,6 @@ namespace Ifpack2 {
         const local_ordinal_type pri0 = part2packrowidx0(partidx);
         const local_ordinal_type i0 = pack_td_ptr(partidx);
         const local_ordinal_type r0 = part2packrowidx0(partidx);
-        const local_ordinal_type nrows = partptr(partidx+1) - partptr(partidx);
         const local_ordinal_type blocksize = (B == 0 ? D_internal_vector_values.extent(1) : B);
         const local_ordinal_type num_vectors = X_internal_vector_values.extent(2);
 
@@ -2844,7 +2460,7 @@ namespace Ifpack2 {
           });
         Kokkos::parallel_for
           (Kokkos::ThreadVectorRange(member, vector_loop_size),[&](const int &v) {
-            solveMultiVector(member, blocksize, i0, r0, nrows, v, WW);
+            solveMultiVector(member, blocksize, i0, r0, v, WW);
             copyToFlatMultiVector(member, partidx, npacks, pri0, v, blocksize, num_vectors);
           });
       }
@@ -2852,7 +2468,7 @@ namespace Ifpack2 {
       void run(const impl_scalar_type_2d_view_tpetra &Y,
                const impl_scalar_type_1d_view &Z) {
         IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_BEGIN;
-        IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::SolveTridiags");
+        IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::SolveJacobi");
 
         /// set vectors
         this->Y_scalar_multivector = Y;
@@ -2862,7 +2478,7 @@ namespace Ifpack2 {
         const local_ordinal_type blocksize = D_internal_vector_values.extent(1);
 
         const local_ordinal_type team_size =
-          SolveTridiagsDefaultModeAndAlgo<typename execution_space::memory_space>::
+          SolveJacobiDefaultModeAndAlgo<typename execution_space::memory_space>::
           recommended_team_size(blocksize, vector_length, internal_vector_length);
         const int per_team_scratch = internal_vector_scratch_type_3d_view
           ::shmem_size(blocksize, num_vectors, vector_loop_size);
@@ -2873,13 +2489,13 @@ namespace Ifpack2 {
           const Kokkos::TeamPolicy<execution_space,SingleVectorTag<B> > \
             policy(packptr.extent(0) - 1, team_size, vector_loop_size); \
           Kokkos::parallel_for                                          \
-            ("SolveTridiags::TeamPolicy::run<SingleVector>",            \
+            ("SolveJacobi::TeamPolicy::run<SingleVector>",            \
              policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch)), *this); \
         } else {                                                        \
           const Kokkos::TeamPolicy<execution_space,MultiVectorTag<B> > \
             policy(packptr.extent(0) - 1, team_size, vector_loop_size); \
           Kokkos::parallel_for                                          \
-            ("SolveTridiags::TeamPolicy::run<MultiVector>",             \
+            ("SolveJacobi::TeamPolicy::run<MultiVector>",             \
              policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch)), *this); \
         } break
 #else
@@ -2889,14 +2505,14 @@ namespace Ifpack2 {
             policy(packptr.extent(0) - 1, team_size, vector_loop_size); \
           policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch)); \
           Kokkos::parallel_for                                          \
-            ("SolveTridiags::TeamPolicy::run<SingleVector>",            \
+            ("SolveJacobi::TeamPolicy::run<SingleVector>",            \
              policy, *this);                                            \
         } else {                                                        \
           Kokkos::TeamPolicy<execution_space,MultiVectorTag<B> >        \
             policy(packptr.extent(0) - 1, team_size, vector_loop_size); \
           policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch)); \
           Kokkos::parallel_for                                          \
-            ("SolveTridiags::TeamPolicy::run<MultiVector>",             \
+            ("SolveJacobi::TeamPolicy::run<MultiVector>",             \
              policy, *this);                                            \
         } break
 #endif
@@ -2915,873 +2531,7 @@ namespace Ifpack2 {
 #undef BLOCKTRIDICONTAINER_DETAILS_SOLVETRIDIAGS
 
         IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_END;
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(execution_space)
       }
-    };
-
-    ///
-    /// compute local residula vector y = b - R x
-    ///
-    static inline int ComputeResidualVectorRecommendedCudaVectorSize(const int blksize,
-                                                                     const int team_size) {
-      int total_team_size(0);
-      if      (blksize <=  5) total_team_size =  32;
-      else if (blksize <=  9) total_team_size =  32; // 64
-      else if (blksize <= 12) total_team_size =  96;
-      else if (blksize <= 16) total_team_size = 128;
-      else if (blksize <= 20) total_team_size = 160;
-      else                    total_team_size = 160;
-      return total_team_size/team_size;
-    }
-
-    static inline int ComputeResidualVectorRecommendedHIPVectorSize(const int blksize,
-								    const int team_size) {
-      int total_team_size(0);
-      if      (blksize <=  5) total_team_size =  32;
-      else if (blksize <=  9) total_team_size =  32; // 64
-      else if (blksize <= 12) total_team_size =  96;
-      else if (blksize <= 16) total_team_size = 128;
-      else if (blksize <= 20) total_team_size = 160;
-      else                    total_team_size = 160;
-      return total_team_size/team_size;
-    }
-
-    static inline int ComputeResidualVectorRecommendedSYCLVectorSize(const int blksize,
-								     const int team_size) {
-      int total_team_size(0);
-      if      (blksize <=  5) total_team_size =  32;
-      else if (blksize <=  9) total_team_size =  32; // 64
-      else if (blksize <= 12) total_team_size =  96;
-      else if (blksize <= 16) total_team_size = 128;
-      else if (blksize <= 20) total_team_size = 160;
-      else                    total_team_size = 160;
-      return total_team_size/team_size;
-    }
-
-    template<typename T>
-    static inline int ComputeResidualVectorRecommendedVectorSize(const int blksize,
-                                                                 const int team_size) {
-      if ( is_cuda<T>::value )
-        return ComputeResidualVectorRecommendedCudaVectorSize(blksize, team_size);
-      if ( is_hip<T>::value )
-        return ComputeResidualVectorRecommendedHIPVectorSize(blksize, team_size);
-      if ( is_sycl<T>::value )
-        return ComputeResidualVectorRecommendedSYCLVectorSize(blksize, team_size);
-      return -1;
-    }
-
-    
-    template<typename MatrixType>
-    struct ComputeResidualVector {
-    public:
-      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
-      using node_device_type = typename impl_type::node_device_type;
-      using execution_space = typename impl_type::execution_space;
-      using memory_space = typename impl_type::memory_space;
-
-      using local_ordinal_type = typename impl_type::local_ordinal_type;
-      using size_type = typename impl_type::size_type;
-      using impl_scalar_type = typename impl_type::impl_scalar_type;
-      using magnitude_type = typename impl_type::magnitude_type;
-      using btdm_scalar_type = typename impl_type::btdm_scalar_type;
-      using btdm_magnitude_type = typename impl_type::btdm_magnitude_type;
-      /// views
-      using local_ordinal_type_1d_view = typename impl_type::local_ordinal_type_1d_view;
-      using size_type_1d_view = typename impl_type::size_type_1d_view;
-      using tpetra_block_access_view_type = typename impl_type::tpetra_block_access_view_type; // block crs (layout right)
-      using impl_scalar_type_1d_view = typename impl_type::impl_scalar_type_1d_view;
-      using impl_scalar_type_2d_view_tpetra = typename impl_type::impl_scalar_type_2d_view_tpetra; // block multivector (layout left)
-      using vector_type_3d_view = typename impl_type::vector_type_3d_view;
-      using btdm_scalar_type_4d_view = typename impl_type::btdm_scalar_type_4d_view;
-      static constexpr int vector_length = impl_type::vector_length;
-
-      /// team policy member type (used in cuda)
-      using member_type = typename Kokkos::TeamPolicy<execution_space>::member_type;
-
-      // enum for max blocksize and vector length
-      enum : int { max_blocksize = 32 };
-
-    private:
-      ConstUnmanaged<impl_scalar_type_2d_view_tpetra> b;
-      ConstUnmanaged<impl_scalar_type_2d_view_tpetra> x; // x_owned
-      ConstUnmanaged<impl_scalar_type_2d_view_tpetra> x_remote;
-      Unmanaged<impl_scalar_type_2d_view_tpetra> y;
-      Unmanaged<vector_type_3d_view> y_packed;
-      Unmanaged<btdm_scalar_type_4d_view> y_packed_scalar;
-
-      // AmD information
-      const ConstUnmanaged<size_type_1d_view> rowptr, rowptr_remote;
-      const ConstUnmanaged<local_ordinal_type_1d_view> colindsub, colindsub_remote;
-      const ConstUnmanaged<impl_scalar_type_1d_view> tpetra_values;
-
-      // block crs graph information
-      // for cuda (kokkos crs graph uses a different size_type from size_t)
-      const ConstUnmanaged<Kokkos::View<size_t*,node_device_type> > A_rowptr;
-      const ConstUnmanaged<Kokkos::View<local_ordinal_type*,node_device_type> > A_colind;
-
-      // blocksize
-      const local_ordinal_type blocksize_requested;
-
-      // part interface
-      const ConstUnmanaged<local_ordinal_type_1d_view> part2packrowidx0;
-      const ConstUnmanaged<local_ordinal_type_1d_view> part2rowidx0;
-      const ConstUnmanaged<local_ordinal_type_1d_view> rowidx2part;
-      const ConstUnmanaged<local_ordinal_type_1d_view> partptr;
-      const ConstUnmanaged<local_ordinal_type_1d_view> lclrow;
-      const ConstUnmanaged<local_ordinal_type_1d_view> dm2cm;
-      const bool is_dm2cm_active;
-
-    public:
-      template<typename LocalCrsGraphType>
-      ComputeResidualVector(const BlockHelperDetails::AmD<MatrixType> &amd,
-                            const LocalCrsGraphType &graph,
-                            const local_ordinal_type &blocksize_requested_,
-                            const BlockHelperDetails::PartInterface<MatrixType> &interf,
-                            const local_ordinal_type_1d_view &dm2cm_)
-        : rowptr(amd.rowptr), rowptr_remote(amd.rowptr_remote),
-          colindsub(amd.A_colindsub), colindsub_remote(amd.A_colindsub_remote),
-          tpetra_values(amd.tpetra_values),
-          A_rowptr(graph.row_map),
-          A_colind(graph.entries),
-          blocksize_requested(blocksize_requested_),
-          part2packrowidx0(interf.part2packrowidx0),
-          part2rowidx0(interf.part2rowidx0),
-          rowidx2part(interf.rowidx2part),
-          partptr(interf.partptr),
-          lclrow(interf.lclrow),
-          dm2cm(dm2cm_),
-          is_dm2cm_active(dm2cm_.span() > 0)
-      {}
-
-      inline
-      void
-      SerialGemv(const local_ordinal_type &blocksize,
-                 const impl_scalar_type * const KOKKOS_RESTRICT AA,
-                 const impl_scalar_type * const KOKKOS_RESTRICT xx,
-                 /* */ impl_scalar_type * KOKKOS_RESTRICT yy) const {
-        using tlb = BlockHelperDetails::TpetraLittleBlock<Tpetra::Impl::BlockCrsMatrixLittleBlockArrayLayout>;
-        for (local_ordinal_type k0=0;k0<blocksize;++k0) {
-          impl_scalar_type val = 0;
-#if defined(KOKKOS_ENABLE_PRAGMA_IVDEP)
-#   pragma ivdep
-#endif
-#if defined(KOKKOS_ENABLE_PRAGMA_UNROLL)
-#   pragma unroll
-#endif
-          for (local_ordinal_type k1=0;k1<blocksize;++k1)
-            val += AA[tlb::getFlatIndex(k0,k1,blocksize)]*xx[k1];
-          yy[k0] -= val;
-        }
-      }
-
-      template<typename bbViewType, typename yyViewType>
-      KOKKOS_INLINE_FUNCTION
-      void
-      VectorCopy(const member_type &member,
-                 const local_ordinal_type &blocksize,
-                 const bbViewType &bb,
-                 const yyViewType &yy) const {
-        Kokkos::parallel_for(Kokkos::ThreadVectorRange(member, blocksize), [&](const local_ordinal_type &k0)  {
-            yy(k0) = static_cast<typename yyViewType::const_value_type>(bb(k0));
-          });
-      }
-
-      template<typename AAViewType, typename xxViewType, typename yyViewType>
-      KOKKOS_INLINE_FUNCTION
-      void
-      TeamVectorGemv(const member_type &member,
-               const local_ordinal_type &blocksize,
-               const AAViewType &AA,
-               const xxViewType &xx,
-               const yyViewType &yy) const {
-        Kokkos::parallel_for
-          (Kokkos::TeamThreadRange(member, blocksize),
-           [&](const local_ordinal_type &k0) {
-            impl_scalar_type val = 0;
-            Kokkos::parallel_for
-              (Kokkos::ThreadVectorRange(member, blocksize),
-               [&](const local_ordinal_type &k1) {
-                val += AA(k0,k1)*xx(k1);
-              });
-            Kokkos::atomic_fetch_add(&yy(k0), typename yyViewType::const_value_type(-val));
-          });
-      }
-
-      template<typename AAViewType, typename xxViewType, typename yyViewType>
-      KOKKOS_INLINE_FUNCTION
-      void
-      VectorGemv(const member_type &member,
-                 const local_ordinal_type &blocksize,
-                 const AAViewType &AA,
-                 const xxViewType &xx,
-                 const yyViewType &yy) const {
-        Kokkos::parallel_for
-          (Kokkos::ThreadVectorRange(member, blocksize),
-           [&](const local_ordinal_type &k0) {
-            impl_scalar_type val(0);
-            for (local_ordinal_type k1=0;k1<blocksize;++k1) {
-              val += AA(k0,k1)*xx(k1);
-            }
-            Kokkos::atomic_fetch_add(&yy(k0), typename yyViewType::const_value_type(-val));
-          });
-      }
-
-      // template<typename AAViewType, typename xxViewType, typename yyViewType>
-      // KOKKOS_INLINE_FUNCTION
-      // void
-      // VectorGemv(const member_type &member,
-      //                 const local_ordinal_type &blocksize,
-      //                 const AAViewType &AA,
-      //                 const xxViewType &xx,
-      //                 const yyViewType &yy) const {
-      //        for (local_ordinal_type k0=0;k0<blocksize;++k0) {
-      //          impl_scalar_type val = 0;
-      //          Kokkos::parallel_for
-      //            (Kokkos::ThreadVectorRange(member, blocksize),
-      //             [&](const local_ordinal_type &k1) {
-      //              val += AA(k0,k1)*xx(k1);
-      //            });
-      //          Kokkos::atomic_fetch_add(&yy(k0), -val);
-      //        }
-      // }
-
-      struct SeqTag {};
-
-      // inline  ---> FIXME HIP: should not need KOKKOS_INLINE_FUNCTION
-      KOKKOS_INLINE_FUNCTION
-      void
-      operator() (const SeqTag &, const local_ordinal_type& i) const {
-        const local_ordinal_type blocksize = blocksize_requested;
-        const local_ordinal_type blocksize_square = blocksize*blocksize;
-
-        // constants
-        const Kokkos::pair<local_ordinal_type,local_ordinal_type> block_range(0, blocksize);
-        const local_ordinal_type num_vectors = y.extent(1);
-        const local_ordinal_type row = i*blocksize;
-        for (local_ordinal_type col=0;col<num_vectors;++col) {
-          // y := b
-          impl_scalar_type *yy = &y(row, col);
-          const impl_scalar_type * const bb = &b(row, col);
-          memcpy(yy, bb, sizeof(impl_scalar_type)*blocksize);
-
-          // y -= Rx
-          const size_type A_k0 = A_rowptr[i];
-          for (size_type k=rowptr[i];k<rowptr[i+1];++k) {
-            const size_type j = A_k0 + colindsub[k];
-            const impl_scalar_type * const AA = &tpetra_values(j*blocksize_square);
-            const impl_scalar_type * const xx = &x(A_colind[j]*blocksize, col);
-            SerialGemv(blocksize,AA,xx,yy);
-          }
-        }
-      }
-
-      KOKKOS_INLINE_FUNCTION
-      void
-      operator() (const SeqTag &, const member_type &member) const {
-
-        // constants
-        const local_ordinal_type blocksize = blocksize_requested;
-        const local_ordinal_type blocksize_square = blocksize*blocksize;
-
-        const local_ordinal_type lr = member.league_rank();
-        const Kokkos::pair<local_ordinal_type,local_ordinal_type> block_range(0, blocksize);
-        const local_ordinal_type num_vectors = y.extent(1);
-
-        // subview pattern
-        auto bb = Kokkos::subview(b, block_range, 0);
-        auto xx = bb;
-        auto yy = Kokkos::subview(y, block_range, 0);
-        auto A_block = ConstUnmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
-
-        const local_ordinal_type row = lr*blocksize;
-        for (local_ordinal_type col=0;col<num_vectors;++col) {
-          // y := b
-          yy.assign_data(&y(row, col));
-          bb.assign_data(&b(row, col));
-          if (member.team_rank() == 0)
-            VectorCopy(member, blocksize, bb, yy);
-          member.team_barrier();
-
-          // y -= Rx
-          const size_type A_k0 = A_rowptr[lr];
-          Kokkos::parallel_for
-            (Kokkos::TeamThreadRange(member, rowptr[lr], rowptr[lr+1]),
-             [&](const local_ordinal_type &k) {
-              const size_type j = A_k0 + colindsub[k];
-              A_block.assign_data( &tpetra_values(j*blocksize_square) );
-              xx.assign_data( &x(A_colind[j]*blocksize, col) );
-              VectorGemv(member, blocksize, A_block, xx, yy);
-            });
-        }
-      }
-
-      template<int B>
-      struct AsyncTag {};
-
-      template<int B>
-      // inline  ---> FIXME HIP: should not need KOKKOS_INLINE_FUNCTION
-      KOKKOS_INLINE_FUNCTION
-      void
-      operator() (const AsyncTag<B> &, const local_ordinal_type &rowidx) const {
-        const local_ordinal_type blocksize = (B == 0 ? blocksize_requested : B);
-        const local_ordinal_type blocksize_square = blocksize*blocksize;
-
-        // constants
-        const local_ordinal_type partidx = rowidx2part(rowidx);
-        const local_ordinal_type pri = part2packrowidx0(partidx) + (rowidx - partptr(partidx));
-        const local_ordinal_type v = partidx % vector_length;
-
-        const local_ordinal_type num_vectors = y_packed.extent(2);
-        const local_ordinal_type num_local_rows = lclrow.extent(0);
-
-        // temporary buffer for y flat
-        impl_scalar_type yy[B == 0 ? max_blocksize : B] = {};
-
-        const local_ordinal_type lr = lclrow(rowidx);
-        const local_ordinal_type row = lr*blocksize;
-        for (local_ordinal_type col=0;col<num_vectors;++col) {
-          // y := b
-          memcpy(yy, &b(row, col), sizeof(impl_scalar_type)*blocksize);
-
-          // y -= Rx
-          const size_type A_k0 = A_rowptr[lr];
-          for (size_type k=rowptr[lr];k<rowptr[lr+1];++k) {
-            const size_type j = A_k0 + colindsub[k];
-            const impl_scalar_type * const AA = &tpetra_values(j*blocksize_square);
-            const local_ordinal_type A_colind_at_j = A_colind[j];
-            if (A_colind_at_j < num_local_rows) {
-              const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
-              const impl_scalar_type * const xx = &x(loc*blocksize, col);
-              SerialGemv(blocksize, AA,xx,yy);
-            } else {
-              const auto loc = A_colind_at_j - num_local_rows;
-              const impl_scalar_type * const xx_remote = &x_remote(loc*blocksize, col);
-              SerialGemv(blocksize, AA,xx_remote,yy);
-            }
-          }
-          // move yy to y_packed
-          for (local_ordinal_type k=0;k<blocksize;++k)
-            y_packed(pri, k, col)[v] = yy[k];
-        }
-      }
-
-      template<int B>
-      KOKKOS_INLINE_FUNCTION
-      void
-      operator() (const AsyncTag<B> &, const member_type &member) const {
-        const local_ordinal_type blocksize = (B == 0 ? blocksize_requested : B);
-        const local_ordinal_type blocksize_square = blocksize*blocksize;
-
-        // constants
-        const local_ordinal_type rowidx = member.league_rank();
-        const local_ordinal_type partidx = rowidx2part(rowidx);
-        const local_ordinal_type pri = part2packrowidx0(partidx) + (rowidx - partptr(partidx));
-        const local_ordinal_type v = partidx % vector_length;
-
-        const Kokkos::pair<local_ordinal_type,local_ordinal_type> block_range(0, blocksize);
-        const local_ordinal_type num_vectors = y_packed_scalar.extent(2);
-        const local_ordinal_type num_local_rows = lclrow.extent(0);
-
-        // subview pattern
-        auto bb = Kokkos::subview(b, block_range, 0);
-        auto xx = Kokkos::subview(x, block_range, 0);
-        auto xx_remote = Kokkos::subview(x_remote, block_range, 0);
-        auto yy = Kokkos::subview(y_packed_scalar, 0, block_range, 0, 0);
-        auto A_block = ConstUnmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
-
-        const local_ordinal_type lr = lclrow(rowidx);
-        const local_ordinal_type row = lr*blocksize;
-        for (local_ordinal_type col=0;col<num_vectors;++col) {
-          // y := b
-          bb.assign_data(&b(row, col));
-          yy.assign_data(&y_packed_scalar(pri, 0, col, v));
-          if (member.team_rank() == 0)
-            VectorCopy(member, blocksize, bb, yy);
-          member.team_barrier();
-
-          // y -= Rx
-          const size_type A_k0 = A_rowptr[lr];
-          Kokkos::parallel_for
-            (Kokkos::TeamThreadRange(member, rowptr[lr], rowptr[lr+1]),
-             [&](const local_ordinal_type &k) {
-              const size_type j = A_k0 + colindsub[k];
-              A_block.assign_data( &tpetra_values(j*blocksize_square) );
-
-              const local_ordinal_type A_colind_at_j = A_colind[j];
-              if (A_colind_at_j < num_local_rows) {
-                const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
-                xx.assign_data( &x(loc*blocksize, col) );
-                VectorGemv(member, blocksize, A_block, xx, yy);
-              } else {
-                const auto loc = A_colind_at_j - num_local_rows;
-                xx_remote.assign_data( &x_remote(loc*blocksize, col) );
-                VectorGemv(member, blocksize, A_block, xx_remote, yy);
-              }
-            });
-        }
-      }
-
-      template <int P, int B> struct OverlapTag {};
-
-      template<int P, int B>
-      // inline  ---> FIXME HIP: should not need KOKKOS_INLINE_FUNCTION
-      KOKKOS_INLINE_FUNCTION
-      void
-      operator() (const OverlapTag<P,B> &, const local_ordinal_type& rowidx) const {
-        const local_ordinal_type blocksize = (B == 0 ? blocksize_requested : B);
-        const local_ordinal_type blocksize_square = blocksize*blocksize;
-
-        // constants
-        const local_ordinal_type partidx = rowidx2part(rowidx);
-        const local_ordinal_type pri = part2packrowidx0(partidx) + (rowidx - partptr(partidx));
-        const local_ordinal_type v = partidx % vector_length;
-
-        const local_ordinal_type num_vectors = y_packed.extent(2);
-        const local_ordinal_type num_local_rows = lclrow.extent(0);
-
-        // temporary buffer for y flat
-        impl_scalar_type yy[max_blocksize] = {};
-
-        auto colindsub_used = (P == 0 ? colindsub : colindsub_remote);
-        auto rowptr_used = (P == 0 ? rowptr : rowptr_remote);
-
-        const local_ordinal_type lr = lclrow(rowidx);
-        const local_ordinal_type row = lr*blocksize;
-        for (local_ordinal_type col=0;col<num_vectors;++col) {
-          if (P == 0) {
-            // y := b
-            memcpy(yy, &b(row, col), sizeof(impl_scalar_type)*blocksize);
-          } else {
-            // y (temporary) := 0
-            memset(yy, 0, sizeof(impl_scalar_type)*blocksize);
-          }
-
-          // y -= Rx
-          const size_type A_k0 = A_rowptr[lr];
-          for (size_type k=rowptr_used[lr];k<rowptr_used[lr+1];++k) {
-            const size_type j = A_k0 + colindsub_used[k];
-            const impl_scalar_type * const AA = &tpetra_values(j*blocksize_square);
-            const local_ordinal_type A_colind_at_j = A_colind[j];
-            if (P == 0) {
-              const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
-              const impl_scalar_type * const xx = &x(loc*blocksize, col);
-              SerialGemv(blocksize,AA,xx,yy);
-            } else {
-              const auto loc = A_colind_at_j - num_local_rows;
-              const impl_scalar_type * const xx_remote = &x_remote(loc*blocksize, col);
-              SerialGemv(blocksize,AA,xx_remote,yy);
-            }
-          }
-          // move yy to y_packed
-          if (P == 0) {
-            for (local_ordinal_type k=0;k<blocksize;++k)
-              y_packed(pri, k, col)[v] = yy[k];
-          } else {
-            for (local_ordinal_type k=0;k<blocksize;++k)
-              y_packed(pri, k, col)[v] += yy[k];
-          }
-        }
-      }
-
-      template<int P, int B>
-      KOKKOS_INLINE_FUNCTION
-      void
-      operator() (const OverlapTag<P,B> &, const member_type &member) const {
-        const local_ordinal_type blocksize = (B == 0 ? blocksize_requested : B);
-        const local_ordinal_type blocksize_square = blocksize*blocksize;
-
-        // constants
-        const local_ordinal_type rowidx = member.league_rank();
-        const local_ordinal_type partidx = rowidx2part(rowidx);
-        const local_ordinal_type pri = part2packrowidx0(partidx) + (rowidx - partptr(partidx));
-        const local_ordinal_type v = partidx % vector_length;
-
-        const Kokkos::pair<local_ordinal_type,local_ordinal_type> block_range(0, blocksize);
-        const local_ordinal_type num_vectors = y_packed_scalar.extent(2);
-        const local_ordinal_type num_local_rows = lclrow.extent(0);
-
-        // subview pattern
-        auto bb = Kokkos::subview(b, block_range, 0);
-        auto xx = bb; //Kokkos::subview(x, block_range, 0);
-        auto xx_remote = bb; //Kokkos::subview(x_remote, block_range, 0);
-        auto yy = Kokkos::subview(y_packed_scalar, 0, block_range, 0, 0);
-        auto A_block = ConstUnmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
-        auto colindsub_used = (P == 0 ? colindsub : colindsub_remote);
-        auto rowptr_used = (P == 0 ? rowptr : rowptr_remote);
-
-        const local_ordinal_type lr = lclrow(rowidx);
-        const local_ordinal_type row = lr*blocksize;
-        for (local_ordinal_type col=0;col<num_vectors;++col) {
-          yy.assign_data(&y_packed_scalar(pri, 0, col, v));
-          if (P == 0) {
-            // y := b
-            bb.assign_data(&b(row, col));
-            if (member.team_rank() == 0)
-              VectorCopy(member, blocksize, bb, yy);
-            member.team_barrier();
-          }
-
-          // y -= Rx
-          const size_type A_k0 = A_rowptr[lr];
-          Kokkos::parallel_for
-            (Kokkos::TeamThreadRange(member, rowptr_used[lr], rowptr_used[lr+1]),
-             [&](const local_ordinal_type &k) {
-              const size_type j = A_k0 + colindsub_used[k];
-              A_block.assign_data( &tpetra_values(j*blocksize_square) );
-
-              const local_ordinal_type A_colind_at_j = A_colind[j];
-              if (P == 0) {
-                const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
-                xx.assign_data( &x(loc*blocksize, col) );
-                VectorGemv(member, blocksize, A_block, xx, yy);
-              } else {
-                const auto loc = A_colind_at_j - num_local_rows;
-                xx_remote.assign_data( &x_remote(loc*blocksize, col) );
-                VectorGemv(member, blocksize, A_block, xx_remote, yy);
-              }
-            });
-        }
-      }
-
-      // y = b - Rx; seq method
-      template<typename MultiVectorLocalViewTypeY,
-               typename MultiVectorLocalViewTypeB,
-               typename MultiVectorLocalViewTypeX>
-      void run(const MultiVectorLocalViewTypeY &y_,
-               const MultiVectorLocalViewTypeB &b_,
-               const MultiVectorLocalViewTypeX &x_) {
-        IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_BEGIN;
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::ComputeResidual::<SeqTag>");
-
-        y = y_; b = b_; x = x_;
-        if constexpr (is_device<execution_space>::value) {
-          const local_ordinal_type blocksize = blocksize_requested;
-          const local_ordinal_type team_size = 8;
-          const local_ordinal_type vector_size = ComputeResidualVectorRecommendedVectorSize<execution_space>(blocksize, team_size);
-          const Kokkos::TeamPolicy<execution_space,SeqTag> policy(rowptr.extent(0) - 1, team_size, vector_size);
-          Kokkos::parallel_for
-            ("ComputeResidual::TeamPolicy::run<SeqTag>", policy, *this);
-        } else {
-          const Kokkos::RangePolicy<execution_space,SeqTag> policy(0, rowptr.extent(0) - 1);
-          Kokkos::parallel_for
-            ("ComputeResidual::RangePolicy::run<SeqTag>", policy, *this);
-        }
-        IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_END;
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(execution_space)
-      }
-
-      // y = b - R (x , x_remote)
-      template<typename MultiVectorLocalViewTypeB,
-               typename MultiVectorLocalViewTypeX,
-               typename MultiVectorLocalViewTypeX_Remote>
-      void run(const vector_type_3d_view &y_packed_,
-               const MultiVectorLocalViewTypeB &b_,
-               const MultiVectorLocalViewTypeX &x_,
-               const MultiVectorLocalViewTypeX_Remote &x_remote_) {
-        IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_BEGIN;
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::ComputeResidual::<AsyncTag>");
-
-        b = b_; x = x_; x_remote = x_remote_;
-        if constexpr (is_device<execution_space>::value) {
-          y_packed_scalar = btdm_scalar_type_4d_view((btdm_scalar_type*)y_packed_.data(),
-                                                     y_packed_.extent(0),
-                                                     y_packed_.extent(1),
-                                                     y_packed_.extent(2),
-                                                     vector_length);
-        } else {
-          y_packed = y_packed_;
-        }
-
-        if constexpr(is_device<execution_space>::value) {
-          const local_ordinal_type blocksize = blocksize_requested;
-          const local_ordinal_type team_size = 8;
-          const local_ordinal_type vector_size = ComputeResidualVectorRecommendedVectorSize<execution_space>(blocksize, team_size);
-          // local_ordinal_type vl_power_of_two = 1;
-          // for (;vl_power_of_two<=blocksize_requested;vl_power_of_two*=2);
-          // vl_power_of_two *= (vl_power_of_two < blocksize_requested ? 2 : 1);
-          // const local_ordinal_type vl = vl_power_of_two > vector_length ? vector_length : vl_power_of_two;
-#define BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(B) {                \
-            const Kokkos::TeamPolicy<execution_space,AsyncTag<B> >      \
-              policy(rowidx2part.extent(0), team_size, vector_size);    \
-            Kokkos::parallel_for                                        \
-              ("ComputeResidual::TeamPolicy::run<AsyncTag>",            \
-               policy, *this); } break
-          switch (blocksize_requested) {
-          case   3: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 3);
-          case   5: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 5);
-          case   7: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 7);
-          case   9: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 9);
-          case  10: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(10);
-          case  11: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(11);
-          case  16: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(16);
-          case  17: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(17);
-          case  18: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(18);
-          default : BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 0);
-          }
-#undef BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL
-	} else {
-#define BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(B) {                \
-            const Kokkos::RangePolicy<execution_space,AsyncTag<B> > policy(0, rowidx2part.extent(0)); \
-            Kokkos::parallel_for                                        \
-              ("ComputeResidual::RangePolicy::run<AsyncTag>",           \
-               policy, *this); } break
-          switch (blocksize_requested) {
-          case   3: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 3);
-          case   5: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 5);
-          case   7: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 7);
-          case   9: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 9);
-          case  10: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(10);
-          case  11: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(11);
-          case  16: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(16);
-          case  17: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(17);
-          case  18: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(18);
-          default : BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 0);
-          }
-#undef BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL
-        }
-        IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_END;
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(execution_space)
-      }
-
-      // y = b - R (y , y_remote)
-      template<typename MultiVectorLocalViewTypeB,
-               typename MultiVectorLocalViewTypeX,
-               typename MultiVectorLocalViewTypeX_Remote>
-      void run(const vector_type_3d_view &y_packed_,
-               const MultiVectorLocalViewTypeB &b_,
-               const MultiVectorLocalViewTypeX &x_,
-               const MultiVectorLocalViewTypeX_Remote &x_remote_,
-               const bool compute_owned) {
-        IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_BEGIN;
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::ComputeResidual::<OverlapTag>");
-
-        b = b_; x = x_; x_remote = x_remote_;
-        if constexpr (is_device<execution_space>::value) {
-          y_packed_scalar = btdm_scalar_type_4d_view((btdm_scalar_type*)y_packed_.data(),
-                                                     y_packed_.extent(0),
-                                                     y_packed_.extent(1),
-                                                     y_packed_.extent(2),
-                                                     vector_length);
-        } else {
-          y_packed = y_packed_;
-        }
-
-        if constexpr (is_device<execution_space>::value) {
-          const local_ordinal_type blocksize = blocksize_requested;
-          const local_ordinal_type team_size = 8;
-          const local_ordinal_type vector_size = ComputeResidualVectorRecommendedVectorSize<execution_space>(blocksize, team_size);
-          // local_ordinal_type vl_power_of_two = 1;
-          // for (;vl_power_of_two<=blocksize_requested;vl_power_of_two*=2);
-          // vl_power_of_two *= (vl_power_of_two < blocksize_requested ? 2 : 1);
-          // const local_ordinal_type vl = vl_power_of_two > vector_length ? vector_length : vl_power_of_two;
-#define BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(B)  \
-          if (compute_owned) {                                          \
-            const Kokkos::TeamPolicy<execution_space,OverlapTag<0,B> > \
-              policy(rowidx2part.extent(0), team_size, vector_size);    \
-            Kokkos::parallel_for                                        \
-              ("ComputeResidual::TeamPolicy::run<OverlapTag<0> >", policy, *this); \
-          } else {                                                      \
-            const Kokkos::TeamPolicy<execution_space,OverlapTag<1,B> > \
-              policy(rowidx2part.extent(0), team_size, vector_size);    \
-            Kokkos::parallel_for                                        \
-              ("ComputeResidual::TeamPolicy::run<OverlapTag<1> >", policy, *this); \
-          } break
-          switch (blocksize_requested) {
-          case   3: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 3);
-          case   5: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 5);
-          case   7: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 7);
-          case   9: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 9);
-          case  10: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(10);
-          case  11: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(11);
-          case  16: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(16);
-          case  17: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(17);
-          case  18: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(18);
-          default : BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 0);
-          }
-#undef BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL
-        } else {
-#define BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(B)  \
-          if (compute_owned) {                                          \
-            const Kokkos::RangePolicy<execution_space,OverlapTag<0,B> > \
-              policy(0, rowidx2part.extent(0));                         \
-            Kokkos::parallel_for                                        \
-              ("ComputeResidual::RangePolicy::run<OverlapTag<0> >", policy, *this); \
-          } else {                                                      \
-            const Kokkos::RangePolicy<execution_space,OverlapTag<1,B> > \
-              policy(0, rowidx2part.extent(0));                         \
-            Kokkos::parallel_for                                        \
-              ("ComputeResidual::RangePolicy::run<OverlapTag<1> >", policy, *this); \
-          } break
-
-          switch (blocksize_requested) {
-          case   3: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 3);
-          case   5: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 5);
-          case   7: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 7);
-          case   9: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 9);
-          case  10: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(10);
-          case  11: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(11);
-          case  16: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(16);
-          case  17: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(17);
-          case  18: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(18);
-          default : BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 0);
-          }
-#undef BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL
-        }
-        IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_END;
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(execution_space)
-      }
-    };
-
-    template<typename MatrixType>
-    void reduceVector(const ConstUnmanaged<typename BlockHelperDetails::ImplType<MatrixType>::impl_scalar_type_1d_view> zz,
-                      /* */ typename BlockHelperDetails::ImplType<MatrixType>::magnitude_type *vals) {
-      IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_BEGIN;
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::ReduceVector");
-
-      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
-      using local_ordinal_type = typename impl_type::local_ordinal_type;
-      using impl_scalar_type = typename impl_type::impl_scalar_type;
-#if 0
-      const auto norm2 = KokkosBlas::nrm1(zz);
-#else
-      impl_scalar_type norm2(0);
-      Kokkos::parallel_reduce
-        ("ReduceMultiVector::Device",
-         Kokkos::RangePolicy<typename impl_type::execution_space>(0,zz.extent(0)),
-         KOKKOS_LAMBDA(const local_ordinal_type &i, impl_scalar_type &update) {
-          update += zz(i);
-        }, norm2);
-#endif
-      vals[0] = Kokkos::ArithTraits<impl_scalar_type>::abs(norm2);
-
-      IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_END;
-      IFPACK2_BLOCKTRIDICONTAINER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
-    }
-
-    ///
-    /// Manage the distributed part of the computation of residual norms.
-    ///
-    template<typename MatrixType>
-    struct NormManager {
-    public:
-      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
-      using host_execution_space = typename impl_type::host_execution_space;
-      using magnitude_type = typename impl_type::magnitude_type;
-
-    private:
-      bool collective_;
-      int sweep_step_, sweep_step_upper_bound_;
-#ifdef HAVE_IFPACK2_MPI
-      MPI_Request mpi_request_;
-      MPI_Comm comm_;
-#endif
-      magnitude_type work_[3];
-
-    public:
-      NormManager() = default;
-      NormManager(const NormManager &b) = default;
-      NormManager(const Teuchos::RCP<const Teuchos::Comm<int> >& comm) {
-        sweep_step_ = 1;
-        sweep_step_upper_bound_ = 1;
-        collective_ = comm->getSize() > 1;
-        if (collective_) {
-#ifdef HAVE_IFPACK2_MPI
-          const auto mpi_comm = Teuchos::rcp_dynamic_cast<const Teuchos::MpiComm<int> >(comm);
-          TEUCHOS_ASSERT( ! mpi_comm.is_null());
-          comm_ = *mpi_comm->getRawMpiComm();
-#endif
-        }
-        const magnitude_type zero(0), minus_one(-1);
-        work_[0] = zero;
-        work_[1] = zero;
-        work_[2] = minus_one;
-      }
-
-      // Check the norm every sweep_step sweeps.
-      void setCheckFrequency(const int sweep_step) {
-        TEUCHOS_TEST_FOR_EXCEPT_MSG(sweep_step < 1, "sweep step must be >= 1");
-        sweep_step_upper_bound_ = sweep_step;
-        sweep_step_ = 1;
-      }
-
-      // Get the buffer into which to store rank-local squared norms.
-      magnitude_type* getBuffer() { return &work_[0]; }
-
-      // Call MPI_Iallreduce to find the global squared norms.
-      void ireduce(const int sweep, const bool force = false) {
-        if ( ! force && sweep % sweep_step_) return;
-
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::NormManager::Ireduce");
-
-        work_[1] = work_[0];
-#ifdef HAVE_IFPACK2_MPI
-        auto send_data = &work_[1];
-        auto recv_data = &work_[0];
-        if (collective_) {
-# if defined(IFPACK2_BLOCKTRIDICONTAINER_USE_MPI_3)
-          MPI_Iallreduce(send_data, recv_data, 1,
-                         Teuchos::Details::MpiTypeTraits<magnitude_type>::getType(),
-                         MPI_SUM, comm_, &mpi_request_);
-# else
-          MPI_Allreduce (send_data, recv_data, 1,
-                         Teuchos::Details::MpiTypeTraits<magnitude_type>::getType(),
-                         MPI_SUM, comm_);
-# endif
-        }
-#endif
-      }
-
-      // Check if the norm-based termination criterion is met. tol2 is the
-      // tolerance squared. Sweep is the sweep index. If not every iteration is
-      // being checked, this function immediately returns false. If a check must
-      // be done at this iteration, it waits for the reduction triggered by
-      // ireduce to complete, then checks the global norm against the tolerance.
-      bool checkDone (const int sweep, const magnitude_type tol2, const bool force = false) {
-        // early return
-        if (sweep <= 0) return false;
-
-        IFPACK2_BLOCKTRIDICONTAINER_TIMER("BlockTriDi::NormManager::CheckDone");
-
-        TEUCHOS_ASSERT(sweep >= 1);
-        if ( ! force && (sweep - 1) % sweep_step_) return false;
-        if (collective_) {
-#ifdef HAVE_IFPACK2_MPI
-# if defined(IFPACK2_BLOCKTRIDICONTAINER_USE_MPI_3)
-          MPI_Wait(&mpi_request_, MPI_STATUS_IGNORE);
-# else
-          // Do nothing.
-# endif
-#endif
-        }
-        bool r_val = false;
-        if (sweep == 1) {
-          work_[2] = work_[0];
-        } else {
-          r_val = (work_[0] < tol2*work_[2]);
-        }
-
-        // adjust sweep step
-        const auto adjusted_sweep_step = 2*sweep_step_;
-        if (adjusted_sweep_step < sweep_step_upper_bound_) {
-          sweep_step_ = adjusted_sweep_step;
-        } else {
-          sweep_step_ = sweep_step_upper_bound_;
-        }
-        return r_val;
-      }
-
-      // After termination has occurred, finalize the norms for use in
-      // get_norms{0,final}.
-      void finalize () {
-        work_[0] = std::sqrt(work_[0]); // after converged
-        if (work_[2] >= 0)
-          work_[2] = std::sqrt(work_[2]); // first norm
-        // if work_[2] is minus one, then norm is not requested.
-      }
-
-      // Report norms to the caller.
-      const magnitude_type getNorms0 () const { return work_[2]; }
-      const magnitude_type getNormsFinal () const { return work_[0]; }
     };
 
     ///
@@ -3811,7 +2561,7 @@ namespace Ifpack2 {
                        const int max_num_sweeps,
                        const typename BlockHelperDetails::ImplType<MatrixType>::magnitude_type tol,
                        const int check_tol_every) {
-      IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ApplyInverseJacobi");
+      IFPACK2_BLOCKHELPER_TIMER("BlockJacobi::ApplyInverseJacobi");
 
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using node_memory_space = typename impl_type::node_memory_space;
@@ -3888,7 +2638,7 @@ namespace Ifpack2 {
       if (is_y_zero) Kokkos::deep_copy(YY, zero);
 
       MultiVectorConverter<MatrixType> multivector_converter(interf, pmv);
-      SolveTridiags<MatrixType> solve_tridiags(interf, btdm, pmv,
+      SolveJacobi<MatrixType> solve_tridiags(interf, btdm, pmv,
                                                damping_factor, is_norm_manager_active);
 
       const local_ordinal_type_1d_view dummy_local_ordinal_type_1d_view;
@@ -3994,7 +2744,7 @@ namespace Ifpack2 {
       mutable norm_manager_type norm_manager;
     };
 
-  } // namespace BlockTriDiContainerDetails
+  } // namespace BlockJacobiContainerDetails
 
 } // namespace Ifpack2
 

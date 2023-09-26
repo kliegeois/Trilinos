@@ -1,5 +1,7 @@
 #include <Ifpack2_Factory.hpp>
 #include <Ifpack2_BlockTriDiContainer.hpp>
+#include <Ifpack2_BlockTriDiSchurContainer.hpp>
+#include <Ifpack2_BlockJacobiContainer.hpp>
 #include <BelosTpetraAdapter.hpp>
 #include <BelosSolverFactory.hpp>
 #include <MatrixMarket_Tpetra.hpp>
@@ -14,11 +16,13 @@
 #include "Teuchos_StackedTimer.hpp"
 #include <Teuchos_StandardCatchMacros.hpp>
 
+#include <cfenv>
+
 namespace { // (anonymous)
 
 // Values of command-line arguments.
 struct CmdLineArgs {
-  CmdLineArgs ():blockSize(-1),numIters(10),numRepeats(1),tol(1e-12),nx(172),ny(-1),nz(-1),mx(1),my(1),mz(1),sublinesPerLine(1),useStackedTimer(false),overlapCommAndComp(false){}
+  CmdLineArgs ():blockSize(-1),numIters(10),numRepeats(1),tol(1e-12),nx(172),ny(-1),nz(-1),mx(1),my(1),mz(1),sublinesPerLine(1),sublinesPerLineSchur(2),useStackedTimer(false),overlapCommAndComp(false){}
 
   std::string mapFilename;
   std::string matrixFilename;
@@ -35,6 +39,7 @@ struct CmdLineArgs {
   int my;
   int mz;
   int sublinesPerLine;
+  int sublinesPerLineSchur;
   bool useStackedTimer;
   bool overlapCommAndComp;
   std::string problemName;
@@ -71,6 +76,7 @@ getCmdLineArgs (CmdLineArgs& args, int argc, char* argv[])
 		  "Whether to run with overlapCommAndComp)");
   cmdp.setOption("problemName", &args.problemName, "Human-readable problem name for Watchr plot");
   cmdp.setOption("matrixType", &args.matrixType, "matrixType");
+  cmdp.setOption("sublinesPerLineSchur", &args.sublinesPerLineSchur, "sublinesPerLineSchur");
   auto result = cmdp.parse (argc, argv);
   return result == Teuchos::CommandLineProcessor::PARSE_SUCCESSFUL;
 }
@@ -112,7 +118,7 @@ static Teuchos::RCP<Xpetra::Matrix<SC,LO,GO,NO> > BuildMatrix(Teuchos::Parameter
   ny = matrixList.get("ny", ny);
   nz = matrixList.get("nz", nz);
   
-  std::string matrixType = matrixList.get("matrixType","Laplace1D");
+  std::string matrixType = matrixList.get("matrixType","Laplace3D");
   RCP<const Map> map;
   if (matrixType == "Laplace1D")
     map = Galeri::Xpetra::CreateMap<LO,GO,NO>(lib, "Cartesian1D", comm, matrixList);
@@ -268,6 +274,7 @@ Teuchos::RCP<Tpetra::BlockCrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node> >
 int
 main (int argc, char* argv[])
 {
+  feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
   using Teuchos::Comm;
   using Teuchos::ParameterList;
   using Teuchos::RCP;
@@ -291,7 +298,7 @@ main (int argc, char* argv[])
   typedef Tpetra::Vector<LO,LO,GO,NO> IV;
   typedef Tpetra::MatrixMarket::Reader<crs_matrix_type> reader_type;
   typedef Tpetra::MatrixMarket::Reader<Tpetra::CrsMatrix<LO,LO,GO,NO> > LO_reader_type;
-  typedef Ifpack2::BlockTriDiContainer<row_matrix_type> BTDC;
+  typedef Ifpack2::BlockTriDiSchurContainer<row_matrix_type> BTDC;
 
   Tpetra::ScopeGuard tpetraScope (&argc, &argv);
 
@@ -332,12 +339,12 @@ main (int argc, char* argv[])
   }
 #endif
   if(inline_matrix == false) {
-    if (args.mapFilename == "") {
-      if (rank0) cerr << "Must specify filename for loading the map of the right-hand side(s)!" << endl;
-      return EXIT_FAILURE;
-    }
     if (args.matrixFilename == "") {
       if (rank0) cerr << "Must specify sparse matrix filename!" << endl;
+      return EXIT_FAILURE;
+    }
+    if (args.mapFilename == "") {
+      if (rank0) cerr << "Must specify filename for loading the map of the right-hand side(s)!" << endl;
       return EXIT_FAILURE;
     }
     if (args.rhsFilename == "") {
@@ -364,7 +371,11 @@ main (int argc, char* argv[])
     // matrix
     Teuchos::ParameterList plist;
     if(args.matrixType == "") {
-      plist.set("matrixType","Laplace1D");
+      plist.set("matrixType","Laplace3D");
+      plist.set("nx",(GO)15);
+      plist.set("ny",(GO)4);
+      plist.set("nz",(GO)5);
+      plist.set("blockSize", (GO)1);
     } else {
       plist.set("matrixType", args.matrixType);
       plist.set("nx", (GO)args.nx);
@@ -573,7 +584,7 @@ main (int argc, char* argv[])
 
   {
     Teuchos::TimeMonitor precSetupTimeMon (*precSetupTime);
-    precond = rcp(new BTDC(Ablock,parts,args.overlapCommAndComp));
+    precond = rcp(new BTDC(Ablock,parts,args.sublinesPerLineSchur,args.overlapCommAndComp));
 
     if(rank0) std::cout<<"Initializing preconditioner..."<<std::endl;
     precond->initialize ();
@@ -586,7 +597,7 @@ main (int argc, char* argv[])
   ap.tolerance            = args.tol;
   ap.maxNumSweeps         = args.numIters;
   ap.checkToleranceEvery  = 10;
- 
+
 
   // Solve
   for(int repeat=0; repeat < args.numRepeats; ++repeat)
@@ -621,7 +632,6 @@ main (int argc, char* argv[])
       std::cout<<"Final norm X = "<<normx[0]<<" norm B = "<<normb[0]<<std::endl;
     }
   }
-
 
   // Report timings.
   if(args.useStackedTimer)
