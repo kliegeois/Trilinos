@@ -1,7 +1,6 @@
 #include <Ifpack2_Factory.hpp>
 #include <Ifpack2_BlockTriDiContainer.hpp>
 #include <Ifpack2_BlockTriDiSchurContainer.hpp>
-#include <Ifpack2_BlockJacobiContainer.hpp>
 #include <BelosTpetraAdapter.hpp>
 #include <BelosSolverFactory.hpp>
 #include <MatrixMarket_Tpetra.hpp>
