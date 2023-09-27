@@ -982,6 +982,120 @@ namespace Ifpack2 {
           }
           partptr(ip+1) = os + ipnrows;
         }
+        part2rowidx0_sub(0) = 0;
+        partptr_sub(0, 0) = 0;
+
+        for (local_ordinal_type ip=0;ip<nparts;++ip) {
+          const local_ordinal_type ipnrows = 1;
+          //const local_ordinal_type first_sub_part_index = ip * (2*n_subparts_per_part - 1);
+          const local_ordinal_type full_line_length = partptr(ip+1) - partptr(ip);
+
+          TEUCHOS_TEST_FOR_EXCEPTION
+            (full_line_length != ipnrows, std::logic_error, 
+            "In the part " << ip );  
+
+          const local_ordinal_type connection_length = 2;
+
+          if (full_line_length < n_subparts_per_part + (n_subparts_per_part - 1) * connection_length )
+              TEUCHOS_TEST_FOR_EXCEPTION
+                (true, std::logic_error, 
+                "The part " << ip << " is too short to use " << n_subparts_per_part << " sub parts.");            
+
+          const local_ordinal_type sub_line_length = floor(float(full_line_length - (n_subparts_per_part - 1) * connection_length) / n_subparts_per_part);
+          const local_ordinal_type last_sub_line_length = full_line_length - (n_subparts_per_part - 1) * (connection_length + sub_line_length);
+
+          if (ip % vector_length == 0) pack_nrows_sub = ipnrows;
+
+          for (local_ordinal_type local_sub_ip=0; local_sub_ip<n_subparts_per_part;++local_sub_ip) {
+            const local_ordinal_type sub_ip = nparts*(2*local_sub_ip) + ip;
+            const local_ordinal_type schur_ip = nparts*(2*local_sub_ip+1) + ip;
+            if (local_sub_ip != n_subparts_per_part-1) {
+              if (local_sub_ip != 0) {
+                partptr_sub(sub_ip, 0) = partptr_sub(nparts*(2*local_sub_ip-1) + ip, 1);
+              }
+              else if (ip != 0) {
+                partptr_sub(sub_ip, 0) = partptr_sub(nparts*2*(n_subparts_per_part-1) + ip - 1, 1);
+              }
+              partptr_sub(sub_ip, 1) = sub_line_length + partptr_sub(sub_ip, 0);
+              partptr_sub(schur_ip, 0) = partptr_sub(sub_ip, 1);
+              partptr_sub(schur_ip, 1) = connection_length + partptr_sub(schur_ip, 0);
+
+              part2rowidx0_sub(sub_ip + 1) = part2rowidx0_sub(sub_ip) + sub_line_length;
+              part2rowidx0_sub(sub_ip + 2) = part2rowidx0_sub(sub_ip + 1) + connection_length;
+
+              //printf("Sub Part index = %d, first LID associated to the sub part = %d, sub part size = %d;\n", sub_ip, partptr_sub(ip, 2 * local_sub_ip), sub_line_length);
+              //printf("Sub Part index Schur = %d, first LID associated to the sub part = %d, sub part size = %d;\n", sub_ip + 1, partptr_sub(ip, 2 * local_sub_ip + 1), connection_length);
+            }
+            else {
+              if (local_sub_ip != 0) {
+                partptr_sub(sub_ip, 0) = partptr_sub(nparts*(2*local_sub_ip-1) + ip, 1);
+              }
+              else if (ip != 0) {
+                partptr_sub(sub_ip, 0) = partptr_sub(nparts*2*(n_subparts_per_part-1) + ip - 1, 1);
+              }
+              partptr_sub(sub_ip, 1) = last_sub_line_length + partptr_sub(sub_ip, 0);
+
+              part2rowidx0_sub(sub_ip + 1) = part2rowidx0_sub(sub_ip) + last_sub_line_length;
+
+              //printf("Sub Part index = %d, first LID associated to the sub part = %d, sub part size = %d;\n", sub_ip, partptr_sub(ip, 2 * local_sub_ip), last_sub_line_length);
+            }
+          }
+        }
+
+        std::cout << "partptr_sub = " << std::endl;
+        for (size_type i = 0; i < partptr_sub.extent(0); ++i) {
+          for (size_type j = 0; j < partptr_sub.extent(1); ++j) {
+            std::cout << partptr_sub(i,j) << " ";
+          }
+          std::cout << std::endl;
+        }
+        std::cout << "partptr_sub end" << std::endl;
+
+        {
+          local_ordinal_type npacks = ceil(float(nparts)/vector_length);
+          //std::cout << "Number of packs is npacks 0 = " << npacks << " " << nparts << " " << vector_length << std::endl;
+
+          local_ordinal_type ip_max = nparts > vector_length ? vector_length : nparts;
+          for (local_ordinal_type ip=0;ip<ip_max;++ip) {
+            part2packrowidx0_sub(ip, 0) = 0;
+          }
+          for (local_ordinal_type ipack=0;ipack<npacks;++ipack) {
+            if (ipack != 0) {
+              local_ordinal_type ip_min = ipack*vector_length;
+              local_ordinal_type ip_max = nparts > (ipack+1)*vector_length ? (ipack+1)*vector_length : nparts;
+              for (local_ordinal_type ip=ip_min;ip<ip_max;++ip) {
+                part2packrowidx0_sub(ip, 0) = part2packrowidx0_sub(ip-vector_length, part2packrowidx0_sub.extent(1)-1);
+              }
+            }
+
+            for (size_type local_sub_ip=0; local_sub_ip<part2packrowidx0_sub.extent(1)-1;++local_sub_ip) {
+              local_ordinal_type ip_min = ipack*vector_length;
+              local_ordinal_type ip_max = nparts > (ipack+1)*vector_length ? (ipack+1)*vector_length : nparts;
+
+              //const auto* part = &partitions[p[ip_min]];
+              //const local_ordinal_type ipnrows = part->size();
+              //const local_ordinal_type first_sub_part_index = ip_min * (2*n_subparts_per_part - 1);
+              const local_ordinal_type full_line_length = partptr(ip_min+1) - partptr(ip_min);
+
+              const local_ordinal_type connection_length = 2;      
+
+              const local_ordinal_type sub_line_length = floor(float(full_line_length - (n_subparts_per_part - 1) * connection_length) / n_subparts_per_part);
+              const local_ordinal_type last_sub_line_length = full_line_length - (n_subparts_per_part - 1) * (connection_length + sub_line_length);
+
+              if (local_sub_ip % 2 == 0) pack_nrows_sub = sub_line_length;
+              if (local_sub_ip % 2 == 1) pack_nrows_sub = connection_length;
+              if (local_sub_ip == part2packrowidx0_sub.extent(1)-2) pack_nrows_sub = last_sub_line_length;
+
+              part2packrowidx0_sub(ip_min, local_sub_ip + 1) = part2packrowidx0_sub(ip_min, local_sub_ip) + pack_nrows_sub;
+
+              for (local_ordinal_type ip=ip_min+1;ip<ip_max;++ip) {
+                part2packrowidx0_sub(ip, local_sub_ip + 1) = part2packrowidx0_sub(ip_min, local_sub_ip + 1);
+              }
+            }
+          }
+
+          Kokkos::deep_copy(interf.part2packrowidx0_sub, part2packrowidx0_sub);
+        }        
         IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
       } else {
         IFPACK2_BLOCKHELPER_TIMER("determine part");
@@ -4236,8 +4350,8 @@ namespace Ifpack2 {
 
         //std::cout << " c_kps1 = " << c_kps1 << " c_kps2 = " << c_kps2 << std::endl;
 
-        const local_ordinal_type e_r1 = part2packrowidx0_sub(partidx,local_subpartidx)-1;
-        const local_ordinal_type e_r2 = part2packrowidx0_sub(partidx,local_subpartidx)+2;
+        //const local_ordinal_type e_r1 = part2packrowidx0_sub(partidx,local_subpartidx)-1;
+        //const local_ordinal_type e_r2 = part2packrowidx0_sub(partidx,local_subpartidx)+2;
 
         //std::cout << " e_r1 = " << e_r1 << " e_r2 = " << e_r2 << std::endl;
         //std::cout << " r0 = " << r0 << " r0+nrows = " << r0+nrows << std::endl;
