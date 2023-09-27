@@ -228,7 +228,7 @@ namespace Ifpack2 {
     ///   purposes only.
     BlockTriDiContainer (const Teuchos::RCP<const row_matrix_type>& matrix,
                          const Teuchos::Array<Teuchos::Array<local_ordinal_type> >& partitions,
-                         const int n_subparts_per_part,
+                         const int n_subparts_per_part = 1,
                          bool overlapCommAndComp = false, bool useSequentialMethod = false);
 
     //! Destructor (declared virtual for memory safety of derived classes).

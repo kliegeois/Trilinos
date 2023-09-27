@@ -196,7 +196,7 @@ namespace Ifpack2 {
     IFPACK2_BLOCKHELPER_TIMER("BlockTriDiContainer::BlockTriDiContainer");
     const bool useSeqMethod = false;
     const bool overlapCommAndComp = false;
-    initInternal(matrix, partitions, importer, 2, overlapCommAndComp, useSeqMethod);
+    initInternal(matrix, partitions, importer, 1, overlapCommAndComp, useSeqMethod);
     IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
   }
 
