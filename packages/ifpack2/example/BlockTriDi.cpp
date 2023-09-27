@@ -18,7 +18,7 @@ namespace { // (anonymous)
 
 // Values of command-line arguments.
 struct CmdLineArgs {
-  CmdLineArgs ():blockSize(-1),numIters(10),numRepeats(1),tol(1e-12),nx(172),ny(-1),nz(-1),mx(1),my(1),mz(1),sublinesPerLine(1),sublinesPerLineSchur(2),useStackedTimer(false),overlapCommAndComp(false){}
+  CmdLineArgs ():blockSize(-1),numIters(10),numRepeats(1),tol(1e-12),nx(172),ny(-1),nz(-1),mx(1),my(1),mz(1),sublinesPerLine(1),sublinesPerLineSchur(1),useStackedTimer(false),overlapCommAndComp(false){}
 
   std::string mapFilename;
   std::string matrixFilename;
@@ -370,7 +370,7 @@ main (int argc, char* argv[])
       plist.set("nx",(GO)15);
       plist.set("ny",(GO)4);
       plist.set("nz",(GO)5);
-      plist.set("blockSize", (GO)1);
+      plist.set("blockSize", 1);
     } else {
       plist.set("matrixType", args.matrixType);
       plist.set("nx", (GO)args.nx);
