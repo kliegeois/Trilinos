@@ -114,7 +114,7 @@ static Teuchos::RCP<Xpetra::Matrix<SC,LO,GO,NO> > BuildMatrix(Teuchos::Parameter
   ny = matrixList.get("ny", ny);
   nz = matrixList.get("nz", nz);
   
-  std::string matrixType = matrixList.get("matrixType","Laplace3D");
+  std::string matrixType = matrixList.get("matrixType","Laplace1D");
   RCP<const Map> map;
   if (matrixType == "Laplace1D")
     map = Galeri::Xpetra::CreateMap<LO,GO,NO>(lib, "Cartesian1D", comm, matrixList);
@@ -366,11 +366,7 @@ main (int argc, char* argv[])
     // matrix
     Teuchos::ParameterList plist;
     if(args.matrixType == "") {
-      plist.set("matrixType","Laplace3D");
-      plist.set("nx",(GO)15);
-      plist.set("ny",(GO)4);
-      plist.set("nz",(GO)5);
-      plist.set("blockSize", 1);
+      plist.set("matrixType","Laplace1D");
     } else {
       plist.set("matrixType", args.matrixType);
       plist.set("nx", (GO)args.nx);
@@ -627,6 +623,7 @@ main (int argc, char* argv[])
       std::cout<<"Final norm X = "<<normx[0]<<" norm B = "<<normb[0]<<std::endl;
     }
   }
+
 
   // Report timings.
   if(args.useStackedTimer)
