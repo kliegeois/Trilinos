@@ -49,7 +49,6 @@
 #include "Ifpack2_SparseContainer.hpp"
 #include "Ifpack2_BandedContainer.hpp"
 #include "Ifpack2_BlockTriDiContainer.hpp"
-#include "Ifpack2_BlockTriDiSchurContainer.hpp"
 #include "Ifpack2_ILUT.hpp"
 #include "Teuchos_ArrayView.hpp"
 
@@ -71,7 +70,6 @@ registerDefaults()
 #endif
 #ifdef HAVE_IFPACK2_EXPERIMENTAL_KOKKOSKERNELS_FEATURES
   registerContainer<Ifpack2::BlockTriDiContainer<MatrixType>>("BlockTriDi");
-  registerContainer<Ifpack2::BlockTriDiSchurContainer<MatrixType>>("BlockTriDiSchur");
 #endif
   registeredDefaults = true;
 }

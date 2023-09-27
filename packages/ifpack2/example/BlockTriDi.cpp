@@ -1,6 +1,5 @@
 #include <Ifpack2_Factory.hpp>
 #include <Ifpack2_BlockTriDiContainer.hpp>
-#include <Ifpack2_BlockTriDiSchurContainer.hpp>
 #include <BelosTpetraAdapter.hpp>
 #include <BelosSolverFactory.hpp>
 #include <MatrixMarket_Tpetra.hpp>
@@ -14,8 +13,6 @@
 #include <Teuchos_TimeMonitor.hpp>
 #include "Teuchos_StackedTimer.hpp"
 #include <Teuchos_StandardCatchMacros.hpp>
-
-#include <cfenv>
 
 namespace { // (anonymous)
 
@@ -273,7 +270,6 @@ Teuchos::RCP<Tpetra::BlockCrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node> >
 int
 main (int argc, char* argv[])
 {
-  feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
   using Teuchos::Comm;
   using Teuchos::ParameterList;
   using Teuchos::RCP;
@@ -297,7 +293,7 @@ main (int argc, char* argv[])
   typedef Tpetra::Vector<LO,LO,GO,NO> IV;
   typedef Tpetra::MatrixMarket::Reader<crs_matrix_type> reader_type;
   typedef Tpetra::MatrixMarket::Reader<Tpetra::CrsMatrix<LO,LO,GO,NO> > LO_reader_type;
-  typedef Ifpack2::BlockTriDiSchurContainer<row_matrix_type> BTDC;
+  typedef Ifpack2::BlockTriDiContainer<row_matrix_type> BTDC;
 
   Tpetra::ScopeGuard tpetraScope (&argc, &argv);
 
@@ -596,7 +592,7 @@ main (int argc, char* argv[])
   ap.tolerance            = args.tol;
   ap.maxNumSweeps         = args.numIters;
   ap.checkToleranceEvery  = 10;
-
+ 
 
   // Solve
   for(int repeat=0; repeat < args.numRepeats; ++repeat)
