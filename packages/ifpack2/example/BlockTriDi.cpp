@@ -334,12 +334,12 @@ main (int argc, char* argv[])
   }
 #endif
   if(inline_matrix == false) {
-    if (args.matrixFilename == "") {
-      if (rank0) cerr << "Must specify sparse matrix filename!" << endl;
-      return EXIT_FAILURE;
-    }
     if (args.mapFilename == "") {
       if (rank0) cerr << "Must specify filename for loading the map of the right-hand side(s)!" << endl;
+      return EXIT_FAILURE;
+    }
+    if (args.matrixFilename == "") {
+      if (rank0) cerr << "Must specify sparse matrix filename!" << endl;
       return EXIT_FAILURE;
     }
     if (args.rhsFilename == "") {
