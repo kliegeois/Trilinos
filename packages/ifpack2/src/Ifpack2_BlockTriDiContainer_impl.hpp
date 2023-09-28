@@ -1040,6 +1040,7 @@ namespace Ifpack2 {
           }
         }
 
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_WRITE_MM
         std::cout << "partptr_sub = " << std::endl;
         for (size_type i = 0; i < partptr_sub.extent(0); ++i) {
           for (size_type j = 0; j < partptr_sub.extent(1); ++j) {
@@ -1048,6 +1049,7 @@ namespace Ifpack2 {
           std::cout << std::endl;
         }
         std::cout << "partptr_sub end" << std::endl;
+#endif
 
         {
           local_ordinal_type npacks = ceil(float(nparts)/vector_length);
@@ -1459,37 +1461,37 @@ namespace Ifpack2 {
 
       Kokkos::deep_copy(btdm.pack_td_ptr_schur, host_pack_td_ptr_schur);
 
-      //std::cout << "flat_td_ptr = " << std::endl;
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_WRITE_MM
+      std::cout << "flat_td_ptr = " << std::endl;
       for (size_type i = 0; i < btdm.flat_td_ptr.extent(0); ++i) {
         for (size_type j = 0; j < btdm.flat_td_ptr.extent(1); ++j) {
-          //std::cout << btdm.flat_td_ptr(i,j) << " ";
+          std::cout << btdm.flat_td_ptr(i,j) << " ";
         }
-        //std::cout << std::endl;
+        std::cout << std::endl;
       }
-      //std::cout << "flat_td_ptr end" << std::endl;
+      std::cout << "flat_td_ptr end" << std::endl;
 
-      //std::cout << "pack_td_ptr = " << std::endl;
+      std::cout << "pack_td_ptr = " << std::endl;
       for (size_type i = 0; i < btdm.pack_td_ptr.extent(0); ++i) {
         for (size_type j = 0; j < btdm.pack_td_ptr.extent(1); ++j) {
-          //std::cout << btdm.pack_td_ptr(i,j) << " ";
+          std::cout << btdm.pack_td_ptr(i,j) << " ";
         }
-        //std::cout << std::endl;
+        std::cout << std::endl;
       }
-      //std::cout << "pack_td_ptr end" << std::endl;
+      std::cout << "pack_td_ptr end" << std::endl;
 
 
-      //std::cout << "pack_td_ptr_schur = " << std::endl;
+      std::cout << "pack_td_ptr_schur = " << std::endl;
       for (size_type i = 0; i < btdm.pack_td_ptr_schur.extent(0); ++i) {
         for (size_type j = 0; j < btdm.pack_td_ptr_schur.extent(1); ++j) {
-          //std::cout << btdm.pack_td_ptr_schur(i,j) << " ";
+          std::cout << btdm.pack_td_ptr_schur(i,j) << " ";
         }
-        //std::cout << std::endl;
+        std::cout << std::endl;
       }
-      //std::cout << "pack_td_ptr_schur end" << std::endl;
+      std::cout << "pack_td_ptr_schur end" << std::endl;
+#endif
 
       // values and A_colindsub are created in the symbolic phase
-
-      //std::cout << " createBlockTridiags end " << std::endl;
       IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
 
       return btdm;
