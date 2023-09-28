@@ -4498,20 +4498,27 @@ namespace Ifpack2 {
 #else
 #define BLOCKTRIDICONTAINER_DETAILS_SOLVETRIDIAGS(B)                    \
         if (num_vectors == 1) {                                         \
-          { \
-            IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ApplyInverseJacobi::SingleVectorSubLineTag"); \
-            write4DMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), X_internal_scalar_values, "x_scalar_values_before_SingleVectorSubLineTag.mm"); \
-            Kokkos::TeamPolicy<execution_space,SingleVectorSubLineTag<B> >       \
-              policy(packindices_sub.extent(0), team_size, vector_loop_size); \
+          if (packindices_schur.extent(0) == 0) { \
+            Kokkos::TeamPolicy<execution_space,SingleVectorTag<B> >       \
+              policy(packptr.extent(0) - 1, team_size, vector_loop_size); \
             policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch)); \
             Kokkos::parallel_for                                          \
               ("SolveTridiags::TeamPolicy::run<SingleVector>",            \
               policy, *this);                                            \
-            write4DMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), X_internal_scalar_values, "x_scalar_values_after_SingleVectorSubLineTag.mm"); \
-            IFPACK2_BLOCKHELPER_TIMER_FENCE(execution_space) \
           } \
-          if (packindices_schur.extent(0) != 0) \
-          { \
+          else { \
+            { \
+              IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ApplyInverseJacobi::SingleVectorSubLineTag"); \
+              write4DMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), X_internal_scalar_values, "x_scalar_values_before_SingleVectorSubLineTag.mm"); \
+              Kokkos::TeamPolicy<execution_space,SingleVectorSubLineTag<B> >       \
+                policy(packindices_sub.extent(0), team_size, vector_loop_size); \
+              policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch)); \
+              Kokkos::parallel_for                                          \
+                ("SolveTridiags::TeamPolicy::run<SingleVector>",            \
+                policy, *this);                                            \
+              write4DMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), X_internal_scalar_values, "x_scalar_values_after_SingleVectorSubLineTag.mm"); \
+              IFPACK2_BLOCKHELPER_TIMER_FENCE(execution_space) \
+            } \
             { \
               IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ApplyInverseJacobi::SingleVectorApplyCTag"); \
               write4DMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), X_internal_scalar_values, "x_scalar_values_before_SingleVectorApplyCTag.mm"); \
