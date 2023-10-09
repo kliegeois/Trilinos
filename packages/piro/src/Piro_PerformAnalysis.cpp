@@ -875,14 +875,6 @@ Piro::PerformROLTransientAnalysis(
   Teuchos::RCP<Tempus::Integrator<double>> adjoint_integrator =
     Tempus::createIntegratorBasic<double>(tempus_params, adjointModel);
 
-  Piro::ThyraProductME_ROL_DynamicObjective<double> obj(model, forward_integrator, adjoint_integrator, adjointModel, g_index, piroParams, nt, analysisVerbosityLevel, observer);
-  Piro::ThyraProductME_ROL_DynamicConstraint<double> constr(forward_integrator, adjoint_integrator, adjointModel, piroParams, analysisVerbosityLevel, observer);
-
-  Piro::ThyraProductME_TempusFinalObjective<double> tempus_obj(model, forward_integrator, adjoint_integrator, adjointModel, g_index, piroParams, nt, analysisVerbosityLevel, observer);
-
-  constr.setSolveParameters(rolParams.sublist("ROL Options"));
-  constr.setNumResponses(piroTSolver->num_g());
-
   ROL::Ptr<ROL::Vector<double> > rol_p_ptr = ROL::makePtrFromRef(rol_p);
   ROL::Ptr<ROL::Vector<double> > rol_x_ptr = ROL::makePtrFromRef(rol_x);
   ROL::Ptr<ROL::Vector<double> > rol_lambda_ptr = ROL::makePtrFromRef(rol_lambda);
@@ -907,38 +899,39 @@ Piro::PerformROLTransientAnalysis(
   bool useFullSpace = rolParams.get("Full Space",false);
   bool useTempusDriver = true; //rolParams.get("Tempus Driver",false);
 
+  if(analysisVerbosity >= 3) {
+    *out << "\nPiro PerformAnalysis: ROL options:" << std::endl;
+    rolParams.sublist("ROL Options").print(*out);
+    *out << std::endl;
+  }
+
+  Teuchos::RCP<ROL::BoundConstraint<double> > boundConstraint;
+  bool boundConstrained = rolParams.get<bool>("Bound Constrained", false);
+
+  if(boundConstrained) {
+    Teuchos::RCP<Thyra::VectorBase<double>> p_lo = model->getLowerBounds().get_p(0)->clone_v();
+    Teuchos::RCP<Thyra::VectorBase<double>> p_up = model->getUpperBounds().get_p(0)->clone_v();
+
+    //ROL::Thyra_BoundConstraint<double> boundConstraint(p_lo->clone_v(), p_up->clone_v(), eps_bound);
+    boundConstraint = rcp( new ROL::Bounds<double>(ROL::makePtr<ROL::ThyraVector<double> >(p_lo), ROL::makePtr<ROL::ThyraVector<double> >(p_up)));
+  }
+
+  int return_status = 0;
+
+  RolOutputBuffer<char> rolOutputBuffer;
+  std::ostream rolOutputStream(&rolOutputBuffer);
+  Teuchos::RCP<Teuchos::FancyOStream> rolOutput = Teuchos::getFancyOStream(Teuchos::rcpFromRef(rolOutputStream));
+  rolOutput->setOutputToRootOnly(0);
+
+  Teuchos::RCP<Thyra::VectorBase<double> > scaling_vector_p = p->clone_v();
+  ::Thyra::put_scalar<double>( 1.0, scaling_vector_p.ptr());
+  ROL::PrimalScaledThyraVector<double> rol_p_primal(p, scaling_vector_p);
+
   if(useTempusDriver) {
 
+    Piro::ThyraProductME_TempusFinalObjective<double> tempus_obj(model, forward_integrator, adjoint_integrator, adjointModel, g_index, piroParams, nt, analysisVerbosityLevel, observer);
+
     ROL::Ptr<ROL::Objective<double> > obj_ptr = ROL::makePtrFromRef(tempus_obj);
-    //ROL::Ptr<ROL::Constraint<double> > constr_ptr = ROL::makePtrFromRef(constr);
-    
-    if(analysisVerbosity >= 3) {
-      *out << "\nPiro PerformAnalysis: ROL options:" << std::endl;
-      rolParams.sublist("ROL Options").print(*out);
-      *out << std::endl;
-    }
-
-    Teuchos::RCP<ROL::BoundConstraint<double> > boundConstraint;
-    bool boundConstrained = rolParams.get<bool>("Bound Constrained", false);
-
-    if(boundConstrained) {
-      Teuchos::RCP<Thyra::VectorBase<double>> p_lo = model->getLowerBounds().get_p(0)->clone_v();
-      Teuchos::RCP<Thyra::VectorBase<double>> p_up = model->getUpperBounds().get_p(0)->clone_v();
-
-      //ROL::Thyra_BoundConstraint<double> boundConstraint(p_lo->clone_v(), p_up->clone_v(), eps_bound);
-      boundConstraint = rcp( new ROL::Bounds<double>(ROL::makePtr<ROL::ThyraVector<double> >(p_lo), ROL::makePtr<ROL::ThyraVector<double> >(p_up)));
-    }
-
-    int return_status = 0;
-
-    RolOutputBuffer<char> rolOutputBuffer;
-    std::ostream rolOutputStream(&rolOutputBuffer);
-    Teuchos::RCP<Teuchos::FancyOStream> rolOutput = Teuchos::getFancyOStream(Teuchos::rcpFromRef(rolOutputStream));
-    rolOutput->setOutputToRootOnly(0);
-
-    Teuchos::RCP<Thyra::VectorBase<double> > scaling_vector_p = p->clone_v();
-    ::Thyra::put_scalar<double>( 1.0, scaling_vector_p.ptr());
-    ROL::PrimalScaledThyraVector<double> rol_p_primal(p, scaling_vector_p);
 
     if ( useFullSpace ) {
       TEUCHOS_TEST_FOR_EXCEPTION(true, Teuchos::Exceptions::InvalidParameter,
@@ -964,37 +957,14 @@ Piro::PerformROLTransientAnalysis(
     return return_status;
   }
   else {
+    Piro::ThyraProductME_ROL_DynamicObjective<double> obj(model, forward_integrator, adjoint_integrator, adjointModel, g_index, piroParams, nt, analysisVerbosityLevel, observer);
+    Piro::ThyraProductME_ROL_DynamicConstraint<double> constr(forward_integrator, adjoint_integrator, adjointModel, piroParams, analysisVerbosityLevel, observer);
+
+    constr.setSolveParameters(rolParams.sublist("ROL Options"));
+    constr.setNumResponses(piroTSolver->num_g());
 
     ROL::Ptr<ROL::DynamicObjective<double> > obj_ptr = ROL::makePtrFromRef(obj);
     ROL::Ptr<ROL::DynamicConstraint<double> > constr_ptr = ROL::makePtrFromRef(constr);
-    
-    if(analysisVerbosity >= 3) {
-      *out << "\nPiro PerformAnalysis: ROL options:" << std::endl;
-      rolParams.sublist("ROL Options").print(*out);
-      *out << std::endl;
-    }
-
-    Teuchos::RCP<ROL::BoundConstraint<double> > boundConstraint;
-    bool boundConstrained = rolParams.get<bool>("Bound Constrained", false);
-
-    if(boundConstrained) {
-      Teuchos::RCP<Thyra::VectorBase<double>> p_lo = model->getLowerBounds().get_p(0)->clone_v();
-      Teuchos::RCP<Thyra::VectorBase<double>> p_up = model->getUpperBounds().get_p(0)->clone_v();
-
-      //ROL::Thyra_BoundConstraint<double> boundConstraint(p_lo->clone_v(), p_up->clone_v(), eps_bound);
-      boundConstraint = rcp( new ROL::Bounds<double>(ROL::makePtr<ROL::ThyraVector<double> >(p_lo), ROL::makePtr<ROL::ThyraVector<double> >(p_up)));
-    }
-
-    int return_status = 0;
-
-    RolOutputBuffer<char> rolOutputBuffer;
-    std::ostream rolOutputStream(&rolOutputBuffer);
-    Teuchos::RCP<Teuchos::FancyOStream> rolOutput = Teuchos::getFancyOStream(Teuchos::rcpFromRef(rolOutputStream));
-    rolOutput->setOutputToRootOnly(0);
-
-    Teuchos::RCP<Thyra::VectorBase<double> > scaling_vector_p = p->clone_v();
-    ::Thyra::put_scalar<double>( 1.0, scaling_vector_p.ptr());
-    ROL::PrimalScaledThyraVector<double> rol_p_primal(p, scaling_vector_p);
 
     if ( useFullSpace ) {
       TEUCHOS_TEST_FOR_EXCEPTION(true, Teuchos::Exceptions::InvalidParameter,
