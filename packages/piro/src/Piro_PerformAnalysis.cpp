@@ -78,7 +78,8 @@
 #include "Piro_TransientSolver.hpp"
 #include "Piro_TempusSolver.hpp"
 #ifdef HAVE_PIRO_ROL
-#include "Piro_ThyraProductME_TempusFinalObjective.hpp"
+#include "Piro_ThyraProduct_ROL_DynamicObjective.hpp"
+#include "Piro_ThyraProduct_Tempus_FinalObjective.hpp"
 #include "Piro_TempusDynamicConstraint.hpp"
 #include "ROL_ReducedDynamicObjective.hpp"
 #include "ROL_ReducedDynamicStationaryControlsObjective.hpp"
@@ -874,7 +875,7 @@ Piro::PerformROLTransientAnalysis(
   Teuchos::RCP<Tempus::Integrator<double>> adjoint_integrator =
     Tempus::createIntegratorBasic<double>(tempus_params, adjointModel);
 
-  Piro::ThyraProductME_TempusFinalObjective<double> obj(model, forward_integrator, adjoint_integrator, adjointModel, g_index, piroParams, nt, analysisVerbosityLevel, observer);
+  Piro::ThyraProduct_ROL_DynamicObjective<double> obj(model, forward_integrator, adjoint_integrator, adjointModel, g_index, piroParams, nt, analysisVerbosityLevel, observer);
   Piro::ThyraProduct_TempusFinalObjective<double> obj2(model, forward_integrator, adjoint_integrator, adjointModel, g_index, piroParams, nt, analysisVerbosityLevel, observer);
   Piro::ThyraProductME_TempusDynamicConstraint<double> constr(forward_integrator, adjoint_integrator, adjointModel, piroParams, analysisVerbosityLevel, observer);
 
