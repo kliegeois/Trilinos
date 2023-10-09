@@ -897,7 +897,7 @@ Piro::PerformROLTransientAnalysis(
   }
 
   bool useFullSpace = rolParams.get("Full Space",false);
-  bool useTempusDriver = true; //rolParams.get("Tempus Driver",false);
+  bool useTempusDriver = rolParams.get("Tempus Driver",false);
 
   if(analysisVerbosity >= 3) {
     *out << "\nPiro PerformAnalysis: ROL options:" << std::endl;
