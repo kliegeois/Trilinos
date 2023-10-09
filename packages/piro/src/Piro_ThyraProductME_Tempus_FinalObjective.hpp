@@ -40,8 +40,8 @@
 // ************************************************************************
 // @HEADER
 
-#ifndef PIRO_THYRAPRODUCT_TEMPUS_FINALOBJECTIVE_HPP
-#define PIRO_THYRAPRODUCT_TEMPUS_FINALOBJECTIVE_HPP
+#ifndef PIRO_THYRAPRODUCTME_TEMPUS_FINALOBJECTIVE_HPP
+#define PIRO_THYRAPRODUCTME_TEMPUS_FINALOBJECTIVE_HPP
 
 #include <string>
 
@@ -66,10 +66,10 @@
 namespace Piro {
 
 template <typename Real>
-class ThyraProduct_TempusFinalObjective : public virtual ROL::Objective<Real> {
+class ThyraProductME_TempusFinalObjective : public virtual ROL::Objective<Real> {
 public:
 
-  ThyraProduct_TempusFinalObjective(
+  ThyraProductME_TempusFinalObjective(
     const Teuchos::RCP<Thyra::ModelEvaluator<Real>> & model,
     const Teuchos::RCP<Tempus::Integrator<Real> >& integrator,
     const Teuchos::RCP<Tempus::Integrator<Real>> & adjoint_integrator,
@@ -80,7 +80,7 @@ public:
     Teuchos::EVerbosityLevel verbLevel= Teuchos::VERB_HIGH,
     Teuchos::RCP<ROL_ObserverBase<Real>> observer = Teuchos::null);
 
-  virtual ~ThyraProduct_TempusFinalObjective() {}
+  virtual ~ThyraProductME_TempusFinalObjective() {}
 
   //! Compute value of objective
   Real value( const ROL::Vector<Real> &p, Real &tol );
@@ -135,11 +135,11 @@ private:
   Teuchos::RCP<Teuchos::ParameterList> tempus_params_;
   Real time_final_;
 
-}; // class ThyraProduct_TempusFinalObjective
+}; // class ThyraProductME_TempusFinalObjective
 
 template <typename Real>
-ThyraProduct_TempusFinalObjective<Real>::
-ThyraProduct_TempusFinalObjective(
+ThyraProductME_TempusFinalObjective<Real>::
+ThyraProductME_TempusFinalObjective(
   const Teuchos::RCP<Thyra::ModelEvaluator<Real>> & model,
   const Teuchos::RCP<Tempus::Integrator<Real> >& integrator,
   const Teuchos::RCP<Tempus::Integrator<Real>> & adjoint_integrator,
@@ -167,14 +167,14 @@ ThyraProduct_TempusFinalObjective(
 
 template <typename Real>
 Real
-ThyraProduct_TempusFinalObjective<Real>::
+ThyraProductME_TempusFinalObjective<Real>::
 value( const ROL::Vector<Real> &p, Real &tol )
 {
   using Teuchos::RCP;
   typedef Thyra::ModelEvaluatorBase MEB;
 
   if(verbosityLevel_ >= Teuchos::VERB_MEDIUM)
-    *out_ << "Piro::ThyraProduct_TempusFinalObjective::value" << std::endl;
+    *out_ << "Piro::ThyraProductME_TempusFinalObjective::value" << std::endl;
 
   // Run tempus and compute response for specified parameter values
   MEB::InArgs<Real> inArgs = thyra_model_->getNominalValues();
@@ -192,10 +192,10 @@ value( const ROL::Vector<Real> &p, Real &tol )
 
 template <typename Real>
 void
-ThyraProduct_TempusFinalObjective<Real>::
+ThyraProductME_TempusFinalObjective<Real>::
 gradient( ROL::Vector<Real> &grad, const ROL::Vector<Real> &p, Real &tol ) const
 {
-  *out_ << "Piro::ThyraProduct_TempusFinalObjective::gradient" << std::endl;
+  *out_ << "Piro::ThyraProductME_TempusFinalObjective::gradient" << std::endl;
 
   using Teuchos::RCP;
   typedef Thyra::ModelEvaluatorBase MEB;
@@ -231,7 +231,7 @@ gradient( ROL::Vector<Real> &grad, const ROL::Vector<Real> &p, Real &tol ) const
         outArgs.set_DgDp(g_index_, 0, dgdp_der);
       }
       else {
-        ROL_TEST_FOR_EXCEPTION( true, std::logic_error, "Piro::ThyraProduct_TempusFinalObjective::gradient_z: dgdp is not supported for the used ModelEvaluator.");
+        ROL_TEST_FOR_EXCEPTION( true, std::logic_error, "Piro::ThyraProductME_TempusFinalObjective::gradient_z: dgdp is not supported for the used ModelEvaluator.");
       }
     }
     else {
@@ -244,7 +244,7 @@ gradient( ROL::Vector<Real> &grad, const ROL::Vector<Real> &p, Real &tol ) const
         dgdp_orient = Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM;
       else {
         ROL_TEST_FOR_EXCEPTION(true, std::logic_error,
-            "Piro::ThyraProduct_TempusFinalObjective::gradient_z: DgDp does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
+            "Piro::ThyraProductME_TempusFinalObjective::gradient_z: DgDp does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
       }
       outArgs.set_DgDp(g_index_, 0, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(thyra_dgdp.getVector(), dgdp_orient));
     }
@@ -256,7 +256,7 @@ gradient( ROL::Vector<Real> &grad, const ROL::Vector<Real> &p, Real &tol ) const
 
 template <typename Real>
 void
-ThyraProduct_TempusFinalObjective<Real>::
+ThyraProductME_TempusFinalObjective<Real>::
 run_tempus(ROL::Vector<Real>& r, const ROL::Vector<Real>& p) const
 {
   typedef Thyra::ModelEvaluatorBase MEB;
@@ -276,7 +276,7 @@ run_tempus(ROL::Vector<Real>& r, const ROL::Vector<Real>& p) const
 
 template <typename Real>
 void
-ThyraProduct_TempusFinalObjective<Real>::
+ThyraProductME_TempusFinalObjective<Real>::
 run_tempus(const Thyra::ModelEvaluatorBase::InArgs<Real>&  inArgs,
            const Thyra::ModelEvaluatorBase::OutArgs<Real>& outArgs) const
 {

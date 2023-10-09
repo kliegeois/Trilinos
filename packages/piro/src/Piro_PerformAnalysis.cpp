@@ -78,9 +78,9 @@
 #include "Piro_TransientSolver.hpp"
 #include "Piro_TempusSolver.hpp"
 #ifdef HAVE_PIRO_ROL
-#include "Piro_ThyraProduct_ROL_DynamicObjective.hpp"
-#include "Piro_ThyraProduct_Tempus_FinalObjective.hpp"
-#include "Piro_TempusDynamicConstraint.hpp"
+#include "Piro_ThyraProductME_ROL_DynamicObjective.hpp"
+#include "Piro_ThyraProductME_Tempus_FinalObjective.hpp"
+#include "Piro_ThyraProductME_ROL_DynamicConstraint.hpp"
 #include "ROL_ReducedDynamicObjective.hpp"
 #include "ROL_ReducedDynamicStationaryControlsObjective.hpp"
 #endif
@@ -875,9 +875,10 @@ Piro::PerformROLTransientAnalysis(
   Teuchos::RCP<Tempus::Integrator<double>> adjoint_integrator =
     Tempus::createIntegratorBasic<double>(tempus_params, adjointModel);
 
-  Piro::ThyraProduct_ROL_DynamicObjective<double> obj(model, forward_integrator, adjoint_integrator, adjointModel, g_index, piroParams, nt, analysisVerbosityLevel, observer);
-  Piro::ThyraProduct_TempusFinalObjective<double> obj2(model, forward_integrator, adjoint_integrator, adjointModel, g_index, piroParams, nt, analysisVerbosityLevel, observer);
-  Piro::ThyraProductME_TempusDynamicConstraint<double> constr(forward_integrator, adjoint_integrator, adjointModel, piroParams, analysisVerbosityLevel, observer);
+  Piro::ThyraProductME_ROL_DynamicObjective<double> obj(model, forward_integrator, adjoint_integrator, adjointModel, g_index, piroParams, nt, analysisVerbosityLevel, observer);
+  Piro::ThyraProductME_ROL_DynamicConstraint<double> constr(forward_integrator, adjoint_integrator, adjointModel, piroParams, analysisVerbosityLevel, observer);
+
+  Piro::ThyraProductME_TempusFinalObjective<double> tempus_obj(model, forward_integrator, adjoint_integrator, adjointModel, g_index, piroParams, nt, analysisVerbosityLevel, observer);
 
   constr.setSolveParameters(rolParams.sublist("ROL Options"));
   constr.setNumResponses(piroTSolver->num_g());
@@ -908,7 +909,7 @@ Piro::PerformROLTransientAnalysis(
 
   if(useTempusDriver) {
 
-    ROL::Ptr<ROL::Objective<double> > obj_ptr = ROL::makePtrFromRef(obj2);
+    ROL::Ptr<ROL::Objective<double> > obj_ptr = ROL::makePtrFromRef(tempus_obj);
     //ROL::Ptr<ROL::Constraint<double> > constr_ptr = ROL::makePtrFromRef(constr);
     
     if(analysisVerbosity >= 3) {

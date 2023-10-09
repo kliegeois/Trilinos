@@ -40,8 +40,8 @@
 // ************************************************************************
 // @HEADER
 
-#ifndef PIRO_THYRAPRODUCT_ROL_DYNAMICOBJECTIVE_HPP
-#define PIRO_THYRAPRODUCT_ROL_DYNAMICOBJECTIVE_HPP
+#ifndef PIRO_THYRAPRODUCTME_ROL_DYNAMICOBJECTIVE_HPP
+#define PIRO_THYRAPRODUCTME_ROL_DYNAMICOBJECTIVE_HPP
 
 #include <string>
 
@@ -66,10 +66,10 @@
 namespace Piro {
 
 template <typename Real>
-class ThyraProduct_ROL_DynamicObjective : public virtual ROL::DynamicObjective<Real> {
+class ThyraProductME_ROL_DynamicObjective : public virtual ROL::DynamicObjective<Real> {
 public:
 
-  ThyraProduct_ROL_DynamicObjective(
+  ThyraProductME_ROL_DynamicObjective(
     const Teuchos::RCP<Thyra::ModelEvaluator<Real>> & model,
     const Teuchos::RCP<Tempus::Integrator<Real> >& integrator,
     const Teuchos::RCP<Tempus::Integrator<Real>> & adjoint_integrator,
@@ -80,7 +80,7 @@ public:
     Teuchos::EVerbosityLevel verbLevel= Teuchos::VERB_HIGH,
     Teuchos::RCP<ROL_ObserverBase<Real>> observer = Teuchos::null);
 
-  virtual ~ThyraProduct_ROL_DynamicObjective() {}
+  virtual ~ThyraProductME_ROL_DynamicObjective() {}
 
   //! Compute value of objective
   Real value( const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new, 
@@ -137,11 +137,11 @@ private:
 
   Teuchos::RCP<Teuchos::ParameterList> tempus_params_;
 
-}; // class ThyraProduct_ROL_DynamicObjective
+}; // class ThyraProductME_ROL_DynamicObjective
 
 template <typename Real>
-ThyraProduct_ROL_DynamicObjective<Real>::
-ThyraProduct_ROL_DynamicObjective(
+ThyraProductME_ROL_DynamicObjective<Real>::
+ThyraProductME_ROL_DynamicObjective(
   const Teuchos::RCP<Thyra::ModelEvaluator<Real>> & model,
   const Teuchos::RCP<Tempus::Integrator<Real> >& integrator,
   const Teuchos::RCP<Tempus::Integrator<Real>> & adjoint_integrator,
@@ -168,7 +168,7 @@ ThyraProduct_ROL_DynamicObjective(
 
 template <typename Real>
 Real
-ThyraProduct_ROL_DynamicObjective<Real>::
+ThyraProductME_ROL_DynamicObjective<Real>::
 value( const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new, 
               const ROL::Vector<Real> &p, const ROL::TimeStamp<Real> &timeStamp ) const
 {
@@ -177,11 +177,11 @@ value( const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new,
 
   if((int) timeStamp.k != Nt_-1) {
     if(verbosityLevel_ >= Teuchos::VERB_EXTREME)
-      *out_ << "Piro::ThyraProduct_ROL_DynamicObjective::value final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is not the final time." << std::endl;
+      *out_ << "Piro::ThyraProductME_ROL_DynamicObjective::value final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is not the final time." << std::endl;
     return 0;
   }
   if(verbosityLevel_ >= Teuchos::VERB_EXTREME)
-    *out_ << "Piro::ThyraProduct_ROL_DynamicObjective::value final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is the final time." << std::endl;
+    *out_ << "Piro::ThyraProductME_ROL_DynamicObjective::value final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is the final time." << std::endl;
 
   // Run tempus and compute response for specified parameter values
   MEB::InArgs<Real> inArgs = thyra_model_->getNominalValues();
@@ -206,18 +206,18 @@ value( const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new,
 
 template <typename Real>
 void
-ThyraProduct_ROL_DynamicObjective<Real>::
+ThyraProductME_ROL_DynamicObjective<Real>::
 gradient_uo( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new, 
               const ROL::Vector<Real> &p, const ROL::TimeStamp<Real> &timeStamp ) const
 {
   if(verbosityLevel_ >= Teuchos::VERB_EXTREME)
-    *out_ << "Piro::ThyraProduct_ROL_DynamicObjective::gradient_uo " << timeStamp.t[0] << " " << timeStamp.t[timeStamp.t.size()-1] << " " << timeStamp.k << " " << Nt_ << std::endl;
+    *out_ << "Piro::ThyraProductME_ROL_DynamicObjective::gradient_uo " << timeStamp.t[0] << " " << timeStamp.t[timeStamp.t.size()-1] << " " << timeStamp.k << " " << Nt_ << std::endl;
   Thyra::assign(Teuchos::dyn_cast<ROL::ThyraVector<Real> >(grad).getVector().ptr(), Teuchos::ScalarTraits<Real>::zero());
 }
 
 template <typename Real>
 void
-ThyraProduct_ROL_DynamicObjective<Real>::
+ThyraProductME_ROL_DynamicObjective<Real>::
 gradient_un( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new, 
               const ROL::Vector<Real> &p, const ROL::TimeStamp<Real> &timeStamp ) const
 {
@@ -226,12 +226,12 @@ gradient_un( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL:
 
   if((int) timeStamp.k != Nt_-1) {
     if(verbosityLevel_ >= Teuchos::VERB_EXTREME)
-      *out_ << "Piro::ThyraProduct_ROL_DynamicObjective::gradient_un final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is not the final time." << std::endl;
+      *out_ << "Piro::ThyraProductME_ROL_DynamicObjective::gradient_un final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is not the final time." << std::endl;
     Thyra::assign(Teuchos::dyn_cast<ROL::ThyraVector<Real> >(grad).getVector().ptr(), Teuchos::ScalarTraits<Real>::zero());
     return;
   }
   if(verbosityLevel_ >= Teuchos::VERB_EXTREME)
-    *out_ << "Piro::ThyraProduct_ROL_DynamicObjective::gradient_un final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is the final time." << std::endl;
+    *out_ << "Piro::ThyraProductME_ROL_DynamicObjective::gradient_un final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is the final time." << std::endl;
 
   // Run tempus and compute response gradient for specified parameter values
   MEB::InArgs<Real> inArgs = thyra_model_->getNominalValues();
@@ -253,7 +253,7 @@ gradient_un( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL:
     dgdx_orient = Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM;
   else {
     ROL_TEST_FOR_EXCEPTION(true, std::logic_error,
-        "Piro::ThyraProduct_ROL_DynamicObjective::gradient_un: DgDx does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
+        "Piro::ThyraProductME_ROL_DynamicObjective::gradient_un: DgDx does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
   }
 
   outArgs.set_DgDx(g_index_, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(thyra_dgdx.getVector(), dgdx_orient));
@@ -271,7 +271,7 @@ gradient_un( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL:
 
 template <typename Real>
 void
-ThyraProduct_ROL_DynamicObjective<Real>::
+ThyraProductME_ROL_DynamicObjective<Real>::
 gradient_z( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new, 
               const ROL::Vector<Real> &p, const ROL::TimeStamp<Real> &timeStamp ) const
 {
@@ -280,12 +280,12 @@ gradient_z( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL::
 
   if((int) timeStamp.k != Nt_-1) {
     if(verbosityLevel_ >= Teuchos::VERB_EXTREME)
-      *out_ << "Piro::ThyraProduct_ROL_DynamicObjective::gradient_z final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is not the final time." << std::endl;
+      *out_ << "Piro::ThyraProductME_ROL_DynamicObjective::gradient_z final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is not the final time." << std::endl;
     Thyra::assign(Teuchos::dyn_cast<ROL::ThyraVector<Real> >(grad).getVector().ptr(), Teuchos::ScalarTraits<Real>::zero());
     return;
   }
   if(verbosityLevel_ >= Teuchos::VERB_EXTREME)
-    *out_ << "Piro::ThyraProduct_ROL_DynamicObjective::gradient_z final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is the final time." << std::endl;
+    *out_ << "Piro::ThyraProductME_ROL_DynamicObjective::gradient_z final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is the final time." << std::endl;
 
   // Run tempus and compute response gradient for specified parameter values
   MEB::InArgs<Real> inArgs = thyra_model_->getNominalValues();
@@ -310,7 +310,7 @@ gradient_z( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL::
         outArgs.set_DgDp(g_index_, 0, dgdp_der);
       }
       else {
-        ROL_TEST_FOR_EXCEPTION( true, std::logic_error, "Piro::ThyraProduct_ROL_DynamicObjective::gradient_z: dgdp is not supported for the used ModelEvaluator.");
+        ROL_TEST_FOR_EXCEPTION( true, std::logic_error, "Piro::ThyraProductME_ROL_DynamicObjective::gradient_z: dgdp is not supported for the used ModelEvaluator.");
       }
     }
     else {
@@ -323,7 +323,7 @@ gradient_z( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL::
         dgdp_orient = Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM;
       else {
         ROL_TEST_FOR_EXCEPTION(true, std::logic_error,
-            "Piro::ThyraProduct_ROL_DynamicObjective::gradient_z: DgDp does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
+            "Piro::ThyraProductME_ROL_DynamicObjective::gradient_z: DgDp does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
       }
       outArgs.set_DgDp(g_index_, 0, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(thyra_dgdp.getVector(), dgdp_orient));
     }
