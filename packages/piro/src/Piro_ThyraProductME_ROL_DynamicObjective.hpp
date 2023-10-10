@@ -214,11 +214,51 @@ ThyraProductME_ROL_DynamicObjective<Real>::
 gradient_uo( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new, 
               const ROL::Vector<Real> &p, const ROL::TimeStamp<Real> &timeStamp ) const
 {
+  using Teuchos::RCP;
+  typedef Thyra::ModelEvaluatorBase MEB;
+
   if(verbosityLevel_ >= Teuchos::VERB_EXTREME)
     *out_ << "Piro::ThyraProductME_ROL_DynamicObjective::gradient_uo " << timeStamp.t[0] << " " << timeStamp.t[timeStamp.t.size()-1] << " " << timeStamp.k << " " << Nt_ << std::endl;
   
-  if(onlyFinalTime_)
+  if(onlyFinalTime_) {
     Thyra::assign(Teuchos::dyn_cast<ROL::ThyraVector<Real> >(grad).getVector().ptr(), Teuchos::ScalarTraits<Real>::zero());
+    return;
+  }
+
+  // Run tempus and compute response gradient for specified parameter values
+  MEB::InArgs<Real> inArgs = thyra_model_->getNominalValues();
+  MEB::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
+  const ROL::ThyraVector<Real>& thyra_p =
+    Teuchos::dyn_cast<const ROL::ThyraVector<Real> >(p);
+  inArgs.set_p(0, thyra_p.getVector());
+  RCP<Thyra::VectorBase<Real> > g =
+    Thyra::createMember<Real>(thyra_model_->get_g_space(g_index_));
+
+  ROL::ThyraVector<Real>  & thyra_dgdx = dynamic_cast<ROL::ThyraVector<Real>&>(grad);
+
+  const Thyra::ModelEvaluatorBase::DerivativeSupport dgdx_support =
+      outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDx, g_index_);
+  Thyra::ModelEvaluatorBase::EDerivativeMultiVectorOrientation dgdx_orient;
+  if (dgdx_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM))
+    dgdx_orient = Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM;
+  else if(dgdx_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM))
+    dgdx_orient = Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM;
+  else {
+    ROL_TEST_FOR_EXCEPTION(true, std::logic_error,
+        "Piro::ThyraProductME_ROL_DynamicObjective::gradient_un: DgDx does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
+  }
+
+  outArgs.set_DgDx(g_index_, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(thyra_dgdx.getVector(), dgdx_orient));
+
+  outArgs.set_g(g_index_, g);
+
+  const ROL::ThyraVector<Real>& thyra_u_old =
+    Teuchos::dyn_cast<const ROL::ThyraVector<Real> >(u_old);
+
+  inArgs.set_x(thyra_u_old.getVector());
+  if (inArgs.supports(MEB::IN_ARG_t)) inArgs.set_t(timeStamp.t[0]);
+
+  thyra_model_->evalModel(inArgs, outArgs);
 }
 
 template <typename Real>

@@ -44,6 +44,29 @@ IF (Piro_ENABLE_NOX)
         ADDED_TESTS_NAMES_OUT AnalysisDriverTranstientROL_MSD_NAME 
       )
       TRIBITS_ADD_EXECUTABLE_AND_TEST(
+        AnalysisDriverTranstient_IR_ROL_MSD
+        EXCLUDE_IF_NOT_TRUE ${PACKAGE_NAME}_ENABLE_ROL
+        EXCLUDE_IF_NOT_TRUE ${PACKAGE_NAME}_ENABLE_Teko
+        EXCLUDE_IF_NOT_TRUE ${PACKAGE_NAME}_ENABLE_Ifpack2
+        EXCLUDE_IF_NOT_TRUE Ifpack2_ENABLE_Amesos2
+        SOURCES
+        Main_AnalysisDriver_Tempus.cpp
+        MockModelEval_A_Tpetra.cpp
+        MockModelEval_A_Tpetra.hpp
+        MockModelEval_B_Tpetra.cpp
+        MockModelEval_B_Tpetra.hpp
+        MockModelEval_B_Tpetra_2_parameters.cpp
+        MockModelEval_B_Tpetra_2_parameters.hpp
+        MatrixBased_LOWS.cpp
+        MatrixBased_LOWS.hpp
+        MassSpringDamperModel.cpp
+        MassSpringDamperModel.hpp
+        NUM_MPI_PROCS 1
+        ARGS input_Analysis_ROL_ReducedSpace_Transient_Integrated_Response_MSD.xml
+        PASS_REGULAR_EXPRESSION "TEST PASSED"
+        ADDED_TESTS_NAMES_OUT AnalysisDriverTranstient_IR_ROL_MSD_NAME 
+      )
+      TRIBITS_ADD_EXECUTABLE_AND_TEST(
         AnalysisDriverTranstientTempus_MSD
         EXCLUDE_IF_NOT_TRUE ${PACKAGE_NAME}_ENABLE_ROL
         EXCLUDE_IF_NOT_TRUE ${PACKAGE_NAME}_ENABLE_Teko
@@ -167,6 +190,7 @@ TRIBITS_COPY_FILES_TO_BINARY_DIR(copyTestInputFiles
         input_Analysis_ROL_ReducedSpace_Transient.xml
         input_Analysis_ROL_ReducedSpace_Transient_2_parameters.xml
         input_Analysis_ROL_ReducedSpace_Transient_MSD.xml
+        input_Analysis_ROL_ReducedSpace_Transient_Integrated_Response_MSD.xml
         input_Analysis_ROL_ReducedSpace_TrustRegion_HessianBasedDotProduct.xml
         input_Analysis_ROL_ReducedSpace_TrustRegion_HessianBasedDotProduct_2_parameters.xml
         input_Analysis_ROL_ReducedSpace_TrustRegion_BoundConstrained_NOXSolver.xml
