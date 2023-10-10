@@ -898,6 +898,7 @@ Piro::PerformROLTransientAnalysis(
 
   bool useFullSpace = rolParams.get("Full Space",false);
   bool useTempusDriver = rolParams.get("Tempus Driver",false);
+  bool useFinalTimeStepResponse = rolParams.get("Final time step response",true);
 
   if(analysisVerbosity >= 3) {
     *out << "\nPiro PerformAnalysis: ROL options:" << std::endl;
@@ -937,6 +938,12 @@ Piro::PerformROLTransientAnalysis(
       TEUCHOS_TEST_FOR_EXCEPTION(true, Teuchos::Exceptions::InvalidParameter,
           std::endl << "Piro::PerformROLTransientAnalysis, ERROR: " <<
           "full space approach is currently not supported."<<std::endl);
+    }
+
+    if ( !useFinalTimeStepResponse ) {
+      TEUCHOS_TEST_FOR_EXCEPTION(true, Teuchos::Exceptions::InvalidParameter,
+          std::endl << "Piro::PerformROLTransientAnalysis, ERROR: " <<
+          "integrated response is currently not supported with the Tempus driver."<<std::endl);
     }
     
     if(rolParams.get<bool>("Perform Optimization", true)) {
@@ -1034,7 +1041,7 @@ Piro::PerformROLTransientAnalysis(
     return return_status;
   }
   else {
-    Piro::ThyraProductME_ROL_DynamicObjective<double> obj(model, forward_integrator, adjoint_integrator, adjointModel, g_index, piroParams, nt, true, analysisVerbosityLevel, observer);
+    Piro::ThyraProductME_ROL_DynamicObjective<double> obj(model, forward_integrator, adjoint_integrator, adjointModel, g_index, piroParams, nt, useFinalTimeStepResponse, analysisVerbosityLevel, observer);
     Piro::ThyraProductME_ROL_DynamicConstraint<double> constr(forward_integrator, adjoint_integrator, adjointModel, piroParams, analysisVerbosityLevel, observer);
 
     constr.setSolveParameters(rolParams.sublist("ROL Options"));
@@ -1220,6 +1227,7 @@ Piro::getValidPiroAnalysisROLParameters(int num_parameters)
   validPL->set<bool>("Bound Constrained", true, "Whether to enforce bounds to the parameters during the optimization");
   validPL->set<bool>("Full Space", true, "Whether to use a full-space or a reduced-space optimization approach");
   validPL->set<bool>("Tempus Driver", false, "Whether to use Tempus to compute the derivative");
+  validPL->set<bool>("Final time step response", true, "Whether to use only the response at the final time step");
   validPL->set<bool>("Use NOX Solver", true, "Whether to use NOX for solving the state equation or the native ROL solver");
 
   validPL->set<double>("Objective Recovery Value", 1.0e10, "Objective value used when the state solver does not converge. If not defined, the objective will be computed using the unconverged state");
