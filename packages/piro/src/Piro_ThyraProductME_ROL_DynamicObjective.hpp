@@ -291,9 +291,11 @@ gradient_uo( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL:
   const ROL::ThyraVector<Real>& thyra_u_old =
     Teuchos::dyn_cast<const ROL::ThyraVector<Real> >(u_old);
 
+  Real dt = timeStamp.t[timeStamp.t.size()-1] - timeStamp.t[0];
+
   RCP<Thyra::VectorBase<Real> > u_dot = thyra_u_new.getVector()->clone_v();
   Teuchos::RCP<Tempus::TimeDerivative<Real> > timeDer =
-    Teuchos::rcp(new Tempus::StepperBackwardEulerTimeDerivative<Real>(Real(1.0)/(timeStamp.t[timeStamp.t.size()-1] - timeStamp.t[0]),thyra_u_old.getVector()));
+    Teuchos::rcp(new Tempus::StepperBackwardEulerTimeDerivative<Real>(Real(1.0)/dt,thyra_u_old.getVector()));
   timeDer->compute(thyra_u_new.getVector(), u_dot);
 
   inArgs.set_x(thyra_u_new.getVector());
@@ -301,6 +303,8 @@ gradient_uo( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL:
   if (inArgs.supports(MEB::IN_ARG_x_dot)) inArgs.set_x_dot(u_dot);
 
   thyra_model_->evalModel(inArgs, outArgs);
+
+  Thyra::V_S(thyra_dgdx.getVector().ptr(), Real(-1.0)/dt);
 }
 
 template <typename Real>
@@ -358,8 +362,10 @@ gradient_un( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL:
     use_dgdx_dot = false;
   }
 
+  RCP<Thyra::VectorBase<Real> > dgdx_dot = thyra_dgdx.getVector()->clone_v();
+
   if (use_dgdx_dot)
-    outArgs.set_DgDx_dot(g_index_, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(thyra_dgdx.getVector()->clone_v(), dgdx_dot_orient));
+    outArgs.set_DgDx_dot(g_index_, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(dgdx_dot, dgdx_dot_orient));
 
   outArgs.set_g(g_index_, g);
 
@@ -369,9 +375,11 @@ gradient_un( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL:
   const ROL::ThyraVector<Real>& thyra_u_old =
     Teuchos::dyn_cast<const ROL::ThyraVector<Real> >(u_old);
 
+  Real dt = timeStamp.t[timeStamp.t.size()-1] - timeStamp.t[0];
+
   RCP<Thyra::VectorBase<Real> > u_dot = thyra_u_new.getVector()->clone_v();
   Teuchos::RCP<Tempus::TimeDerivative<Real> > timeDer =
-    Teuchos::rcp(new Tempus::StepperBackwardEulerTimeDerivative<Real>(Real(1.0)/(timeStamp.t[timeStamp.t.size()-1] - timeStamp.t[0]),thyra_u_old.getVector()));
+    Teuchos::rcp(new Tempus::StepperBackwardEulerTimeDerivative<Real>(Real(1.0)/dt,thyra_u_old.getVector()));
   timeDer->compute(thyra_u_new.getVector(), u_dot);
 
   inArgs.set_x(thyra_u_new.getVector());
@@ -379,6 +387,9 @@ gradient_un( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL:
   if (inArgs.supports(MEB::IN_ARG_x_dot)) inArgs.set_x_dot(u_dot);
 
   thyra_model_->evalModel(inArgs, outArgs);
+
+  if (use_dgdx_dot)
+    Thyra::V_StV(thyra_dgdx.getVector().ptr(), Real(1.0)/dt, *dgdx_dot);
 }
 
 template <typename Real>
