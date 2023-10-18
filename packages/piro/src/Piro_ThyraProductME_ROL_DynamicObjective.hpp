@@ -54,6 +54,9 @@
 #include "Tempus_IntegratorPseudoTransientForwardSensitivity.hpp"
 #include "Tempus_IntegratorPseudoTransientAdjointSensitivity.hpp"
 
+#include "Tempus_TimeDerivative.hpp"
+#include "Tempus_StepperBackwardEuler_decl.hpp"
+
 #include "Thyra_ModelEvaluator.hpp"
 #include "Thyra_DefaultNominalBoundsOverrideModelEvaluator.hpp"
 #include "Thyra_VectorStdOps.hpp"
@@ -200,8 +203,18 @@ value( const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new,
   const ROL::ThyraVector<Real>& thyra_u_new =
     Teuchos::dyn_cast<const ROL::ThyraVector<Real> >(u_new);
 
+  const ROL::ThyraVector<Real>& thyra_u_old =
+    Teuchos::dyn_cast<const ROL::ThyraVector<Real> >(u_old);
+
+  RCP<Thyra::VectorBase<Real> > u_dot = thyra_u_new.getVector()->clone_v();
+  Teuchos::RCP<Tempus::TimeDerivative<Real> > timeDer =
+    Teuchos::rcp(new Tempus::StepperBackwardEulerTimeDerivative<Real>(Real(1.0)/(timeStamp.t[timeStamp.t.size()-1] - timeStamp.t[0]),thyra_u_old.getVector()));
+  timeDer->compute(thyra_u_new.getVector(), u_dot);
+
+
   inArgs.set_x(thyra_u_new.getVector());
   if (inArgs.supports(MEB::IN_ARG_t)) inArgs.set_t(timeStamp.t[timeStamp.t.size()-1]);
+  if (inArgs.supports(MEB::IN_ARG_x_dot)) inArgs.set_x_dot(u_dot);
 
   thyra_model_->evalModel(inArgs, outArgs);
 
@@ -220,12 +233,11 @@ gradient_uo( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL:
   if(verbosityLevel_ >= Teuchos::VERB_EXTREME)
     *out_ << "Piro::ThyraProductME_ROL_DynamicObjective::gradient_uo " << timeStamp.t[0] << " " << timeStamp.t[timeStamp.t.size()-1] << " " << timeStamp.k << " " << Nt_ << std::endl;
   
-  if(onlyFinalTime_) {
+  if(onlyFinalTime_ || timeStamp.k <= 0) {
     Thyra::assign(Teuchos::dyn_cast<ROL::ThyraVector<Real> >(grad).getVector().ptr(), Teuchos::ScalarTraits<Real>::zero());
     return;
   }
 
-  // Run tempus and compute response gradient for specified parameter values
   MEB::InArgs<Real> inArgs = thyra_model_->getNominalValues();
   MEB::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
   const ROL::ThyraVector<Real>& thyra_p =
@@ -236,27 +248,57 @@ gradient_uo( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL:
 
   ROL::ThyraVector<Real>  & thyra_dgdx = dynamic_cast<ROL::ThyraVector<Real>&>(grad);
 
-  const Thyra::ModelEvaluatorBase::DerivativeSupport dgdx_support =
-      outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDx, g_index_);
-  Thyra::ModelEvaluatorBase::EDerivativeMultiVectorOrientation dgdx_orient;
-  if (dgdx_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM))
-    dgdx_orient = Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM;
-  else if(dgdx_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM))
-    dgdx_orient = Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM;
+  //const Thyra::ModelEvaluatorBase::DerivativeSupport dgdx_support =
+  //    outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDx, g_index_);
+  //Thyra::ModelEvaluatorBase::EDerivativeMultiVectorOrientation dgdx_orient;
+  //if (dgdx_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM))
+  //  dgdx_orient = Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM;
+  //else if(dgdx_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM))
+  //  dgdx_orient = Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM;
+  //else {
+  //  ROL_TEST_FOR_EXCEPTION(true, std::logic_error,
+  //      "Piro::ThyraProductME_ROL_DynamicObjective::gradient_un: DgDx does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
+  //}
+  //
+  //outArgs.set_DgDx(g_index_, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(thyra_dgdx.getVector(), dgdx_orient));
+  
+  bool use_dgdx_dot = true;
+
+  const Thyra::ModelEvaluatorBase::DerivativeSupport dgdx_dot_support =
+      outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDx_dot, g_index_);
+  Thyra::ModelEvaluatorBase::EDerivativeMultiVectorOrientation dgdx_dot_orient;
+  if (dgdx_dot_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM))
+    dgdx_dot_orient = Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM;
+  else if(dgdx_dot_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM))
+    dgdx_dot_orient = Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM;
   else {
-    ROL_TEST_FOR_EXCEPTION(true, std::logic_error,
-        "Piro::ThyraProductME_ROL_DynamicObjective::gradient_un: DgDx does support neither DERIV_MV_JACOBIAN_FORM nor DERIV_MV_GRADIENT_FORM forms");
+    use_dgdx_dot = false;
   }
 
-  outArgs.set_DgDx(g_index_, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(thyra_dgdx.getVector(), dgdx_orient));
+  if (use_dgdx_dot) {
+    outArgs.set_DgDx_dot(g_index_, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(thyra_dgdx.getVector(), dgdx_dot_orient));
+  }
+  else {
+    Thyra::assign(Teuchos::dyn_cast<ROL::ThyraVector<Real> >(grad).getVector().ptr(), Teuchos::ScalarTraits<Real>::zero());
+    return;
+  }
 
   outArgs.set_g(g_index_, g);
+
+  const ROL::ThyraVector<Real>& thyra_u_new =
+    Teuchos::dyn_cast<const ROL::ThyraVector<Real> >(u_new);
 
   const ROL::ThyraVector<Real>& thyra_u_old =
     Teuchos::dyn_cast<const ROL::ThyraVector<Real> >(u_old);
 
-  inArgs.set_x(thyra_u_old.getVector());
-  if (inArgs.supports(MEB::IN_ARG_t)) inArgs.set_t(timeStamp.t[0]);
+  RCP<Thyra::VectorBase<Real> > u_dot = thyra_u_new.getVector()->clone_v();
+  Teuchos::RCP<Tempus::TimeDerivative<Real> > timeDer =
+    Teuchos::rcp(new Tempus::StepperBackwardEulerTimeDerivative<Real>(Real(1.0)/(timeStamp.t[timeStamp.t.size()-1] - timeStamp.t[0]),thyra_u_old.getVector()));
+  timeDer->compute(thyra_u_new.getVector(), u_dot);
+
+  inArgs.set_x(thyra_u_new.getVector());
+  if (inArgs.supports(MEB::IN_ARG_t)) inArgs.set_t(timeStamp.t[timeStamp.t.size()-1]);
+  if (inArgs.supports(MEB::IN_ARG_x_dot)) inArgs.set_x_dot(u_dot);
 
   thyra_model_->evalModel(inArgs, outArgs);
 }
@@ -279,7 +321,6 @@ gradient_un( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL:
   if(verbosityLevel_ >= Teuchos::VERB_EXTREME)
     *out_ << "Piro::ThyraProductME_ROL_DynamicObjective::gradient_un final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is the final time." << std::endl;
 
-  // Run tempus and compute response gradient for specified parameter values
   MEB::InArgs<Real> inArgs = thyra_model_->getNominalValues();
   MEB::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
   const ROL::ThyraVector<Real>& thyra_p =
@@ -304,13 +345,38 @@ gradient_un( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL:
 
   outArgs.set_DgDx(g_index_, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(thyra_dgdx.getVector(), dgdx_orient));
 
+  bool use_dgdx_dot = true;
+
+  const Thyra::ModelEvaluatorBase::DerivativeSupport dgdx_dot_support =
+      outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_DgDx_dot, g_index_);
+  Thyra::ModelEvaluatorBase::EDerivativeMultiVectorOrientation dgdx_dot_orient;
+  if (dgdx_dot_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM))
+    dgdx_dot_orient = Thyra::ModelEvaluatorBase::DERIV_MV_GRADIENT_FORM;
+  else if(dgdx_dot_support.supports(Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM))
+    dgdx_dot_orient = Thyra::ModelEvaluatorBase::DERIV_MV_JACOBIAN_FORM;
+  else {
+    use_dgdx_dot = false;
+  }
+
+  if (use_dgdx_dot)
+    outArgs.set_DgDx_dot(g_index_, Thyra::ModelEvaluatorBase::DerivativeMultiVector<Real>(thyra_dgdx.getVector()->clone_v(), dgdx_dot_orient));
+
   outArgs.set_g(g_index_, g);
 
   const ROL::ThyraVector<Real>& thyra_u_new =
     Teuchos::dyn_cast<const ROL::ThyraVector<Real> >(u_new);
 
+  const ROL::ThyraVector<Real>& thyra_u_old =
+    Teuchos::dyn_cast<const ROL::ThyraVector<Real> >(u_old);
+
+  RCP<Thyra::VectorBase<Real> > u_dot = thyra_u_new.getVector()->clone_v();
+  Teuchos::RCP<Tempus::TimeDerivative<Real> > timeDer =
+    Teuchos::rcp(new Tempus::StepperBackwardEulerTimeDerivative<Real>(Real(1.0)/(timeStamp.t[timeStamp.t.size()-1] - timeStamp.t[0]),thyra_u_old.getVector()));
+  timeDer->compute(thyra_u_new.getVector(), u_dot);
+
   inArgs.set_x(thyra_u_new.getVector());
   if (inArgs.supports(MEB::IN_ARG_t)) inArgs.set_t(timeStamp.t[timeStamp.t.size()-1]);
+  if (inArgs.supports(MEB::IN_ARG_x_dot)) inArgs.set_x_dot(u_dot);
 
   thyra_model_->evalModel(inArgs, outArgs);
 }
@@ -333,7 +399,6 @@ gradient_z( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL::
   if(verbosityLevel_ >= Teuchos::VERB_EXTREME)
     *out_ << "Piro::ThyraProductME_ROL_DynamicObjective::gradient_z final time of the time stamp " << timeStamp.t[timeStamp.t.size()-1] << " is the final time." << std::endl;
 
-  // Run tempus and compute response gradient for specified parameter values
   MEB::InArgs<Real> inArgs = thyra_model_->getNominalValues();
   MEB::OutArgs<Real> outArgs = thyra_model_->createOutArgs();
   const ROL::ThyraVector<Real>& thyra_p =
@@ -376,6 +441,21 @@ gradient_z( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL::
   }
 
   outArgs.set_g(g_index_, g);
+
+  const ROL::ThyraVector<Real>& thyra_u_new =
+    Teuchos::dyn_cast<const ROL::ThyraVector<Real> >(u_new);
+
+  const ROL::ThyraVector<Real>& thyra_u_old =
+    Teuchos::dyn_cast<const ROL::ThyraVector<Real> >(u_old);
+
+  RCP<Thyra::VectorBase<Real> > u_dot = thyra_u_new.getVector()->clone_v();
+  Teuchos::RCP<Tempus::TimeDerivative<Real> > timeDer =
+    Teuchos::rcp(new Tempus::StepperBackwardEulerTimeDerivative<Real>(Real(1.0)/(timeStamp.t[timeStamp.t.size()-1] - timeStamp.t[0]),thyra_u_old.getVector()));
+  timeDer->compute(thyra_u_new.getVector(), u_dot);
+
+  inArgs.set_x(thyra_u_new.getVector());
+  if (inArgs.supports(MEB::IN_ARG_t)) inArgs.set_t(timeStamp.t[timeStamp.t.size()-1]);
+  if (inArgs.supports(MEB::IN_ARG_x_dot)) inArgs.set_x_dot(u_dot);
 
   thyra_model_->evalModel(inArgs, outArgs);
 }
