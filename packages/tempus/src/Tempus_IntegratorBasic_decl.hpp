@@ -63,6 +63,9 @@ public:
     virtual void checkTimeStep();
     /// Perform tasks after end of integrator.
     virtual void endIntegrator();
+
+    virtual Teuchos::RCP<Tempus::TimeDerivative<Scalar>> getTimeDerivative(Teuchos::RCP<const Thyra::VectorBase<Scalar> > x_old) const override
+    { return Teuchos::null; }    
   //@}
 
   /// \name Accessor methods

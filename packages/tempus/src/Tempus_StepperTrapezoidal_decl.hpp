@@ -188,6 +188,16 @@ public:
     Thyra::V_VpStV  (xDot.ptr(),*xDot,Scalar(-1.0),*xDotOld_);
   }
 
+  virtual Scalar get_DxDot_Dx_old()
+  {
+    return s_;
+  }
+
+  virtual Scalar get_DxDot_Dx_new()
+  {
+    return -s_;
+  }
+
   virtual void initialize(Scalar s,
     Teuchos::RCP<const Thyra::VectorBase<Scalar> > xOld,
     Teuchos::RCP<const Thyra::VectorBase<Scalar> > xDotOld)

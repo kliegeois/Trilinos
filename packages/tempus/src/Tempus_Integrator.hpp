@@ -13,6 +13,7 @@
 #include "Tempus_Types.hpp"
 #include "Teuchos_VerboseObject.hpp"
 #include "Teuchos_Describable.hpp"
+#include "Tempus_TimeDerivative.hpp"
 
 #include <string>
 
@@ -89,6 +90,8 @@ public:
     /// Returns the IntegratorTimer_ for this Integrator
     virtual Teuchos::RCP<Teuchos::Time> getIntegratorTimer() const = 0;
     virtual Teuchos::RCP<Teuchos::Time> getStepperTimer() const = 0;
+
+    virtual Teuchos::RCP<Tempus::TimeDerivative<Scalar>> getTimeDerivative(Teuchos::RCP<const Thyra::VectorBase<Scalar> > x_old) const = 0;
   //@}
 
 };

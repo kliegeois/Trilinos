@@ -148,6 +148,9 @@ public:
   virtual Teuchos::RCP<Teuchos::Time> getStepperTimer() const override
   {return state_integrator_->getStepperTimer();}
 
+  virtual Teuchos::RCP<Tempus::TimeDerivative<Scalar>> getTimeDerivative(Teuchos::RCP<const Thyra::VectorBase<Scalar> > x_old) const override
+  { return Teuchos::null; }
+ 
   //@}
 
   /// Set the initial state from Thyra::VectorBase(s)
