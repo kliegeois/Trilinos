@@ -155,6 +155,9 @@ public:
 
   virtual bool isValidSetup(Teuchos::FancyOStream & out) const override;
 
+  virtual Teuchos::RCP<Tempus::TimeDerivative<Scalar>> getTimeDerivative(Scalar dt, Teuchos::RCP<const Thyra::VectorBase<Scalar> > x_old) const override;
+  //Teuchos::RCP<Tempus::TimeDerivative<Scalar>> getTimeDerivative(Scalar dt, Teuchos::RCP<const Thyra::VectorBase<Scalar> > x_old) const;
+
   /// \name Implementation of StepperOptimizationInterface
   //@{
     virtual int stencilLength() const override;

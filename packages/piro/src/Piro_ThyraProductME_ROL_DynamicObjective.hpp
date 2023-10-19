@@ -207,8 +207,8 @@ value( const ROL::Vector<Real> &u_old, const ROL::Vector<Real> &u_new,
     Teuchos::dyn_cast<const ROL::ThyraVector<Real> >(u_old);
 
   RCP<Thyra::VectorBase<Real> > u_dot = thyra_u_new.getVector()->clone_v();
-  Teuchos::RCP<Tempus::TimeDerivative<Real> > timeDer = // integrator_->getTimeDerivative(thyra_u_old.getVector());
-    Teuchos::rcp(new Tempus::StepperBackwardEulerTimeDerivative<Real>(Real(1.0)/(timeStamp.t[timeStamp.t.size()-1] - timeStamp.t[0]),thyra_u_old.getVector()));
+  Teuchos::RCP<Tempus::TimeDerivative<Real> > timeDer = integrator_->getStepper()->getTimeDerivative(timeStamp.t[timeStamp.t.size()-1] - timeStamp.t[0], thyra_u_old.getVector());
+  //  Teuchos::rcp(new Tempus::StepperBackwardEulerTimeDerivative<Real>(Real(1.0)/(timeStamp.t[timeStamp.t.size()-1] - timeStamp.t[0]),thyra_u_old.getVector()));
   timeDer->compute(thyra_u_new.getVector(), u_dot);
 
 
@@ -291,11 +291,11 @@ gradient_uo( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL:
   const ROL::ThyraVector<Real>& thyra_u_old =
     Teuchos::dyn_cast<const ROL::ThyraVector<Real> >(u_old);
 
-  Real dt = timeStamp.t[timeStamp.t.size()-1] - timeStamp.t[0];
+  //Real dt = timeStamp.t[timeStamp.t.size()-1] - timeStamp.t[0];
 
   RCP<Thyra::VectorBase<Real> > u_dot = thyra_u_new.getVector()->clone_v();
-  Teuchos::RCP<Tempus::TimeDerivative<Real> > timeDer = // integrator_->getTimeDerivative(thyra_u_old.getVector());
-    Teuchos::rcp(new Tempus::StepperBackwardEulerTimeDerivative<Real>(Real(1.0)/dt,thyra_u_old.getVector()));
+  Teuchos::RCP<Tempus::TimeDerivative<Real> > timeDer = integrator_->getStepper()->getTimeDerivative(timeStamp.t[timeStamp.t.size()-1] - timeStamp.t[0], thyra_u_old.getVector());
+  //  Teuchos::rcp(new Tempus::StepperBackwardEulerTimeDerivative<Real>(Real(1.0)/dt,thyra_u_old.getVector()));
   timeDer->compute(thyra_u_new.getVector(), u_dot);
 
   inArgs.set_x(thyra_u_new.getVector());
@@ -375,11 +375,11 @@ gradient_un( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL:
   const ROL::ThyraVector<Real>& thyra_u_old =
     Teuchos::dyn_cast<const ROL::ThyraVector<Real> >(u_old);
 
-  Real dt = timeStamp.t[timeStamp.t.size()-1] - timeStamp.t[0];
+  //Real dt = timeStamp.t[timeStamp.t.size()-1] - timeStamp.t[0];
 
   RCP<Thyra::VectorBase<Real> > u_dot = thyra_u_new.getVector()->clone_v();
-  Teuchos::RCP<Tempus::TimeDerivative<Real> > timeDer = // integrator_->getTimeDerivative(thyra_u_old.getVector());
-    Teuchos::rcp(new Tempus::StepperBackwardEulerTimeDerivative<Real>(Real(1.0)/dt,thyra_u_old.getVector()));
+  Teuchos::RCP<Tempus::TimeDerivative<Real> > timeDer = integrator_->getStepper()->getTimeDerivative(timeStamp.t[timeStamp.t.size()-1] - timeStamp.t[0], thyra_u_old.getVector());
+  //  Teuchos::rcp(new Tempus::StepperBackwardEulerTimeDerivative<Real>(Real(1.0)/dt,thyra_u_old.getVector()));
   timeDer->compute(thyra_u_new.getVector(), u_dot);
 
   inArgs.set_x(thyra_u_new.getVector());
@@ -460,8 +460,8 @@ gradient_z( ROL::Vector<Real> &grad, const ROL::Vector<Real> &u_old, const ROL::
     Teuchos::dyn_cast<const ROL::ThyraVector<Real> >(u_old);
 
   RCP<Thyra::VectorBase<Real> > u_dot = thyra_u_new.getVector()->clone_v();
-  Teuchos::RCP<Tempus::TimeDerivative<Real> > timeDer = // integrator_->getTimeDerivative(thyra_u_old.getVector());
-    Teuchos::rcp(new Tempus::StepperBackwardEulerTimeDerivative<Real>(Real(1.0)/(timeStamp.t[timeStamp.t.size()-1] - timeStamp.t[0]),thyra_u_old.getVector()));
+  Teuchos::RCP<Tempus::TimeDerivative<Real> > timeDer = integrator_->getStepper()->getTimeDerivative(timeStamp.t[timeStamp.t.size()-1] - timeStamp.t[0], thyra_u_old.getVector());
+  //  Teuchos::rcp(new Tempus::StepperBackwardEulerTimeDerivative<Real>(Real(1.0)/(timeStamp.t[timeStamp.t.size()-1] - timeStamp.t[0]),thyra_u_old.getVector()));
   timeDer->compute(thyra_u_new.getVector(), u_dot);
 
   inArgs.set_x(thyra_u_new.getVector());

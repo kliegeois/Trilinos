@@ -199,9 +199,6 @@ public:
   virtual Teuchos::RCP<Teuchos::Time> getStepperTimer() const override
     { return integrator_->getStepperTimer(); }
 
-  virtual Teuchos::RCP<Tempus::TimeDerivative<Scalar>> getTimeDerivative(Teuchos::RCP<const Thyra::VectorBase<Scalar> > x_old) const override
-    { return Teuchos::null; }
-
   /**
    * @brief Get the current solution, x, only. If looking for the solution
    * vector and the sensitivities, use `SolutionState->getX()` which will return a
