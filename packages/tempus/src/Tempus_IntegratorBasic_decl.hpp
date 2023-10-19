@@ -63,7 +63,6 @@ public:
     virtual void checkTimeStep();
     /// Perform tasks after end of integrator.
     virtual void endIntegrator();
- 
   //@}
 
   /// \name Accessor methods

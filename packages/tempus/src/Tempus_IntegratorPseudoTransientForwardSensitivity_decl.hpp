@@ -147,7 +147,7 @@ public:
   {return state_integrator_->getIntegratorTimer();}
   virtual Teuchos::RCP<Teuchos::Time> getStepperTimer() const override
   {return state_integrator_->getStepperTimer();}
- 
+
   //@}
 
   /// Set the initial state from Thyra::VectorBase(s)
