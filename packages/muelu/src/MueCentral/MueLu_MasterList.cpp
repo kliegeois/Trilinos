@@ -112,6 +112,7 @@ namespace MueLu {
       std::stringstream temp1; temp1 << "\"" << "1" << "\"";
       if (value == temp1.str()) {
         RCP<Teuchos::FancyOStream> out = Teuchos::fancyOStream(Teuchos::rcpFromRef(std::cout));
+        out->setOutputToRootOnly(0);
         *out << "WARNING: repartitioning in MueLu is different to MLs. Please refer to the MueLu users Manual for more information." << std::endl;
       }
     }
@@ -243,6 +244,7 @@ namespace MueLu {
   "<Parameter name=\"aggregation: enable phase 2a\" type=\"bool\" value=\"true\"/>"
   "<Parameter name=\"aggregation: enable phase 2b\" type=\"bool\" value=\"true\"/>"
   "<Parameter name=\"aggregation: enable phase 3\" type=\"bool\" value=\"true\"/>"
+  "<Parameter name=\"aggregation: match ML phase1\" type=\"bool\" value=\"false\"/>"
   "<Parameter name=\"aggregation: match ML phase2a\" type=\"bool\" value=\"false\"/>"
   "<Parameter name=\"aggregation: match ML phase2b\" type=\"bool\" value=\"false\"/>"
   "<Parameter name=\"aggregation: phase2a agg factor\" type=\"double\" value=\"0.5\"/>"
@@ -706,6 +708,8 @@ namespace MueLu {
          ("aggregation: enable phase 2b","aggregation: enable phase 2b")
       
          ("aggregation: enable phase 3","aggregation: enable phase 3")
+      
+         ("aggregation: match ML phase1","aggregation: match ML phase1")
       
          ("aggregation: match ML phase2a","aggregation: match ML phase2a")
       

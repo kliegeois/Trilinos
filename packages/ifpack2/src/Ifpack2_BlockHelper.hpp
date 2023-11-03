@@ -530,7 +530,8 @@ namespace Ifpack2 {
       vals[0] = Kokkos::ArithTraits<impl_scalar_type>::abs(norm2);
 
       IFPACK2_BLOCKHELPER_PROFILER_REGION_END;
-    } 
+      IFPACK2_BLOCKHELPER_TIMER_FENCE(typename ImplType<MatrixType>::execution_space)
+    }
 
   } // namespace BlockHelperDetails
 
