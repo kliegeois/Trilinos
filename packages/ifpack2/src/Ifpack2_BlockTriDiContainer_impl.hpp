@@ -44,7 +44,7 @@
 #define IFPACK2_BLOCKTRIDICONTAINER_IMPL_HPP
 
 //#define IFPACK2_BLOCKTRIDICONTAINER_WRITE_MM
-//#define IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+#define IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
 
 #include <Teuchos_Details_MpiTypeTraits.hpp>
 
@@ -2779,9 +2779,13 @@ namespace Ifpack2 {
         const auto one = Kokkos::ArithTraits<btdm_magnitude_type>::one();
 
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
-        printf("i0 = %d, nrows = %d, v = %d;\n", i0, nrows, v);
-        printf("AA.extent(0) = %ld\n", AA.extent(0));
+        printf("i0 = %d, nrows = %d, v = %d, AA.extent(0) = %ld;\n", i0, nrows, v, AA.extent(0));
 #endif
+
+        if (i0 >= AA.extent(0)) {
+          printf("ERROR! 1 \n");
+          return;
+        }
 
         // subview pattern
         auto A = Kokkos::subview(AA, i0, Kokkos::ALL(), Kokkos::ALL(), v);
@@ -2797,16 +2801,25 @@ namespace Ifpack2 {
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
             printf("tr = %d, i = %d;\n", tr, i);
 #endif
+        if (i+1 >= AA.extent(0)) {
+          printf("ERROR! 2 \n");
+        }
             B.assign_data( &AA(i+1,0,0,v) );
             KB::Trsm<member_type,
                      KB::Side::Left,KB::Uplo::Lower,KB::Trans::NoTranspose,KB::Diag::Unit,
                      default_mode_type,default_algo_type>
               ::invoke(member, one, A, B);
+        if (i+2 >= AA.extent(0)) {
+          printf("ERROR! 3 \n");
+        }              
             C.assign_data( &AA(i+2,0,0,v) );
             KB::Trsm<member_type,
                      KB::Side::Right,KB::Uplo::Upper,KB::Trans::NoTranspose,KB::Diag::NonUnit,
                      default_mode_type,default_algo_type>
               ::invoke(member, one, A, C);
+        if (i+3 >= AA.extent(0)) {
+          printf("ERROR! 4 \n");
+        }
             A.assign_data( &AA(i+3,0,0,v) );
 
             member.team_barrier();
@@ -3130,6 +3143,9 @@ namespace Ifpack2 {
           shmem_size(blocksize, blocksize, vector_loop_size);
 
         {
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+        printf("Start ExtractAndFactorizeSubLineTag\n");
+#endif
           IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::NumericPhase::ExtractAndFactorizeSubLineTag");
           Kokkos::TeamPolicy<execution_space,ExtractAndFactorizeSubLineTag>
             policy(packindices_sub.extent(0), team_size, vector_loop_size);
@@ -3144,12 +3160,17 @@ namespace Ifpack2 {
           execution_space().fence();
 
           writeBTDValuesToFile(n_parts, scalar_values, "after.mm");
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+        printf("End ExtractAndFactorizeSubLineTag\n");
+#endif
         }
 
         if (packindices_schur.extent(0) != 0)
         {
           {
-
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+        printf("Start ExtractBCDTag\n");
+#endif
             write5DMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), e_scalar_values, "e_scalar_values_before_extract.mm");
 
             {
@@ -3163,8 +3184,13 @@ namespace Ifpack2 {
               execution_space().fence();
             }
 
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+        printf("End ExtractBCDTag\n");
+#endif
             writeBTDValuesToFile(part2packrowidx0_sub.extent(0), scalar_values, "after_extraction_of_BCD.mm");
-
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+        printf("Start ComputeETag\n");
+#endif
             write5DMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), e_scalar_values, "e_scalar_values_after_extract.mm");
             {
               IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::NumericPhase::ComputeETag");
@@ -3177,9 +3203,16 @@ namespace Ifpack2 {
               execution_space().fence();
             }
             write5DMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), e_scalar_values, "e_scalar_values_after_compute.mm");
+
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+        printf("End ComputeETag\n");
+#endif
           }
 
           {
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+        printf("Star ComputeSchurTag\n");
+#endif
             IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::NumericPhase::ComputeSchurTag");
             writeBTDValuesToFile(part2packrowidx0_sub.extent(0), scalar_values_schur, "before_schur.mm");
             Kokkos::TeamPolicy<execution_space,ComputeSchurTag>
@@ -3190,9 +3223,15 @@ namespace Ifpack2 {
                                 policy, *this);
             writeBTDValuesToFile(part2packrowidx0_sub.extent(0), scalar_values_schur, "after_schur.mm");
             execution_space().fence();
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+        printf("End ComputeSchurTag\n");
+#endif
           }
 
           {
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+        printf("Star FactorizeSchurTag\n");
+#endif
             IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::NumericPhase::FactorizeSchurTag");
             Kokkos::TeamPolicy<execution_space,FactorizeSchurTag>
               policy(part2packrowidx0_sub.extent(0), team_size, vector_loop_size);
@@ -3201,6 +3240,9 @@ namespace Ifpack2 {
                                 policy, *this);
             execution_space().fence();
             writeBTDValuesToFile(part2packrowidx0_sub.extent(0), scalar_values_schur, "after_factor_schur.mm");
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+        printf("End FactorizeSchurTag\n");
+#endif
           }
         }
 
