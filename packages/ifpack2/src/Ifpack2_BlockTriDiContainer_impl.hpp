@@ -1127,7 +1127,7 @@ namespace Ifpack2 {
           partptr(ip+1) = offset + ipnrows;
 
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
-          printf("Part index = ip = %d, first LID associated to the part = partptr(ip) = os = %d, part->size() = ipnrows = %d;\n", ip, os, ipnrows);
+          printf("Part index = ip = %d, first LID associated to the part = partptr(ip) = offset = %d, part->size() = ipnrows = %d;\n", ip, offset, ipnrows);
           printf("partptr(%d+1) = %d\n", ip, partptr(ip+1));
 #endif
         }
@@ -1419,8 +1419,10 @@ namespace Ifpack2 {
         //const local_ordinal_type npacks = interf.packptr_sub.extent(0) - 1;
 
         local_ordinal_type npacks_per_subpart = 0;
+        const auto part2packrowidx0 = Kokkos::create_mirror_view(interf.part2packrowidx0);
+        Kokkos::deep_copy(part2packrowidx0, interf.part2packrowidx0);
         for (local_ordinal_type ip=1;ip<=interf.nparts;++ip) //n_sub_parts_and_schur
-            if (interf.part2packrowidx0(ip) != interf.part2packrowidx0(ip-1))
+            if (part2packrowidx0(ip) != part2packrowidx0(ip-1))
               ++npacks_per_subpart;
 
         btdm.pack_td_ptr = size_type_2d_view(do_not_initialize_tag("btdm.pack_td_ptr"), interf.nparts, 2*interf.n_subparts_per_part);
@@ -2911,6 +2913,7 @@ namespace Ifpack2 {
 	     [&](const local_ordinal_type &v) {
               const local_ordinal_type vbeg = v*internal_vector_length;
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+              const local_ordinal_type i0 = pack_td_ptr(partidx,local_subpartidx);
               printf("i0 = %d, npacks = %d, vbeg = %d;\n", i0, npacks, vbeg);
 #endif
               if (vbeg < npacks)
