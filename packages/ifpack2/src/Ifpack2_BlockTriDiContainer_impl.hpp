@@ -2787,7 +2787,7 @@ namespace Ifpack2 {
           return;
         }
 
-        if (i0 >= AA.extent(0)) {
+        if (i0 >= (int) AA.extent(0)) {
           printf("ERROR! 1 with i0 = %d \n", i0);
           return;
         }
@@ -2806,7 +2806,7 @@ namespace Ifpack2 {
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
             printf("tr = %d, i = %d;\n", tr, i);
 #endif
-        if (i+1 >= AA.extent(0)) {
+        if (i+1 >= (int) AA.extent(0)) {
           printf("ERROR! 2 \n");
         }
             B.assign_data( &AA(i+1,0,0,v) );
@@ -2814,7 +2814,7 @@ namespace Ifpack2 {
                      KB::Side::Left,KB::Uplo::Lower,KB::Trans::NoTranspose,KB::Diag::Unit,
                      default_mode_type,default_algo_type>
               ::invoke(member, one, A, B);
-        if (i+2 >= AA.extent(0)) {
+        if (i+2 >= (int) AA.extent(0)) {
           printf("ERROR! 3 \n");
         }              
             C.assign_data( &AA(i+2,0,0,v) );
@@ -2822,7 +2822,7 @@ namespace Ifpack2 {
                      KB::Side::Right,KB::Uplo::Upper,KB::Trans::NoTranspose,KB::Diag::NonUnit,
                      default_mode_type,default_algo_type>
               ::invoke(member, one, A, C);
-        if (i+3 >= AA.extent(0)) {
+        if (i+3 >= (int) AA.extent(0)) {
           printf("ERROR! 4 \n");
         }
             A.assign_data( &AA(i+3,0,0,v) );
@@ -2948,7 +2948,7 @@ namespace Ifpack2 {
         const local_ordinal_type r2 = part2packrowidx0_sub(partidx,local_subpartidx)+2;
 
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
-        printf("Copy for Schur complement part id = %d from kps1 = %d to r1 = %d and from kps2 = %d to r2 = %d partidx = %d local_subpartidx = %d;\n", packidx, kps1, r1, kps2, r2, partidx, local_subpartidx);
+        printf("Copy for Schur complement part id = %d from kps1 = %ld to r1 = %d and from kps2 = %ld to r2 = %d partidx = %d local_subpartidx = %d;\n", packidx, kps1, r1, kps2, r2, partidx, local_subpartidx);
 #endif
 
         // Need to copy D to e_internal_vector_values.
