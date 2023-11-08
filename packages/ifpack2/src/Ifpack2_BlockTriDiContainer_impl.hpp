@@ -44,7 +44,7 @@
 #define IFPACK2_BLOCKTRIDICONTAINER_IMPL_HPP
 
 //#define IFPACK2_BLOCKTRIDICONTAINER_WRITE_MM
-#define IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+//#define IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
 
 #include <Teuchos_Details_MpiTypeTraits.hpp>
 
@@ -1175,7 +1175,7 @@ namespace Ifpack2 {
               part2rowidx0_sub(sub_ip + 2) = part2rowidx0_sub(sub_ip + 1) + connection_length;
 
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
-              printf("Sub Part index = %d, first LID associated to the sub part = %d, sub part size = %d;\n", sub_ip, partptr_sub(ip, 2 * local_sub_ip), sub_line_length);
+              printf("Sub Part index = %d, first LID associated to the sub part = %d, sub part size = %d;\n", sub_ip, partptr_sub(sub_ip, 0), sub_line_length);
               printf("Sub Part index Schur = %d, first LID associated to the sub part = %d, sub part size = %d;\n", sub_ip + 1, partptr_sub(ip, 2 * local_sub_ip + 1), connection_length);
 #endif
             }
@@ -1191,7 +1191,7 @@ namespace Ifpack2 {
               part2rowidx0_sub(sub_ip + 1) = part2rowidx0_sub(sub_ip) + last_sub_line_length;
 
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
-              printf("Sub Part index = %d, first LID associated to the sub part = %d, sub part size = %d;\n", sub_ip, partptr_sub(ip, 2 * local_sub_ip), last_sub_line_length);
+              printf("Sub Part index = %d, first LID associated to the sub part = %d, sub part size = %d;\n", sub_ip, partptr_sub(sub_ip, 0), last_sub_line_length);
 #endif
             }
           }
@@ -2782,16 +2782,6 @@ namespace Ifpack2 {
         printf("i0 = %d, nrows = %d, v = %d, AA.extent(0) = %ld;\n", i0, nrows, v, AA.extent(0));
 #endif
 
-        if (0 == AA.extent(0)) {
-          printf("ERROR! 0 \n");
-          return;
-        }
-
-        if (i0 >= (int) AA.extent(0)) {
-          printf("ERROR! 1 with i0 = %d \n", i0);
-          return;
-        }
-
         // subview pattern
         auto A = Kokkos::subview(AA, i0, Kokkos::ALL(), Kokkos::ALL(), v);
         KB::LU<member_type,
@@ -2806,25 +2796,18 @@ namespace Ifpack2 {
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
             printf("tr = %d, i = %d;\n", tr, i);
 #endif
-        if (i+1 >= (int) AA.extent(0)) {
-          printf("ERROR! 2 \n");
-        }
             B.assign_data( &AA(i+1,0,0,v) );
             KB::Trsm<member_type,
                      KB::Side::Left,KB::Uplo::Lower,KB::Trans::NoTranspose,KB::Diag::Unit,
                      default_mode_type,default_algo_type>
               ::invoke(member, one, A, B);
-        if (i+2 >= (int) AA.extent(0)) {
-          printf("ERROR! 3 \n");
-        }              
+
             C.assign_data( &AA(i+2,0,0,v) );
             KB::Trsm<member_type,
                      KB::Side::Right,KB::Uplo::Upper,KB::Trans::NoTranspose,KB::Diag::NonUnit,
                      default_mode_type,default_algo_type>
               ::invoke(member, one, A, C);
-        if (i+3 >= (int) AA.extent(0)) {
-          printf("ERROR! 4 \n");
-        }
+
             A.assign_data( &AA(i+3,0,0,v) );
 
             member.team_barrier();
@@ -3113,9 +3096,12 @@ namespace Ifpack2 {
       KOKKOS_INLINE_FUNCTION
       void
       operator() (const FactorizeSchurTag &, const member_type &member) const {
-        const local_ordinal_type packidx = packindices_sub(member.league_rank());
+        const local_ordinal_type packidx = packindices_schur(member.league_rank());
 
-        const local_ordinal_type partidx = packptr_sub(packidx);
+        const local_ordinal_type subpartidx = packptr_sub(packidx);
+
+        const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0);
+        const local_ordinal_type partidx = subpartidx%n_parts;
 
         const local_ordinal_type i0 = pack_td_ptr_schur(partidx,0);
         const local_ordinal_type nrows = 2*(pack_td_ptr_schur.extent(1)-1);
@@ -3239,7 +3225,7 @@ namespace Ifpack2 {
 #endif
             IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::NumericPhase::FactorizeSchurTag");
             Kokkos::TeamPolicy<execution_space,FactorizeSchurTag>
-              policy(part2packrowidx0_sub.extent(0), team_size, vector_loop_size);
+              policy(packindices_schur.extent(0), team_size, vector_loop_size);
             policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
             Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<FactorizeSchurTag>",
                                 policy, *this);
@@ -4417,7 +4403,7 @@ namespace Ifpack2 {
               IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ApplyInverseJacobi::SingleVectorSchurTag"); \
               write4DMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), X_internal_scalar_values, "x_scalar_values_before_SingleVectorSchurTag.mm"); \
               Kokkos::TeamPolicy<execution_space,SingleVectorSchurTag<B> >       \
-                policy(part2packrowidx0_sub.extent(0), team_size, vector_loop_size); \
+                policy(packindices_schur.extent(0), team_size, vector_loop_size); \
               policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch)); \
               Kokkos::parallel_for                                          \
                 ("SolveTridiags::TeamPolicy::run<SingleVector>",            \
