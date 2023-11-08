@@ -2782,8 +2782,13 @@ namespace Ifpack2 {
         printf("i0 = %d, nrows = %d, v = %d, AA.extent(0) = %ld;\n", i0, nrows, v, AA.extent(0));
 #endif
 
+        if (0 == AA.extent(0)) {
+          printf("ERROR! 0 \n");
+          return;
+        }
+
         if (i0 >= AA.extent(0)) {
-          printf("ERROR! 1 \n");
+          printf("ERROR! 1 with i0 = %d \n", i0);
           return;
         }
 
