@@ -2374,7 +2374,7 @@ namespace Ifpack2 {
       std::ofstream myfile;
       myfile.open (fileName);
 
-      const local_ordinal_type n_parts_per_pack = n_parts < scalar_values.extent(2) ? n_parts : scalar_values.extent(2);
+      const local_ordinal_type n_parts_per_pack = n_parts < scalar_values.extent(3) ? n_parts : scalar_values.extent(3);
       const local_ordinal_type n_blocks = scalar_values.extent(0)*n_parts_per_pack;
       const local_ordinal_type n_blocks_per_part = n_blocks/n_parts;
 
@@ -2426,7 +2426,7 @@ namespace Ifpack2 {
       std::ofstream myfile;
       myfile.open (fileName);
 
-      const local_ordinal_type n_parts_per_pack = n_parts < scalar_values.extent(3) ? n_parts : scalar_values.extent(3);
+      const local_ordinal_type n_parts_per_pack = n_parts < scalar_values.extent(4) ? n_parts : scalar_values.extent(4);
       const local_ordinal_type n_blocks = scalar_values.extent(1)*n_parts_per_pack;
       const local_ordinal_type n_blocks_per_part = n_blocks/n_parts;
 
@@ -3225,7 +3225,7 @@ namespace Ifpack2 {
 #endif
             IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::NumericPhase::FactorizeSchurTag");
             Kokkos::TeamPolicy<execution_space,FactorizeSchurTag>
-              policy(packindices_schur.extent(0), team_size, vector_loop_size);
+              policy(part2packrowidx0_sub.extent(0), team_size, vector_loop_size);
             policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
             Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<FactorizeSchurTag>",
                                 policy, *this);
