@@ -348,8 +348,8 @@ namespace Ifpack2 {
       template<typename T, typename M> using DefaultVectorLength = KB::DefaultVectorLength<T,M>;
       template<typename T, typename M> using DefaultInternalVectorLength = KB::DefaultInternalVectorLength<T,M>;
 
-      static constexpr int vector_length = DefaultVectorLength<btdm_scalar_type,memory_space>::value;
-      static constexpr int internal_vector_length = DefaultInternalVectorLength<btdm_scalar_type,memory_space>::value;
+      static constexpr int vector_length = 1; //DefaultVectorLength<btdm_scalar_type,memory_space>::value;
+      static constexpr int internal_vector_length = 1; //DefaultInternalVectorLength<btdm_scalar_type,memory_space>::value;
       typedef Vector<SIMD<btdm_scalar_type>,vector_length> vector_type;
       typedef Vector<SIMD<btdm_scalar_type>,internal_vector_length> internal_vector_type;
 
