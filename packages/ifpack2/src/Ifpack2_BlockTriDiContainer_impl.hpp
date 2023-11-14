@@ -1488,19 +1488,22 @@ namespace Ifpack2 {
       Kokkos::deep_copy(btdm.pack_td_ptr_schur, host_pack_td_ptr_schur);
 
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_WRITE_MM
+      const auto host_flat_td_ptr = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), btdm.flat_td_ptr);
       std::cout << "flat_td_ptr = " << std::endl;
-      for (size_type i = 0; i < btdm.flat_td_ptr.extent(0); ++i) {
-        for (size_type j = 0; j < btdm.flat_td_ptr.extent(1); ++j) {
-          std::cout << btdm.flat_td_ptr(i,j) << " ";
+      for (size_type i = 0; i < host_flat_td_ptr.extent(0); ++i) {
+        for (size_type j = 0; j < host_flat_td_ptr.extent(1); ++j) {
+          std::cout << host_flat_td_ptr(i,j) << " ";
         }
         std::cout << std::endl;
       }
       std::cout << "flat_td_ptr end" << std::endl;
 
+      const auto host_pack_td_ptr = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), btdm.pack_td_ptr);
+
       std::cout << "pack_td_ptr = " << std::endl;
-      for (size_type i = 0; i < btdm.pack_td_ptr.extent(0); ++i) {
-        for (size_type j = 0; j < btdm.pack_td_ptr.extent(1); ++j) {
-          std::cout << btdm.pack_td_ptr(i,j) << " ";
+      for (size_type i = 0; i < host_pack_td_ptr.extent(0); ++i) {
+        for (size_type j = 0; j < host_pack_td_ptr.extent(1); ++j) {
+          std::cout << host_pack_td_ptr(i,j) << " ";
         }
         std::cout << std::endl;
       }
@@ -1508,9 +1511,9 @@ namespace Ifpack2 {
 
 
       std::cout << "pack_td_ptr_schur = " << std::endl;
-      for (size_type i = 0; i < btdm.pack_td_ptr_schur.extent(0); ++i) {
-        for (size_type j = 0; j < btdm.pack_td_ptr_schur.extent(1); ++j) {
-          std::cout << btdm.pack_td_ptr_schur(i,j) << " ";
+      for (size_type i = 0; i < host_pack_td_ptr_schur.extent(0); ++i) {
+        for (size_type j = 0; j < host_pack_td_ptr_schur.extent(1); ++j) {
+          std::cout << host_pack_td_ptr_schur(i,j) << " ";
         }
         std::cout << std::endl;
       }
