@@ -3203,7 +3203,7 @@ namespace Ifpack2 {
 #endif
         }
 
-        if (packindices_schur.extent(0) != 0)
+        if (packindices_schur.extent(1) > 0)
         {
           {
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
@@ -4413,7 +4413,7 @@ namespace Ifpack2 {
 #else
 #define BLOCKTRIDICONTAINER_DETAILS_SOLVETRIDIAGS(B)                    \
         if (num_vectors == 1) {                                         \
-          if (packindices_schur.extent(0) == 0) { \
+          if (packindices_schur.extent(1) <= 0) { \
             Kokkos::TeamPolicy<execution_space,SingleVectorTag<B> >       \
               policy(packptr.extent(0) - 1, team_size, vector_loop_size); \
             policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch)); \
