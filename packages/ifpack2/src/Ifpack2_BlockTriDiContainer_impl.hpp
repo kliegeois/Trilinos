@@ -4025,6 +4025,8 @@ namespace Ifpack2 {
       template<int B> struct MultiVectorSchurTag {};
       template<int B> struct SingleVectorApplyETag {};
       template<int B> struct MultiVectorApplyETag {};
+      template<int B> struct SingleVectorCopyToFlatTag {};
+      template<int B> struct SingleZeroingTag {};
 
       template<int B>
       KOKKOS_INLINE_FUNCTION
@@ -4380,6 +4382,32 @@ namespace Ifpack2 {
         }
       }
 
+      template<int B>
+      KOKKOS_INLINE_FUNCTION
+      void
+      operator() (const SingleVectorCopyToFlatTag<B> &, const member_type &member) const {
+        const local_ordinal_type packidx = member.league_rank();
+        const local_ordinal_type partidx = packptr(packidx);
+        const local_ordinal_type npacks = packptr(packidx+1) - partidx;
+        const local_ordinal_type pri0 = part2packrowidx0(partidx);
+        const local_ordinal_type blocksize = (B == 0 ? D_internal_vector_values.extent(1) : B);
+        const local_ordinal_type num_vectors = 1;
+
+        Kokkos::parallel_for
+          (Kokkos::ThreadVectorRange(member, vector_loop_size),[&](const int &v) {
+            copyToFlatMultiVector(member, partidx, npacks, pri0, v, blocksize, num_vectors);
+          });
+      }    
+
+      template<int B>
+      KOKKOS_INLINE_FUNCTION
+      void
+      operator() (const SingleZeroingTag<B> &, const member_type &member) const {
+        Kokkos::single(Kokkos::PerTeam(member), [&]() {
+            Z_scalar_vector(member.league_rank()) = impl_scalar_type(0);
+          });
+      }
+
       void run(const impl_scalar_type_2d_view_tpetra &Y,
                const impl_scalar_type_1d_view &Z) {
         IFPACK2_BLOCKTRIDICONTAINER_PROFILER_REGION_BEGIN;
@@ -4425,6 +4453,14 @@ namespace Ifpack2 {
               policy, *this);                                            \
           } \
           else { \
+            { \
+               \
+              Kokkos::TeamPolicy<execution_space,SingleZeroingTag<B> >       \
+                policy(packptr.extent(0) - 1, team_size, vector_loop_size); \
+              Kokkos::parallel_for                                          \
+                ("SolveTridiags::TeamPolicy::run<SingleZeroingTag>",            \
+                policy, *this);                                            \
+            } \
             { \
               IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ApplyInverseJacobi::SingleVectorSubLineTag"); \
               write4DMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), X_internal_scalar_values, "x_scalar_values_before_SingleVectorSubLineTag.mm"); \
@@ -4472,6 +4508,14 @@ namespace Ifpack2 {
                 policy, *this);                                            \
               write4DMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), X_internal_scalar_values, "x_scalar_values_after_SingleVectorApplyETag.mm"); \
               IFPACK2_BLOCKHELPER_TIMER_FENCE(execution_space) \
+            } \
+            { \
+               \
+              Kokkos::TeamPolicy<execution_space,SingleVectorCopyToFlatTag<B> >       \
+                policy(packptr.extent(0) - 1, team_size, vector_loop_size); \
+              Kokkos::parallel_for                                          \
+                ("SolveTridiags::TeamPolicy::run<SingleVectorCopyToFlatTag>",            \
+                policy, *this);                                            \
             } \
           } \
         } else {                                                        \
