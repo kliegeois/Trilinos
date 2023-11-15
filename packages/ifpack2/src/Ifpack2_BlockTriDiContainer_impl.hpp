@@ -3212,6 +3212,8 @@ namespace Ifpack2 {
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
         printf("Start ExtractBCDTag\n");
 #endif
+            Kokkos::deep_copy(e_scalar_values, Kokkos::ArithTraits<btdm_magnitude_type>::zero());
+
             write5DMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), e_scalar_values, "e_scalar_values_before_extract.mm");
 
             {
