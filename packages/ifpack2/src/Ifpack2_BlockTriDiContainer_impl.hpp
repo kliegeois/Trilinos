@@ -842,6 +842,50 @@ namespace Ifpack2 {
       return Teuchos::null;
     }
 
+    int costTRSM(const int block_size) {
+      return block_size*block_size;
+    }
+
+    int costGEMV(const int block_size) {
+      return 2*block_size*block_size;
+    }
+
+    int costTriDiagSolve(const int subline_length, const int block_size) {
+      return 2 * subline_length * costTRSM(block_size) + 2 * (subline_length-1) * costGEMV(block_size);
+    }
+
+    int costSolveSchur(const int num_parts, const int num_teams, const int line_length, const int block_size, const int n_subparts_per_part) {
+      const int subline_length = ceil((line_length - (n_subparts_per_part-1) * 2) / n_subparts_per_part);
+      if (subline_length < 1) {
+        return INT_MAX;
+      }
+
+      const int p_n_lines = ceil(num_parts/num_teams)
+      const int p_n_sublines = ceil(n_subparts_per_part*num_parts/num_teams)
+      const int p_n_sublines_2 = ceil((n_subparts_per_part-1)*num_parts/num_teams)
+
+      const int p_costApplyE = p_n_sublines_2 * subline_length * 2 * costGEMV(block_size);
+      const int p_costApplyS = p_n_lines * costTriDiagSolve((n_subparts_per_part-1)*2,block_size);
+      const int p_costApplyAinv = p_n_sublines * costTriDiagSolve(subline_length,block_size);
+      const int p_costApplyC = p_n_sublines_2 * 2 * costGEMV(block_size);
+
+      if (n_subparts_per_part == 1) {
+        return p_costApplyAinv;
+      }
+      return p_costApplyE + p_costApplyS + p_costApplyAinv + p_costApplyC;
+    }
+
+    int getAutomaticNSubparts(const int num_parts, const int num_teams, const int line_length, const int block_size) {
+      int n_subparts_per_part_0 = 1;
+      int flop_0 = costSolveSchur(num_parts, num_teams, line_length, block_size, n_subparts_per_part_0);
+      int flop_1 = costSolveSchur(num_parts, num_teams, line_length, block_size, n_subparts_per_part_0+1);
+      while (flop_0 > flop_1) {
+        flop_0 = flop_1;
+        flop_1 = costSolveSchur(num_parts, num_teams, line_length, block_size, (++n_subparts_per_part_0)+1);
+      }
+      return n_subparts_per_part_0;
+    }
+
     ///
     /// setup part interface using the container partitions array
     ///
@@ -866,6 +910,31 @@ namespace Ifpack2 {
       const bool jacobi = partitions.size() == 0;
       const local_ordinal_type A_n_lclrows = A->getLocalNumRows();
       const local_ordinal_type nparts = jacobi ? A_n_lclrows : partitions.size();
+
+      if (n_subparts_per_part == -1) {
+        // If the number of subparts is set to -1, the user let the algorithm
+        // decides the value automatically
+
+        const local_ordinal_type team_size =
+          SolveTridiagsDefaultModeAndAlgo<typename execution_space::memory_space>::
+          recommended_team_size(blocksize, vector_length, internal_vector_length);
+
+        const local_ordinal_type num_teams = 
+          execution_space.concurrency() / team_size;
+
+        std::vector<size_idx_pair_type> partsz(nparts);
+        for (local_ordinal_type i=0;i<nparts;++i)
+          partsz[i] = size_idx_pair_type(partitions[i].size(), i);
+        std::sort(partsz.begin(), partsz.end(),
+                  [] (const size_idx_pair_type& x, const size_idx_pair_type& y) {
+                    return x.first > y.first;
+                  });
+
+        const int line_length = partsz[0].first;
+        // The actual block_size is not usefull for getAutomaticNSubparts.
+        const int block_size = 1;
+        n_subparts_per_part = getAutomaticNSubparts(nparts, num_teams, line_length, block_size);
+      }    
 
       // Total number of sub lines:
       const local_ordinal_type n_sub_parts = nparts * n_subparts_per_part;
@@ -3251,7 +3320,7 @@ namespace Ifpack2 {
 
           {
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
-        printf("Star ComputeSchurTag\n");
+        printf("Start ComputeSchurTag\n");
 #endif
             IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::NumericPhase::ComputeSchurTag");
             writeBTDValuesToFile(part2packrowidx0_sub.extent(0), scalar_values_schur, "before_schur.mm");
@@ -3270,7 +3339,7 @@ namespace Ifpack2 {
 
           {
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
-        printf("Star FactorizeSchurTag\n");
+        printf("Start FactorizeSchurTag\n");
 #endif
             IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::NumericPhase::FactorizeSchurTag");
             Kokkos::TeamPolicy<execution_space,FactorizeSchurTag>
