@@ -860,9 +860,9 @@ namespace Ifpack2 {
         return INT_MAX;
       }
 
-      const int p_n_lines = ceil(num_parts/num_teams)
-      const int p_n_sublines = ceil(n_subparts_per_part*num_parts/num_teams)
-      const int p_n_sublines_2 = ceil((n_subparts_per_part-1)*num_parts/num_teams)
+      const int p_n_lines = ceil(num_parts/num_teams);
+      const int p_n_sublines = ceil(n_subparts_per_part*num_parts/num_teams);
+      const int p_n_sublines_2 = ceil((n_subparts_per_part-1)*num_parts/num_teams);
 
       const int p_costApplyE = p_n_sublines_2 * subline_length * 2 * costGEMV(block_size);
       const int p_costApplyS = p_n_lines * costTriDiagSolve((n_subparts_per_part-1)*2,block_size);
@@ -886,6 +886,9 @@ namespace Ifpack2 {
       return n_subparts_per_part_0;
     }
 
+    template<typename ArgActiveExecutionMemorySpace>
+    struct SolveTridiagsDefaultModeAndAlgo;
+
     ///
     /// setup part interface using the container partitions array
     ///
@@ -893,7 +896,7 @@ namespace Ifpack2 {
     BlockHelperDetails::PartInterface<MatrixType>
     createPartInterface(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A,
                         const Teuchos::Array<Teuchos::Array<typename BlockHelperDetails::ImplType<MatrixType>::local_ordinal_type> > &partitions,
-                        const typename BlockHelperDetails::ImplType<MatrixType>::local_ordinal_type n_subparts_per_part) {
+                        const typename BlockHelperDetails::ImplType<MatrixType>::local_ordinal_type n_subparts_per_part_in) {
       IFPACK2_BLOCKHELPER_TIMER("createPartInterface");
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using local_ordinal_type = typename impl_type::local_ordinal_type;
@@ -901,7 +904,9 @@ namespace Ifpack2 {
       using local_ordinal_type_2d_view = typename impl_type::local_ordinal_type_2d_view;
       using size_type = typename impl_type::size_type;
 
+      const auto blocksize = A->getBlockSize();
       constexpr int vector_length = impl_type::vector_length;
+      constexpr int internal_vector_length = impl_type::internal_vector_length;
 
       const auto comm = A->getRowMap()->getComm();
 
@@ -911,17 +916,13 @@ namespace Ifpack2 {
       const local_ordinal_type A_n_lclrows = A->getLocalNumRows();
       const local_ordinal_type nparts = jacobi ? A_n_lclrows : partitions.size();
 
-      if (n_subparts_per_part == -1) {
+      local_ordinal_type n_subparts_per_part;
+      if (n_subparts_per_part_in == -1) {
         // If the number of subparts is set to -1, the user let the algorithm
         // decides the value automatically
+        using execution_space = typename impl_type::execution_space;
 
-        const local_ordinal_type team_size =
-          SolveTridiagsDefaultModeAndAlgo<typename execution_space::memory_space>::
-          recommended_team_size(blocksize, vector_length, internal_vector_length);
-
-        const local_ordinal_type num_teams = 
-          execution_space.concurrency() / team_size;
-
+        typedef std::pair<local_ordinal_type,local_ordinal_type> size_idx_pair_type;
         std::vector<size_idx_pair_type> partsz(nparts);
         for (local_ordinal_type i=0;i<nparts;++i)
           partsz[i] = size_idx_pair_type(partitions[i].size(), i);
@@ -931,10 +932,18 @@ namespace Ifpack2 {
                   });
 
         const int line_length = partsz[0].first;
-        // The actual block_size is not usefull for getAutomaticNSubparts.
-        const int block_size = 1;
-        n_subparts_per_part = getAutomaticNSubparts(nparts, num_teams, line_length, block_size);
-      }    
+
+        const local_ordinal_type team_size = 
+          SolveTridiagsDefaultModeAndAlgo<typename execution_space::memory_space>::
+          recommended_team_size(blocksize, vector_length, internal_vector_length);
+
+        const local_ordinal_type num_teams = execution_space().concurrency() / team_size;
+
+        n_subparts_per_part = getAutomaticNSubparts(nparts, num_teams, line_length, blocksize);
+      }
+      else {
+        n_subparts_per_part = n_subparts_per_part_in;
+      }
 
       // Total number of sub lines:
       const local_ordinal_type n_sub_parts = nparts * n_subparts_per_part;
@@ -2142,9 +2151,6 @@ namespace Ifpack2 {
       }
     };
 #endif
-
-    template<typename ArgActiveExecutionMemorySpace>
-    struct SolveTridiagsDefaultModeAndAlgo;
 
     template<typename impl_type, typename WWViewType>
     KOKKOS_INLINE_FUNCTION
@@ -4653,7 +4659,7 @@ namespace Ifpack2 {
                 ("SolveTridiags::TeamPolicy::run<SingleZeroingTag>",            \
                 policy, *this);                                            \
             } \
-            bool useNonFusedKernels = false \
+            bool useNonFusedKernels = false; \
             if (useNonFusedKernels) { \
               { \
                 IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ApplyInverseJacobi::SingleVectorSubLineTag"); \
