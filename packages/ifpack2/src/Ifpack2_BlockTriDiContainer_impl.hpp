@@ -842,32 +842,40 @@ namespace Ifpack2 {
       return Teuchos::null;
     }
 
-    int costTRSM(const int block_size) {
+    template<typename local_ordinal_type>
+    local_ordinal_type costTRSM(const local_ordinal_type block_size) {
       return block_size*block_size;
     }
 
-    int costGEMV(const int block_size) {
+    template<typename local_ordinal_type>
+    local_ordinal_type costGEMV(const local_ordinal_type block_size) {
       return 2*block_size*block_size;
     }
 
-    int costTriDiagSolve(const int subline_length, const int block_size) {
+    template<typename local_ordinal_type>
+    local_ordinal_type costTriDiagSolve(const local_ordinal_type subline_length, const local_ordinal_type block_size) {
       return 2 * subline_length * costTRSM(block_size) + 2 * (subline_length-1) * costGEMV(block_size);
     }
 
-    int costSolveSchur(const int num_parts, const int num_teams, const int line_length, const int block_size, const int n_subparts_per_part) {
-      const int subline_length = ceil((line_length - (n_subparts_per_part-1) * 2) / n_subparts_per_part);
+    template<typename local_ordinal_type>
+    local_ordinal_type costSolveSchur(const local_ordinal_type num_parts,
+                                      const local_ordinal_type num_teams,
+                                      const local_ordinal_type line_length,
+                                      const local_ordinal_type block_size,
+                                      const local_ordinal_type n_subparts_per_part) {
+      const local_ordinal_type subline_length = ceil((line_length - (n_subparts_per_part-1) * 2) / n_subparts_per_part);
       if (subline_length < 1) {
         return INT_MAX;
       }
 
-      const int p_n_lines = ceil(num_parts/num_teams);
-      const int p_n_sublines = ceil(n_subparts_per_part*num_parts/num_teams);
-      const int p_n_sublines_2 = ceil((n_subparts_per_part-1)*num_parts/num_teams);
+      const local_ordinal_type p_n_lines = ceil(num_parts/num_teams);
+      const local_ordinal_type p_n_sublines = ceil(n_subparts_per_part*num_parts/num_teams);
+      const local_ordinal_type p_n_sublines_2 = ceil((n_subparts_per_part-1)*num_parts/num_teams);
 
-      const int p_costApplyE = p_n_sublines_2 * subline_length * 2 * costGEMV(block_size);
-      const int p_costApplyS = p_n_lines * costTriDiagSolve((n_subparts_per_part-1)*2,block_size);
-      const int p_costApplyAinv = p_n_sublines * costTriDiagSolve(subline_length,block_size);
-      const int p_costApplyC = p_n_sublines_2 * 2 * costGEMV(block_size);
+      const local_ordinal_type p_costApplyE = p_n_sublines_2 * subline_length * 2 * costGEMV(block_size);
+      const local_ordinal_type p_costApplyS = p_n_lines * costTriDiagSolve((n_subparts_per_part-1)*2,block_size);
+      const local_ordinal_type p_costApplyAinv = p_n_sublines * costTriDiagSolve(subline_length,block_size);
+      const local_ordinal_type p_costApplyC = p_n_sublines_2 * 2 * costGEMV(block_size);
 
       if (n_subparts_per_part == 1) {
         return p_costApplyAinv;
@@ -875,10 +883,14 @@ namespace Ifpack2 {
       return p_costApplyE + p_costApplyS + p_costApplyAinv + p_costApplyC;
     }
 
-    int getAutomaticNSubparts(const int num_parts, const int num_teams, const int line_length, const int block_size) {
-      int n_subparts_per_part_0 = 1;
-      int flop_0 = costSolveSchur(num_parts, num_teams, line_length, block_size, n_subparts_per_part_0);
-      int flop_1 = costSolveSchur(num_parts, num_teams, line_length, block_size, n_subparts_per_part_0+1);
+    template<typename local_ordinal_type>
+    local_ordinal_type getAutomaticNSubparts(const local_ordinal_type num_parts,
+                                             const local_ordinal_type num_teams,
+                                             const local_ordinal_type line_length,
+                                             const local_ordinal_type block_size) {
+      local_ordinal_type n_subparts_per_part_0 = 1;
+      local_ordinal_type flop_0 = costSolveSchur(num_parts, num_teams, line_length, block_size, n_subparts_per_part_0);
+      local_ordinal_type flop_1 = costSolveSchur(num_parts, num_teams, line_length, block_size, n_subparts_per_part_0+1);
       while (flop_0 > flop_1) {
         flop_0 = flop_1;
         flop_1 = costSolveSchur(num_parts, num_teams, line_length, block_size, (++n_subparts_per_part_0)+1);
@@ -940,6 +952,8 @@ namespace Ifpack2 {
         const local_ordinal_type num_teams = execution_space().concurrency() / team_size;
 
         n_subparts_per_part = getAutomaticNSubparts(nparts, num_teams, line_length, blocksize);
+
+        printf("Automatically chosen n_subparts_per_part = %d for nparts = %d, num_teams = %d, team_size = %d, line_length = %d, and blocksize = %d;\n", n_subparts_per_part, nparts, num_teams, team_size, line_length, blocksize);
       }
       else {
         n_subparts_per_part = n_subparts_per_part_in;
