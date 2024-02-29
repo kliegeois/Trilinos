@@ -916,20 +916,20 @@ namespace Ifpack2 {
       const local_ordinal_type A_n_lclrows = A->getLocalNumRows();
       const local_ordinal_type nparts = jacobi ? A_n_lclrows : partitions.size();
 
+      typedef std::pair<local_ordinal_type,local_ordinal_type> size_idx_pair_type;
+      std::vector<size_idx_pair_type> partsz(nparts);
+      for (local_ordinal_type i=0;i<nparts;++i)
+        partsz[i] = size_idx_pair_type(partitions[i].size(), i);
+      std::sort(partsz.begin(), partsz.end(),
+                [] (const size_idx_pair_type& x, const size_idx_pair_type& y) {
+                  return x.first > y.first;
+                });
+
       local_ordinal_type n_subparts_per_part;
       if (n_subparts_per_part_in == -1) {
         // If the number of subparts is set to -1, the user let the algorithm
         // decides the value automatically
         using execution_space = typename impl_type::execution_space;
-
-        typedef std::pair<local_ordinal_type,local_ordinal_type> size_idx_pair_type;
-        std::vector<size_idx_pair_type> partsz(nparts);
-        for (local_ordinal_type i=0;i<nparts;++i)
-          partsz[i] = size_idx_pair_type(partitions[i].size(), i);
-        std::sort(partsz.begin(), partsz.end(),
-                  [] (const size_idx_pair_type& x, const size_idx_pair_type& y) {
-                    return x.first > y.first;
-                  });
 
         const int line_length = partsz[0].first;
 
@@ -974,14 +974,6 @@ namespace Ifpack2 {
         // reorder parts to maximize simd packing efficiency
         p.resize(nparts);
 
-        typedef std::pair<local_ordinal_type,local_ordinal_type> size_idx_pair_type;
-        std::vector<size_idx_pair_type> partsz(nparts);
-        for (local_ordinal_type i=0;i<nparts;++i)
-          partsz[i] = size_idx_pair_type(partitions[i].size(), i);
-        std::sort(partsz.begin(), partsz.end(),
-                  [] (const size_idx_pair_type& x, const size_idx_pair_type& y) {
-                    return x.first > y.first;
-                  });
         for (local_ordinal_type i=0;i<nparts;++i)
           p[i] = partsz[i].second;
 
