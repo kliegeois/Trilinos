@@ -863,14 +863,14 @@ namespace Ifpack2 {
                                       const local_ordinal_type line_length,
                                       const local_ordinal_type block_size,
                                       const local_ordinal_type n_subparts_per_part) {
-      const local_ordinal_type subline_length = ceil((line_length - (n_subparts_per_part-1) * 2) / n_subparts_per_part);
+      const local_ordinal_type subline_length = ceil(double(line_length - (n_subparts_per_part-1) * 2) / n_subparts_per_part);
       if (subline_length < 1) {
         return INT_MAX;
       }
 
-      const local_ordinal_type p_n_lines = ceil(num_parts/num_teams);
-      const local_ordinal_type p_n_sublines = ceil(n_subparts_per_part*num_parts/num_teams);
-      const local_ordinal_type p_n_sublines_2 = ceil((n_subparts_per_part-1)*num_parts/num_teams);
+      const local_ordinal_type p_n_lines = ceil(double(num_parts)/num_teams);
+      const local_ordinal_type p_n_sublines = ceil(double(n_subparts_per_part)*num_parts/num_teams);
+      const local_ordinal_type p_n_sublines_2 = ceil(double(n_subparts_per_part-1)*num_parts/num_teams);
 
       const local_ordinal_type p_costApplyE = p_n_sublines_2 * subline_length * 2 * costGEMV(block_size);
       const local_ordinal_type p_costApplyS = p_n_lines * costTriDiagSolve((n_subparts_per_part-1)*2,block_size);
