@@ -277,8 +277,8 @@ int main(int argc, char *argv[]) {
 
             if (Teuchos::is_null(hv)) {
               //FIX this
-              //out << "\nError: hessian pointer is null" << std::endl;
-              //status += 33;
+              out << "\nError: hessian pointer is null" << std::endl;
+              status += 33;
             } else {
                 double hv_exact[4] = {6., -10./3, -10./3, 4.};
                 for (int i_direction = 0; i_direction < n_directions; i_direction++) {

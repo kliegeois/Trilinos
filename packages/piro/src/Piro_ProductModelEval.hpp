@@ -328,19 +328,19 @@ ProductModelEvaluator<Real>::evalModelImpl(
 
     internal_inArgs.set_x_direction(inArgs.get_x_direction());
 
-    TEUCHOS_TEST_FOR_EXCEPTION(!inArgs.get_p(0).is_null() && prodvec_p.is_null(), std::logic_error,
+    TEUCHOS_TEST_FOR_EXCEPTION(Teuchos::nonnull(inArgs.get_p(0)) && prodvec_p.is_null(), std::logic_error,
         std::endl <<
         "Error!  ProductModelEvaluator<Real>::evalModelImpl() " <<
         " prodvec_p is not a ProductVectorBase " << std::endl);
 
     for (std::size_t i = 0; i < p_indices_.size(); ++i) {
-        if (!prodvec_p.is_null()) {
+        if (Teuchos::nonnull(prodvec_p)) {
             auto tmp = prodvec_p->getVectorBlock(i);
 
             Teuchos::RCP<const Thyra::ProductVectorBase<Real> > prodvec_p_in
                 = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(tmp);
 
-            TEUCHOS_TEST_FOR_EXCEPTION(!prodvec_p_in.is_null(), std::logic_error,
+            TEUCHOS_TEST_FOR_EXCEPTION(Teuchos::nonnull(prodvec_p_in), std::logic_error,
                 std::endl <<
                 "Error!  ProductModelEvaluator<Real>::evalModelImpl() " <<
                 " ProductVectorBase of ProductVectorBase is not supported.  Parameter index i = " <<
@@ -348,7 +348,7 @@ ProductModelEvaluator<Real>::evalModelImpl(
 
             internal_inArgs.set_p(p_indices_[i], prodvec_p->getVectorBlock(i));
         }
-        if (!prodvec_direction_p.is_null()) {
+        if (Teuchos::nonnull(prodvec_direction_p)) {
             internal_inArgs.set_p_direction(p_indices_[i], prodvec_direction_p->getMultiVectorBlock(i));
         }
     }
@@ -358,7 +358,7 @@ ProductModelEvaluator<Real>::evalModelImpl(
             std::vector<Teuchos::RCP< Thyra::MultiVectorBase<Real> > > hv_vec(p_indices_.size());
 
             hv_vec[0] = outArgs.get_hess_vec_prod_g_xp(g_index,0);
-            if (!Teuchos::is_null(hv_vec[0])) {
+            if (Teuchos::nonnull(hv_vec[0])) {
                 for(std::size_t j=1; j<p_indices_.size(); ++j) {
                     hv_vec[j] = hv_vec[0]->clone_mv();
                 }
@@ -373,7 +373,7 @@ ProductModelEvaluator<Real>::evalModelImpl(
             Teuchos::RCP< Thyra::ProductMultiVectorBase<Real> > prodvec_hv =
                 Teuchos::rcp_dynamic_cast<Thyra::ProductMultiVectorBase<Real>>(outArgs.get_hess_vec_prod_g_px(g_index,0));
 
-            if (!Teuchos::is_null(prodvec_hv)) {
+            if (Teuchos::nonnull(prodvec_hv)) {
                 for(std::size_t i=0; i<p_indices_.size(); ++i) {
                     bool supports_deriv_j =   internal_outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_px, g_index, p_indices_[i]);
                     TEUCHOS_TEST_FOR_EXCEPTION( !supports_deriv_j, std::logic_error, 
@@ -383,7 +383,7 @@ ProductModelEvaluator<Real>::evalModelImpl(
                 }
             }
             else {
-                TEUCHOS_TEST_FOR_EXCEPTION( !Teuchos::is_null(outArgs.get_hess_vec_prod_g_px(g_index,0)), std::logic_error, "ProductModelEvaluator<Real>::evalModelImpl(): hess_vec_prod_g_px is not a ProductMultiVectorBase. Solution index = " << g_index << std::endl);
+                TEUCHOS_TEST_FOR_EXCEPTION( Teuchos::nonnull(outArgs.get_hess_vec_prod_g_px(g_index,0)), std::logic_error, "ProductModelEvaluator<Real>::evalModelImpl(): hess_vec_prod_g_px is not a ProductMultiVectorBase. Solution index = " << g_index << std::endl);
             }
         }
 
@@ -392,7 +392,7 @@ ProductModelEvaluator<Real>::evalModelImpl(
                 Teuchos::rcp_dynamic_cast<Thyra::ProductMultiVectorBase<Real>>(outArgs.get_hess_vec_prod_g_pp(g_index,0,0));
             std::vector<std::vector<Teuchos::RCP< Thyra::MultiVectorBase<Real> > > > hv_vec(p_indices_.size());
 
-            if (!Teuchos::is_null(prodvec_hv)) {
+            if (Teuchos::nonnull(prodvec_hv)) {
                 for(std::size_t i=0; i<p_indices_.size(); ++i) {
                     hv_vec[i].resize(p_indices_.size());
                     hv_vec[i][0] = prodvec_hv->getNonconstMultiVectorBlock(i);
@@ -413,7 +413,7 @@ ProductModelEvaluator<Real>::evalModelImpl(
                 }
             }
             else {
-                TEUCHOS_TEST_FOR_EXCEPTION( !Teuchos::is_null(outArgs.get_hess_vec_prod_g_pp(g_index,0,0)), std::logic_error, 
+                TEUCHOS_TEST_FOR_EXCEPTION( Teuchos::nonnull(outArgs.get_hess_vec_prod_g_pp(g_index,0,0)), std::logic_error, 
                     "ProductModelEvaluator<Real>::evalModelImpl(): hess_vec_prod_g_pp is not a ProductMultiVectorBase. " <<
                     "Solution index = " << g_index << std::endl);
             }
@@ -424,7 +424,7 @@ ProductModelEvaluator<Real>::evalModelImpl(
         Teuchos::RCP< Thyra::MultiVectorBase<Real> > thyra_ahwv = outArgs.get_hess_vec_prod_f_xp(0);
         std::vector<Teuchos::RCP< Thyra::MultiVectorBase<Real> > > ahwv_vec(p_indices_.size());
 
-        if (!Teuchos::is_null(thyra_ahwv)) {
+        if (Teuchos::nonnull(thyra_ahwv)) {
             ahwv_vec[0] = thyra_ahwv;
             for(std::size_t j=1; j<p_indices_.size(); ++j) {
                 ahwv_vec[j] = thyra_ahwv->clone_mv();
@@ -442,7 +442,7 @@ ProductModelEvaluator<Real>::evalModelImpl(
     if (supports_vec_prod_f_px) {
         Teuchos::RCP< Thyra::ProductVectorBase<Real> > prodvec_ahwv =
             Teuchos::rcp_dynamic_cast<Thyra::ProductVectorBase<Real>>(outArgs.get_hess_vec_prod_f_px(0));
-        if (!Teuchos::is_null(prodvec_ahwv)) {
+        if (Teuchos::nonnull(prodvec_ahwv)) {
             for(std::size_t i=0; i<p_indices_.size(); ++i) {
                 bool supports_deriv_i =   internal_outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_f_px, p_indices_[i]);
                 TEUCHOS_TEST_FOR_EXCEPTION( !supports_deriv_i, std::logic_error, 
@@ -451,7 +451,7 @@ ProductModelEvaluator<Real>::evalModelImpl(
             }
         }
         else {
-            TEUCHOS_TEST_FOR_EXCEPTION( !Teuchos::is_null(outArgs.get_hess_vec_prod_f_px(0)), std::logic_error, 
+            TEUCHOS_TEST_FOR_EXCEPTION( Teuchos::nonnull(outArgs.get_hess_vec_prod_f_px(0)), std::logic_error, 
                 "ProductModelEvaluator<Real>::evalModelImpl(): hess_vec_prod_f_px is not a ProductMultiVectorBase");
         }
     }
@@ -461,7 +461,7 @@ ProductModelEvaluator<Real>::evalModelImpl(
             Teuchos::rcp_dynamic_cast<Thyra::ProductMultiVectorBase<Real>>(outArgs.get_hess_vec_prod_f_pp(0,0));
         std::vector<std::vector<Teuchos::RCP< Thyra::MultiVectorBase<Real> > > > ahwv_vec(p_indices_.size());
 
-        if (!Teuchos::is_null(prodvec_ahwv)) {
+        if (Teuchos::nonnull(prodvec_ahwv)) {
             for(std::size_t i=0; i<p_indices_.size(); ++i) {
                 ahwv_vec[i].resize(p_indices_.size());
                 ahwv_vec[i][0] = prodvec_ahwv->getNonconstMultiVectorBlock(i);
@@ -481,7 +481,7 @@ ProductModelEvaluator<Real>::evalModelImpl(
             }
         }
         else {
-            TEUCHOS_TEST_FOR_EXCEPTION( !Teuchos::is_null(outArgs.get_hess_vec_prod_f_pp(0,0)), std::logic_error, 
+            TEUCHOS_TEST_FOR_EXCEPTION( Teuchos::nonnull(outArgs.get_hess_vec_prod_f_pp(0,0)), std::logic_error, 
                 "ProductModelEvaluator<Real>::evalModelImpl(): hess_vec_prod_f_pp is not a ProductMultiVectorBase");
         }
     }
@@ -503,7 +503,7 @@ ProductModelEvaluator<Real>::evalModelImpl(
                 for(std::size_t j=0; j<p_indices_.size(); ++j) {
                     auto dgdp_j_mv =
                         Teuchos::rcp_dynamic_cast<Thyra::MultiVectorBase<Real>>( Teuchos::rcp_dynamic_cast<Thyra::DefaultScaledAdjointLinearOp<Real>>(dgdp_op->getNonconstBlock(0, j))->getNonconstOp() );
-                    if (!Teuchos::is_null(dgdp_j_mv)) {
+                    if (Teuchos::nonnull(dgdp_j_mv)) {
                         const Thyra::ModelEvaluatorBase::DerivativeSupport dgdp_support =
                             DgDp_op_support_[i*p_indices_.size()+j];
                         Thyra::ModelEvaluatorBase::EDerivativeMultiVectorOrientation dgdp_orient;
@@ -543,10 +543,10 @@ ProductModelEvaluator<Real>::evalModelImpl(
     for (auto g_index = 0; g_index < thyra_model_->Ng(); ++g_index) {
         if (outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_xp, g_index, 0)) {
             Teuchos::RCP< Thyra::MultiVectorBase<Real> > hv_vec = internal_outArgs.get_hess_vec_prod_g_xp(g_index,p_indices_[0]);
-            if (!Teuchos::is_null(hv_vec)) {
+            if (Teuchos::nonnull(hv_vec)) {
                 for(std::size_t j=1; j<p_indices_.size(); ++j) {
                     Teuchos::RCP< Thyra::MultiVectorBase<Real> > hv_vec_tmp = internal_outArgs.get_hess_vec_prod_g_xp(g_index,p_indices_[j]);
-                    if (!Teuchos::is_null(hv_vec_tmp)) {
+                    if (Teuchos::nonnull(hv_vec_tmp)) {
                         hv_vec->update(1.0, *hv_vec_tmp);
                     }
                 }
@@ -556,10 +556,10 @@ ProductModelEvaluator<Real>::evalModelImpl(
         if (outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_vec_prod_g_pp, g_index, 0, 0)) {
             for(std::size_t i=0; i<p_indices_.size(); ++i) {
                 Teuchos::RCP< Thyra::MultiVectorBase<Real> > hv_vec = internal_outArgs.get_hess_vec_prod_g_pp(g_index,p_indices_[i],p_indices_[0]);
-                if (!Teuchos::is_null(hv_vec)) {
+                if (Teuchos::nonnull(hv_vec)) {
                     for(std::size_t j=1; j<p_indices_.size(); ++j) {
                         Teuchos::RCP< Thyra::MultiVectorBase<Real> > hv_vec_tmp = internal_outArgs.get_hess_vec_prod_g_pp(g_index,p_indices_[i],p_indices_[j]);
-                        if (!Teuchos::is_null(hv_vec_tmp))
+                        if (Teuchos::nonnull(hv_vec_tmp))
                             hv_vec->update(1.0, *hv_vec_tmp);
                     }
                 }
@@ -569,10 +569,10 @@ ProductModelEvaluator<Real>::evalModelImpl(
 
     if (supports_vec_prod_f_xp) {
         Teuchos::RCP< Thyra::MultiVectorBase<Real> > ahwv_vec = internal_outArgs.get_hess_vec_prod_f_xp(p_indices_[0]);
-        if (!Teuchos::is_null(ahwv_vec)) {
+        if (Teuchos::nonnull(ahwv_vec)) {
             for(std::size_t j=1; j<p_indices_.size(); ++j) {
                 Teuchos::RCP< Thyra::MultiVectorBase<Real> > ahwv_vec_tmp = internal_outArgs.get_hess_vec_prod_f_xp(p_indices_[j]);
-                if (!Teuchos::is_null(ahwv_vec_tmp))
+                if (Teuchos::nonnull(ahwv_vec_tmp))
                     ahwv_vec->update(1.0, *ahwv_vec_tmp);
             }
         }
@@ -581,10 +581,10 @@ ProductModelEvaluator<Real>::evalModelImpl(
     if (supports_vec_prod_f_pp) {
         for(std::size_t i=0; i<p_indices_.size(); ++i) {
             Teuchos::RCP< Thyra::MultiVectorBase<Real> > ahwv_vec = internal_outArgs.get_hess_vec_prod_f_pp(p_indices_[i],p_indices_[0]);
-            if (!Teuchos::is_null(ahwv_vec)) {
+            if (Teuchos::nonnull(ahwv_vec)) {
                 for(std::size_t j=1; j<p_indices_.size(); ++j) {
                     Teuchos::RCP< Thyra::MultiVectorBase<Real> > ahwv_vec_tmp = internal_outArgs.get_hess_vec_prod_f_pp(p_indices_[i],p_indices_[j]);
-                    if (!Teuchos::is_null(ahwv_vec_tmp))
+                    if (Teuchos::nonnull(ahwv_vec_tmp))
                         ahwv_vec->update(1.0, *ahwv_vec_tmp);
                 }
             }
@@ -982,18 +982,18 @@ template <typename Real>
 Teuchos::RCP<Piro::ProductModelEvaluator<Real>> getNonconstProductModelEvaluator(Teuchos::RCP<Thyra::ModelEvaluator<Real>> model) {
     Teuchos::RCP<Piro::ProductModelEvaluator<Real>> model_PME = 
         Teuchos::rcp_dynamic_cast<Piro::ProductModelEvaluator<Real>>(model);
-    if (!model_PME.is_null()) {
+    if (Teuchos::nonnull(model_PME)) {
         return model_PME;
     }
     Teuchos::RCP<Thyra::ModelEvaluator<Real>> model_tmp = model;
     while (true) {
         Teuchos::RCP<Thyra::ModelEvaluatorDelegatorBase<Real>> model_MEDB =
             Teuchos::rcp_dynamic_cast<Thyra::ModelEvaluatorDelegatorBase<Real>>(model_tmp);
-        if (!model_MEDB.is_null()) {
+        if (Teuchos::nonnull(model_MEDB)) {
             model_tmp = model_MEDB->getNonconstUnderlyingModel();
             //std::cout << model_MEDB->description() << std::endl;
             model_PME = Teuchos::rcp_dynamic_cast<Piro::ProductModelEvaluator<Real>>(model_tmp);
-            if (!model_PME.is_null()) {
+            if (Teuchos::nonnull(model_PME)) {
                 return model_PME;
             }
         }
@@ -1006,18 +1006,18 @@ template <typename Real>
 Teuchos::RCP<const Piro::ProductModelEvaluator<Real>> getProductModelEvaluator(const Teuchos::RCP<const Thyra::ModelEvaluator<Real>> model) {
     Teuchos::RCP<const Piro::ProductModelEvaluator<Real>> model_PME = 
         Teuchos::rcp_dynamic_cast<const Piro::ProductModelEvaluator<Real>>(model);
-    if (!model_PME.is_null()) {
+    if (Teuchos::nonnull(model_PME)) {
         return model_PME;
     }
     Teuchos::RCP<const Thyra::ModelEvaluator<Real>> model_tmp = model;
     while (true) {
         Teuchos::RCP<const Thyra::ModelEvaluatorDelegatorBase<Real>> model_MEDB =
             Teuchos::rcp_dynamic_cast<const Thyra::ModelEvaluatorDelegatorBase<Real>>(model_tmp);
-        if (!model_MEDB.is_null()) {
+        if (Teuchos::nonnull(model_MEDB)) {
             model_tmp = model_MEDB->getUnderlyingModel();
             //std::cout << model_MEDB->description() << std::endl;
             model_PME = Teuchos::rcp_dynamic_cast<const Piro::ProductModelEvaluator<Real>>(model_tmp);
-            if (!model_PME.is_null()) {
+            if (Teuchos::nonnull(model_PME)) {
                 return model_PME;
             }
         }
