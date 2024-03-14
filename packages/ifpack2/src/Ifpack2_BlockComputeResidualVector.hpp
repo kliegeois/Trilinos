@@ -44,6 +44,7 @@
 #define IFPACK2_BLOCKCOMPUTERES_IMPL_HPP
 
 #include "Ifpack2_BlockHelper.hpp"
+#include "KokkosSparse_spmv.hpp"
 
 namespace Ifpack2 {
 
@@ -800,17 +801,24 @@ namespace Ifpack2 {
           // for (;vl_power_of_two<=blocksize_requested;vl_power_of_two*=2);
           // vl_power_of_two *= (vl_power_of_two < blocksize_requested ? 2 : 1);
           // const local_ordinal_type vl = vl_power_of_two > vector_length ? vector_length : vl_power_of_two;
+          const impl_scalar_type one(1.0);
+          const impl_scalar_type zero(0.0);
+          const impl_scalar_type mone = impl_scalar_type(-one);
+
+
+          using crsmat_t = KokkosSparse::CrsMatrix<impl_scalar_type, int, execution_space, void, int>;
+          using graph_t  = typename crsmat_t::StaticCrsGraphType;
+
 #define BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(B)  \
           if (compute_owned) {                                          \
-            const Kokkos::TeamPolicy<execution_space,OverlapTag<0,B> > \
-              policy(rowidx2part.extent(0), team_size, vector_size);    \
-            Kokkos::parallel_for                                        \
-              ("ComputeResidual::TeamPolicy::run<OverlapTag<0> >", policy, *this); \
+            Kokkos::deep_copy(y, b);                                  \
+            graph_t static_graph = graph_t(colindsub, rowptr); \
+            crsmat_t crsmat = crsmat_t("CrsMatrix", rowptr.extent(0), tpetra_values, static_graph); \
+            KokkosSparse::spmv("N", mone, crsmat, x, one, y);         \
           } else {                                                      \
-            const Kokkos::TeamPolicy<execution_space,OverlapTag<1,B> > \
-              policy(rowidx2part.extent(0), team_size, vector_size);    \
-            Kokkos::parallel_for                                        \
-              ("ComputeResidual::TeamPolicy::run<OverlapTag<1> >", policy, *this); \
+            graph_t static_graph = graph_t(colindsub_remote, rowptr_remote); \
+            crsmat_t crsmat = crsmat_t("CrsMatrix", rowptr.extent(0), tpetra_values, static_graph); \
+            KokkosSparse::spmv("N", mone, crsmat, x, zero, y);         \
           } break
           switch (blocksize_requested) {
           case   3: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 3);
