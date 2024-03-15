@@ -4692,6 +4692,9 @@ namespace Ifpack2 {
 
       const impl_scalar_type zero(0.0);
 
+      if (is_seq_method_requested)
+        Z = createCopy(Y);
+
       TEUCHOS_TEST_FOR_EXCEPT_MSG(is_norm_manager_active && is_seq_method_requested,
                                   "The seq method for applyInverseJacobi, " <<
                                   "which in any case is for developer use only, " <<
@@ -4716,10 +4719,7 @@ namespace Ifpack2 {
 
       typename impl_type::impl_scalar_type_2d_view_tpetra remote_multivector;
       {
-        if (is_seq_method_requested) {
-          if (Z.getNumVectors() != Y.getNumVectors())
-            Z = tpetra_multivector_type(tpetra_importer->getTargetMap(), num_vectors, false);
-        } else {
+        if (!is_seq_method_requested) {
           if (is_async_importer_active) {
             // create comm data buffer and keep it here
             async_importer->createDataBuffer(num_vectors);
@@ -4755,16 +4755,24 @@ namespace Ifpack2 {
           if (is_y_zero) {
             // pmv := x(lclrow)
             multivector_converter.run(XX);
+            Z.putScalar(impl_scalar_type(0.));
           } else {
             if (is_seq_method_requested) {
               // SEQ METHOD IS TESTING ONLY
+              IFPACK2_BLOCKHELPER_PROFILER_REGION_BEGIN;
+              IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ComputeResidual::<SeqTag>");
 
-              // y := x - R y
-              Z.doImport(Y, *tpetra_importer, Tpetra::REPLACE);
-              compute_residual_vector.run(YY, XX, ZZ);
+              const impl_scalar_type one(1.0);
+              const impl_scalar_type mone = impl_scalar_type(-one);
+
+              // y := x - A y
+              Y.assign(X);
+              A->apply(Z, Y, Teuchos::NO_TRANS, mone, one);
 
               // pmv := y(lclrow).
               multivector_converter.run(YY);
+              IFPACK2_BLOCKHELPER_PROFILER_REGION_END;
+              IFPACK2_BLOCKHELPER_TIMER_FENCE(typename impl_type::execution_space)
             } else {
               // fused y := x - R y and pmv := y(lclrow);
               // real use case does not use overlap comp and comm
@@ -4792,6 +4800,12 @@ namespace Ifpack2 {
         // pmv := inv(D) pmv.
         {
           solve_tridiags.run(YY, W);
+        }
+        if (is_seq_method_requested) {
+          const impl_scalar_type one(1.0);
+          Y.update(one, Z, one);
+          Z.assign(Y);
+          multivector_converter.run(YY);
         }
         {
           if (is_norm_manager_active) {

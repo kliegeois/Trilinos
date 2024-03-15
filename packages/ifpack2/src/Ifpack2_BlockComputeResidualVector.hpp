@@ -44,7 +44,6 @@
 #define IFPACK2_BLOCKCOMPUTERES_IMPL_HPP
 
 #include "Ifpack2_BlockHelper.hpp"
-#include "KokkosSparse_spmv.hpp"
 
 namespace Ifpack2 {
 
@@ -368,76 +367,6 @@ namespace Ifpack2 {
       //        }
       // }
 
-      struct SeqTag {};
-
-      // inline  ---> FIXME HIP: should not need KOKKOS_INLINE_FUNCTION
-      KOKKOS_INLINE_FUNCTION
-      void
-      operator() (const SeqTag &, const local_ordinal_type& i) const {
-        const local_ordinal_type blocksize = blocksize_requested;
-        const local_ordinal_type blocksize_square = blocksize*blocksize;
-
-        // constants
-        const Kokkos::pair<local_ordinal_type,local_ordinal_type> block_range(0, blocksize);
-        const local_ordinal_type num_vectors = y.extent(1);
-        const local_ordinal_type row = i*blocksize;
-        for (local_ordinal_type col=0;col<num_vectors;++col) {
-          // y := b
-          impl_scalar_type *yy = &y(row, col);
-          const impl_scalar_type * const bb = &b(row, col);
-          memcpy(yy, bb, sizeof(impl_scalar_type)*blocksize);
-
-          // y -= Rx
-          const size_type A_k0 = A_rowptr[i];
-          for (size_type k=rowptr[i];k<rowptr[i+1];++k) {
-            const size_type j = A_k0 + colindsub[k];
-            const impl_scalar_type * const AA = &tpetra_values(j*blocksize_square);
-            const impl_scalar_type * const xx = &x(A_colind[j]*blocksize, col);
-            SerialGemv(blocksize,AA,xx,yy);
-          }
-        }
-      }
-
-      KOKKOS_INLINE_FUNCTION
-      void
-      operator() (const SeqTag &, const member_type &member) const {
-
-        // constants
-        const local_ordinal_type blocksize = blocksize_requested;
-        const local_ordinal_type blocksize_square = blocksize*blocksize;
-
-        const local_ordinal_type lr = member.league_rank();
-        const Kokkos::pair<local_ordinal_type,local_ordinal_type> block_range(0, blocksize);
-        const local_ordinal_type num_vectors = y.extent(1);
-
-        // subview pattern
-        auto bb = Kokkos::subview(b, block_range, 0);
-        auto xx = bb;
-        auto yy = Kokkos::subview(y, block_range, 0);
-        auto A_block = ConstUnmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
-
-        const local_ordinal_type row = lr*blocksize;
-        for (local_ordinal_type col=0;col<num_vectors;++col) {
-          // y := b
-          yy.assign_data(&y(row, col));
-          bb.assign_data(&b(row, col));
-          if (member.team_rank() == 0)
-            VectorCopy(member, blocksize, bb, yy);
-          member.team_barrier();
-
-          // y -= Rx
-          const size_type A_k0 = A_rowptr[lr];
-          Kokkos::parallel_for
-            (Kokkos::TeamThreadRange(member, rowptr[lr], rowptr[lr+1]),
-             [&](const local_ordinal_type &k) {
-              const size_type j = A_k0 + colindsub[k];
-              A_block.assign_data( &tpetra_values(j*blocksize_square) );
-              xx.assign_data( &x(A_colind[j]*blocksize, col) );
-              VectorGemv(member, blocksize, A_block, xx, yy);
-            });
-        }
-      }
-
       template<int B>
       struct AsyncTag {};
 
@@ -670,33 +599,6 @@ namespace Ifpack2 {
         }
       }
 
-      // y = b - Rx; seq method
-      template<typename MultiVectorLocalViewTypeY,
-               typename MultiVectorLocalViewTypeB,
-               typename MultiVectorLocalViewTypeX>
-      void run(const MultiVectorLocalViewTypeY &y_,
-               const MultiVectorLocalViewTypeB &b_,
-               const MultiVectorLocalViewTypeX &x_) {
-        IFPACK2_BLOCKHELPER_PROFILER_REGION_BEGIN;
-        IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ComputeResidual::<SeqTag>");
-
-        y = y_; b = b_; x = x_;
-        if constexpr (is_device<execution_space>::value) {
-          const local_ordinal_type blocksize = blocksize_requested;
-          const local_ordinal_type team_size = 8;
-          const local_ordinal_type vector_size = ComputeResidualVectorRecommendedVectorSize<execution_space>(blocksize, team_size);
-          const Kokkos::TeamPolicy<execution_space,SeqTag> policy(rowptr.extent(0) - 1, team_size, vector_size);
-          Kokkos::parallel_for
-            ("ComputeResidual::TeamPolicy::run<SeqTag>", policy, *this);
-        } else {
-          const Kokkos::RangePolicy<execution_space,SeqTag> policy(0, rowptr.extent(0) - 1);
-          Kokkos::parallel_for
-            ("ComputeResidual::RangePolicy::run<SeqTag>", policy, *this);
-        }
-        IFPACK2_BLOCKHELPER_PROFILER_REGION_END;
-        IFPACK2_BLOCKHELPER_TIMER_FENCE(execution_space)
-      }
-
       // y = b - R (x , x_remote)
       template<typename MultiVectorLocalViewTypeB,
                typename MultiVectorLocalViewTypeX,
@@ -801,24 +703,17 @@ namespace Ifpack2 {
           // for (;vl_power_of_two<=blocksize_requested;vl_power_of_two*=2);
           // vl_power_of_two *= (vl_power_of_two < blocksize_requested ? 2 : 1);
           // const local_ordinal_type vl = vl_power_of_two > vector_length ? vector_length : vl_power_of_two;
-          const impl_scalar_type one(1.0);
-          const impl_scalar_type zero(0.0);
-          const impl_scalar_type mone = impl_scalar_type(-one);
-
-
-          using crsmat_t = KokkosSparse::CrsMatrix<impl_scalar_type, int, execution_space, void, int>;
-          using graph_t  = typename crsmat_t::StaticCrsGraphType;
-
 #define BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(B)  \
           if (compute_owned) {                                          \
-            Kokkos::deep_copy(y, b);                                  \
-            graph_t static_graph = graph_t(colindsub, rowptr); \
-            crsmat_t crsmat = crsmat_t("CrsMatrix", rowptr.extent(0), tpetra_values, static_graph); \
-            KokkosSparse::spmv("N", mone, crsmat, x, one, y);         \
+            const Kokkos::TeamPolicy<execution_space,OverlapTag<0,B> > \
+              policy(rowidx2part.extent(0), team_size, vector_size);    \
+            Kokkos::parallel_for                                        \
+              ("ComputeResidual::TeamPolicy::run<OverlapTag<0> >", policy, *this); \
           } else {                                                      \
-            graph_t static_graph = graph_t(colindsub_remote, rowptr_remote); \
-            crsmat_t crsmat = crsmat_t("CrsMatrix", rowptr.extent(0), tpetra_values, static_graph); \
-            KokkosSparse::spmv("N", mone, crsmat, x, zero, y);         \
+            const Kokkos::TeamPolicy<execution_space,OverlapTag<1,B> > \
+              policy(rowidx2part.extent(0), team_size, vector_size);    \
+            Kokkos::parallel_for                                        \
+              ("ComputeResidual::TeamPolicy::run<OverlapTag<1> >", policy, *this); \
           } break
           switch (blocksize_requested) {
           case   3: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 3);
