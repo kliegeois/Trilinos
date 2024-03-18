@@ -103,33 +103,6 @@ namespace Ifpack2 {
       IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
     }
 
-    impl_->tpetra_importer = Teuchos::null;
-    impl_->async_importer  = Teuchos::null;
-    
-    if (useSeqMethod)
-    {
-      IFPACK2_BLOCKHELPER_TIMER("BlockTriDiContainer::createBlockCrsTpetraImporter useSeqMethod");
-      if (importer.is_null()) // there is no given importer, then create one
-        impl_->tpetra_importer = BlockTriDiContainerDetails::createBlockCrsTpetraImporter<MatrixType>(impl_->A);
-      else
-        impl_->tpetra_importer = importer; // if there is a given importer, use it
-      IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
-    }
-    else
-    {
-      IFPACK2_BLOCKHELPER_TIMER("BlockTriDiContainer::createBlockCrsTpetraImporter");
-      //Leave tpetra_importer null even if user provided an importer.
-      //It is not used in the performant codepath (!useSeqMethod)
-      impl_->async_importer = BlockTriDiContainerDetails::createBlockCrsAsyncImporter<MatrixType>(impl_->A);
-      IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
-    }
-
-    // as a result, there are 
-    // 1) tpetra_importer is     null , async_importer is     null (no need for importer)
-    // 2) tpetra_importer is NOT null , async_importer is     null (sequential method is used)
-    // 3) tpetra_importer is     null , async_importer is NOT null (async method is used)
-
-    // temporary disabling 
     impl_->overlap_communication_and_computation = overlapCommAndComp;
 
     {
@@ -159,8 +132,6 @@ namespace Ifpack2 {
     using norm_manager_type = BlockHelperDetails::NormManager<MatrixType>;
     
     impl_->A = Teuchos::null;
-    impl_->tpetra_importer = Teuchos::null;
-    impl_->async_importer  = Teuchos::null;
 
     impl_->Z = typename impl_type::tpetra_multivector_type();
     impl_->W = typename impl_type::impl_scalar_type_1d_view();
@@ -293,8 +264,6 @@ namespace Ifpack2 {
 
     BlockTriDiContainerDetails::applyInverseJacobi<MatrixType>
       (impl_->A,
-       impl_->tpetra_importer, 
-       impl_->async_importer, 
        impl_->overlap_communication_and_computation,
        X, Y, impl_->Z, impl_->W,
        impl_->part_interface, impl_->block_tridiags, impl_->a_minus_d,
@@ -356,8 +325,6 @@ namespace Ifpack2 {
     {
       r_val = BlockTriDiContainerDetails::applyInverseJacobi<MatrixType>
         (impl_->A,
-         impl_->tpetra_importer, 
-         impl_->async_importer,
          impl_->overlap_communication_and_computation,
          X, Y, impl_->Z, impl_->W,
          impl_->part_interface, impl_->block_tridiags, impl_->a_minus_d,
