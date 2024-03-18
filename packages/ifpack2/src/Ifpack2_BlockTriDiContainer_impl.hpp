@@ -3840,7 +3840,7 @@ namespace Ifpack2 {
                       for (local_ordinal_type col=0;col<num_vectors;++col) {
                         impl_scalar_type &y = Y_scalar_multivector(row,col);
                         const impl_scalar_type yd = X_internal_vector_values(pri, i, col, v)[vi] - y;
-                        y  += df*yd;
+                        y  += yd;
 
                         {//if (compute_diff) {
                           const auto yd_abs = Kokkos::ArithTraits<impl_scalar_type>::abs(yd);
@@ -3865,7 +3865,7 @@ namespace Ifpack2 {
                         const local_ordinal_type row = blocksize*lclrow(ri0+j)+i;
                         impl_scalar_type &y = Y_scalar_multivector(row,col);
                         const impl_scalar_type yd = X_internal_vector_values(pri, i, col, v)[vi] - y;
-                        y += df*yd;
+                        y += yd;
 
                         {//if (compute_diff) {
                           const auto yd_abs = Kokkos::ArithTraits<impl_scalar_type>::abs(yd);
@@ -4670,7 +4670,6 @@ namespace Ifpack2 {
       using local_ordinal_type_1d_view = typename impl_type::local_ordinal_type_1d_view;
       using vector_type_1d_view = typename impl_type::vector_type_1d_view;
       using vector_type_3d_view = typename impl_type::vector_type_3d_view;
-      using tpetra_multivector_type = typename impl_type::tpetra_multivector_type;
 
       using impl_scalar_type_1d_view = typename impl_type::impl_scalar_type_1d_view;
 
@@ -4691,9 +4690,8 @@ namespace Ifpack2 {
       const local_ordinal_type num_blockrows = interf.part2packrowidx0_back;
 
       const impl_scalar_type zero(0.0);
-
-      if (is_seq_method_requested)
-        Z = createCopy(Y);
+      const impl_scalar_type one(1.0);
+      const impl_scalar_type mone = impl_scalar_type(-one);
 
       TEUCHOS_TEST_FOR_EXCEPT_MSG(is_norm_manager_active && is_seq_method_requested,
                                   "The seq method for applyInverseJacobi, " <<
@@ -4717,17 +4715,6 @@ namespace Ifpack2 {
       if (local_ordinal_type(W.extent(0)) < W_size)
         W = impl_scalar_type_1d_view("W", W_size);
 
-      typename impl_type::impl_scalar_type_2d_view_tpetra remote_multivector;
-      {
-        if (!is_seq_method_requested) {
-          if (is_async_importer_active) {
-            // create comm data buffer and keep it here
-            async_importer->createDataBuffer(num_vectors);
-            remote_multivector = async_importer->getRemoteMultiVectorLocalView();
-          }
-        }
-      }
-
       // wrap the workspace with 3d view
       vector_type_3d_view pmv(work.data(), num_blockrows, blocksize, num_vectors);
       const auto XX = X.getLocalViewDevice(Tpetra::Access::ReadOnly);
@@ -4748,6 +4735,8 @@ namespace Ifpack2 {
       if (is_norm_manager_active)
         norm_manager.setCheckFrequency(check_tol_every);
 
+      Z = createCopy(Y);
+    
       // iterate
       int sweep = 0;
       for (;sweep<max_num_sweeps;++sweep) {
@@ -4755,15 +4744,11 @@ namespace Ifpack2 {
           if (is_y_zero) {
             // pmv := x(lclrow)
             multivector_converter.run(XX);
-            Z.putScalar(impl_scalar_type(0.));
+            Z.putScalar(zero);
           } else {
-            if (is_seq_method_requested) {
-              // SEQ METHOD IS TESTING ONLY
+            {
               IFPACK2_BLOCKHELPER_PROFILER_REGION_BEGIN;
               IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ComputeResidual::<SeqTag>");
-
-              const impl_scalar_type one(1.0);
-              const impl_scalar_type mone = impl_scalar_type(-one);
 
               // y := x - A y
               Y.assign(X);
@@ -4773,27 +4758,8 @@ namespace Ifpack2 {
               multivector_converter.run(YY);
               IFPACK2_BLOCKHELPER_PROFILER_REGION_END;
               IFPACK2_BLOCKHELPER_TIMER_FENCE(typename impl_type::execution_space)
-            } else {
-              // fused y := x - R y and pmv := y(lclrow);
-              // real use case does not use overlap comp and comm
-              if (overlap_communication_and_computation || !is_async_importer_active) {
-                if (is_async_importer_active) async_importer->asyncSendRecv(YY);
-                compute_residual_vector.run(pmv, XX, YY, remote_multivector, true);
-                if (is_norm_manager_active && norm_manager.checkDone(sweep, tolerance)) {
-                  if (is_async_importer_active) async_importer->cancel();
-                  break;
-                }
-                if (is_async_importer_active) {
-                  async_importer->syncRecv();
-                  compute_residual_vector.run(pmv, XX, YY, remote_multivector, false);
-                }
-              } else {
-                if (is_async_importer_active)
-                  async_importer->syncExchange(YY);
-                if (is_norm_manager_active && norm_manager.checkDone(sweep, tolerance)) break;
-                compute_residual_vector.run(pmv, XX, YY, remote_multivector);
-              }
             }
+            if (is_norm_manager_active && norm_manager.checkDone(sweep, tolerance)) break;
           }
         }
 
@@ -4801,12 +4767,11 @@ namespace Ifpack2 {
         {
           solve_tridiags.run(YY, W);
         }
-        if (is_seq_method_requested) {
-          const impl_scalar_type one(1.0);
-          Y.update(one, Z, one);
-          Z.assign(Y);
-          multivector_converter.run(YY);
-        }
+
+        Y.update(one, Z, damping_factor);
+        Z.assign(Y);
+        multivector_converter.run(YY);
+
         {
           if (is_norm_manager_active) {
             // y(lclrow) = (b - a) y(lclrow) + a pmv, with b = 1 always.
