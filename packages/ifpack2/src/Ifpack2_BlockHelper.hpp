@@ -533,35 +533,6 @@ namespace Ifpack2 {
       IFPACK2_BLOCKHELPER_TIMER_FENCE(typename ImplType<MatrixType>::execution_space)
     }
 
-    ///
-    /// A - Tridiags(A), i.e., R in the splitting A = D + R.
-    ///
-    template <typename MatrixType>
-    struct AmD {
-      using impl_type = BlockHelperDetails::ImplType<MatrixType>;
-      using local_ordinal_type_1d_view = typename impl_type::local_ordinal_type_1d_view;
-      using size_type_1d_view = typename impl_type::size_type_1d_view;
-      using impl_scalar_type_1d_view_tpetra = Unmanaged<typename impl_type::impl_scalar_type_1d_view_tpetra>;
-      // rowptr points to the start of each row of A_colindsub.
-      size_type_1d_view rowptr, rowptr_remote;
-      // Indices into A's rows giving the blocks to extract. rowptr(i) points to
-      // the i'th row. Thus, g.entries(A_colindsub(rowptr(row) : rowptr(row+1))),
-      // where g is A's graph, are the columns AmD uses. If seq_method_, then
-      // A_colindsub contains all the LIDs and A_colindsub_remote is empty. If !
-      // seq_method_, then A_colindsub contains owned LIDs and A_colindsub_remote
-      // contains the remote ones.
-      local_ordinal_type_1d_view A_colindsub, A_colindsub_remote;
-
-      // Currently always true.
-      bool is_tpetra_block_crs;
-
-      // If is_tpetra_block_crs, then this is a pointer to A_'s value data.
-      impl_scalar_type_1d_view_tpetra tpetra_values;
-
-      AmD() = default;
-      AmD(const AmD &b) = default;
-    };
-
     template<typename MatrixType>
     struct PartInterface {
       using local_ordinal_type = typename BlockHelperDetails::ImplType<MatrixType>::local_ordinal_type;

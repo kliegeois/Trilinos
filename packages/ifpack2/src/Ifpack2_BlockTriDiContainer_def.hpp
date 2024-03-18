@@ -126,7 +126,6 @@ namespace Ifpack2 {
     using impl_type = BlockHelperDetails::ImplType<MatrixType>;
     using part_interface_type = BlockHelperDetails::PartInterface<MatrixType>;
     using block_tridiags_type = BlockTriDiContainerDetails::BlockTridiags<MatrixType>;
-    using amd_type = BlockHelperDetails::AmD<MatrixType>;
     using norm_manager_type = BlockHelperDetails::NormManager<MatrixType>;
     
     impl_->A = Teuchos::null;
@@ -136,7 +135,6 @@ namespace Ifpack2 {
 
     impl_->part_interface  = part_interface_type();
     impl_->block_tridiags  = block_tridiags_type();
-    impl_->a_minus_d       = amd_type();
     impl_->work            = typename impl_type::vector_type_1d_view();
     impl_->norm_manager    = norm_manager_type();
 
@@ -211,8 +209,7 @@ namespace Ifpack2 {
     {
       BlockTriDiContainerDetails::performSymbolicPhase<MatrixType>
         (impl_->A, 
-         impl_->part_interface, impl_->block_tridiags, 
-         impl_->a_minus_d);    
+         impl_->part_interface, impl_->block_tridiags);    
     }
     IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
   }
@@ -262,7 +259,7 @@ namespace Ifpack2 {
     BlockTriDiContainerDetails::applyInverseJacobi<MatrixType>
       (impl_->A,
        X, Y, impl_->Z, impl_->W,
-       impl_->part_interface, impl_->block_tridiags, impl_->a_minus_d,
+       impl_->part_interface, impl_->block_tridiags,
        impl_->work,
        impl_->norm_manager,
        dampingFactor,
@@ -322,7 +319,7 @@ namespace Ifpack2 {
       r_val = BlockTriDiContainerDetails::applyInverseJacobi<MatrixType>
         (impl_->A,
          X, Y, impl_->Z, impl_->W,
-         impl_->part_interface, impl_->block_tridiags, impl_->a_minus_d,
+         impl_->part_interface, impl_->block_tridiags,
          impl_->work,
          impl_->norm_manager,
          in.dampingFactor,

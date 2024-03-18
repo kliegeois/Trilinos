@@ -1066,8 +1066,7 @@ namespace Ifpack2 {
     void
     performSymbolicPhase(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A,
                          const BlockHelperDetails::PartInterface<MatrixType> &interf,
-                         BlockTridiags<MatrixType> &btdm,
-                         BlockHelperDetails::AmD<MatrixType> &amd) {
+                         BlockTridiags<MatrixType> &btdm) {
       IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::SymbolicPhase");
 
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
@@ -1079,10 +1078,8 @@ namespace Ifpack2 {
       using global_ordinal_type = typename impl_type::global_ordinal_type;
       using size_type = typename impl_type::size_type;
       using local_ordinal_type_1d_view = typename impl_type::local_ordinal_type_1d_view;
-      using size_type_1d_view = typename impl_type::size_type_1d_view;
       using vector_type_3d_view = typename impl_type::vector_type_3d_view;
       using vector_type_4d_view = typename impl_type::vector_type_4d_view;
-      using block_crs_matrix_type = typename impl_type::tpetra_block_crs_matrix_type;
 
       constexpr int vector_length = impl_type::vector_length;
 
@@ -1254,12 +1251,6 @@ namespace Ifpack2 {
 
             if (vector_length > 1) setTridiagsToIdentity(btdm, interf.packptr);
           }
-        }
-
-        // Construct the R graph.
-        {
-          // Allocate or view values.
-          amd.tpetra_values = (const_cast<block_crs_matrix_type*>(A.get())->getValuesDeviceNonConst());                   
         }
 
         // Allocate view for E and initialize the values with B:
@@ -3887,7 +3878,6 @@ namespace Ifpack2 {
                        // local object interface
                        const BlockHelperDetails::PartInterface<MatrixType> &interf, // mesh interface
                        const BlockTridiags<MatrixType> &btdm, // packed block tridiagonal matrices
-                       const BlockHelperDetails::AmD<MatrixType> &amd, // R = A - D
                        /* */ typename BlockHelperDetails::ImplType<MatrixType>::vector_type_1d_view &work, // workspace for packed multivector of right hand side
                        /* */ BlockHelperDetails::NormManager<MatrixType> &norm_manager,
                        // preconditioner parameters
@@ -4012,7 +4002,6 @@ namespace Ifpack2 {
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using part_interface_type = BlockHelperDetails::PartInterface<MatrixType>;
       using block_tridiags_type = BlockTridiags<MatrixType>;
-      using amd_type = BlockHelperDetails::AmD<MatrixType>;
       using norm_manager_type = BlockHelperDetails::NormManager<MatrixType>;
 
       // distructed objects
@@ -4025,7 +4014,6 @@ namespace Ifpack2 {
       // local objects
       part_interface_type part_interface;
       block_tridiags_type block_tridiags; // D
-      amd_type a_minus_d; // R = A - D
       mutable typename impl_type::vector_type_1d_view work; // right hand side workspace
       mutable norm_manager_type norm_manager;
     };
