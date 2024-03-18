@@ -4670,9 +4670,6 @@ namespace Ifpack2 {
 
       using impl_scalar_type_1d_view = typename impl_type::impl_scalar_type_1d_view;
 
-      // either tpetra importer or async importer must be active
-      TEUCHOS_TEST_FOR_EXCEPT_MSG(!tpetra_importer.is_null() && !async_importer.is_null(),
-                                  "Neither Tpetra importer nor Async importer is null.");
       // max number of sweeps should be positive number
       TEUCHOS_TEST_FOR_EXCEPT_MSG(max_num_sweeps <= 0,
                                   "Maximum number of sweeps must be >= 1.");
@@ -4726,7 +4723,7 @@ namespace Ifpack2 {
           } else {
             {
               IFPACK2_BLOCKHELPER_PROFILER_REGION_BEGIN;
-              IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ComputeResidual::<SeqTag>");
+              IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ComputeResidual");
 
               // y := x - A y
               Y.assign(X);
