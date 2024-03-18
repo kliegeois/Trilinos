@@ -82,7 +82,6 @@
 #include <memory>
 
 #include "Ifpack2_BlockHelper.hpp"
-#include "Ifpack2_BlockComputeResidualVector.hpp"
 
 //#include <KokkosBlas2_gemv.hpp>
 
@@ -4662,12 +4661,10 @@ namespace Ifpack2 {
       IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ApplyInverseJacobi");
 
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
-      using node_memory_space = typename impl_type::node_memory_space;
       using local_ordinal_type = typename impl_type::local_ordinal_type;
       using size_type = typename impl_type::size_type;
       using impl_scalar_type = typename impl_type::impl_scalar_type;
       using magnitude_type = typename impl_type::magnitude_type;
-      using local_ordinal_type_1d_view = typename impl_type::local_ordinal_type_1d_view;
       using vector_type_1d_view = typename impl_type::vector_type_1d_view;
       using vector_type_3d_view = typename impl_type::vector_type_3d_view;
 
@@ -4681,8 +4678,6 @@ namespace Ifpack2 {
                                   "Maximum number of sweeps must be >= 1.");
 
       // const parameters
-      const bool is_seq_method_requested = !tpetra_importer.is_null();
-      const bool is_async_importer_active = !async_importer.is_null();
       const bool is_norm_manager_active = tol > Kokkos::ArithTraits<magnitude_type>::zero();
       const magnitude_type tolerance = tol*tol;
       const local_ordinal_type blocksize = btdm.values.extent(1);
@@ -4692,18 +4687,6 @@ namespace Ifpack2 {
       const impl_scalar_type zero(0.0);
       const impl_scalar_type one(1.0);
       const impl_scalar_type mone = impl_scalar_type(-one);
-
-      TEUCHOS_TEST_FOR_EXCEPT_MSG(is_norm_manager_active && is_seq_method_requested,
-                                  "The seq method for applyInverseJacobi, " <<
-                                  "which in any case is for developer use only, " <<
-                                  "does not support norm-based termination.");
-      const bool device_accessible_from_host = Kokkos::SpaceAccessibility<
-        Kokkos::DefaultHostExecutionSpace, node_memory_space>::accessible;
-      TEUCHOS_TEST_FOR_EXCEPTION(is_seq_method_requested && !device_accessible_from_host,
-                                 std::invalid_argument,
-                                 "The seq method for applyInverseJacobi, " <<
-                                 "which in any case is for developer use only, " <<
-                                 "only supports memory spaces accessible from host.");
 
       // if workspace is needed more, resize it
       const size_type work_span_required = num_blockrows*num_vectors*blocksize;
@@ -4725,11 +4708,6 @@ namespace Ifpack2 {
       MultiVectorConverter<MatrixType> multivector_converter(interf, pmv);
       SolveTridiags<MatrixType> solve_tridiags(interf, btdm, pmv,
                                                damping_factor, is_norm_manager_active);
-
-      const local_ordinal_type_1d_view dummy_local_ordinal_type_1d_view;
-      BlockHelperDetails::ComputeResidualVector<MatrixType>
-        compute_residual_vector(amd, A->getCrsGraph().getLocalGraphDevice(), blocksize, interf,
-                                is_async_importer_active ? async_importer->dm2cm : dummy_local_ordinal_type_1d_view);
 
       // norm manager workspace resize
       if (is_norm_manager_active)
