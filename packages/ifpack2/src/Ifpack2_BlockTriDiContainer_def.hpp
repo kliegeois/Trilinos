@@ -103,8 +103,6 @@ namespace Ifpack2 {
       IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
     }
 
-    impl_->overlap_communication_and_computation = overlapCommAndComp;
-
     {
       IFPACK2_BLOCKHELPER_TIMER("BlockTriDiContainer::createZ");
       impl_->Z = typename impl_type::tpetra_multivector_type();
@@ -214,8 +212,7 @@ namespace Ifpack2 {
       BlockTriDiContainerDetails::performSymbolicPhase<MatrixType>
         (impl_->A, 
          impl_->part_interface, impl_->block_tridiags, 
-         impl_->a_minus_d, 
-         impl_->overlap_communication_and_computation);    
+         impl_->a_minus_d);    
     }
     IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
   }
@@ -264,7 +261,6 @@ namespace Ifpack2 {
 
     BlockTriDiContainerDetails::applyInverseJacobi<MatrixType>
       (impl_->A,
-       impl_->overlap_communication_and_computation,
        X, Y, impl_->Z, impl_->W,
        impl_->part_interface, impl_->block_tridiags, impl_->a_minus_d,
        impl_->work,
@@ -325,7 +321,6 @@ namespace Ifpack2 {
     {
       r_val = BlockTriDiContainerDetails::applyInverseJacobi<MatrixType>
         (impl_->A,
-         impl_->overlap_communication_and_computation,
          X, Y, impl_->Z, impl_->W,
          impl_->part_interface, impl_->block_tridiags, impl_->a_minus_d,
          impl_->work,

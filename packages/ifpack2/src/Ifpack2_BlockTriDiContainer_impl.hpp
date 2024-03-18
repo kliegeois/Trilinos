@@ -1067,8 +1067,7 @@ namespace Ifpack2 {
     performSymbolicPhase(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A,
                          const BlockHelperDetails::PartInterface<MatrixType> &interf,
                          BlockTridiags<MatrixType> &btdm,
-                         BlockHelperDetails::AmD<MatrixType> &amd,
-                         const bool overlap_communication_and_computation) {
+                         BlockHelperDetails::AmD<MatrixType> &amd) {
       IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::SymbolicPhase");
 
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
@@ -1195,13 +1194,6 @@ namespace Ifpack2 {
             }, sum_reducer_type(sum_reducer_value));
         }
         size_type D_nnz = sum_reducer_value.v[0];
-        size_type R_nnz_owned = sum_reducer_value.v[1];
-        size_type R_nnz_remote = sum_reducer_value.v[2];
-
-        if (!overlap_communication_and_computation) {
-          R_nnz_owned += R_nnz_remote;
-          R_nnz_remote = 0;
-        }
 
         // construct the D_00 graph.
         {
@@ -1266,105 +1258,8 @@ namespace Ifpack2 {
 
         // Construct the R graph.
         {
-          amd.rowptr = size_type_1d_view("amd.rowptr", nrows + 1);
-          amd.A_colindsub = local_ordinal_type_1d_view(do_not_initialize_tag("amd.A_colindsub"), R_nnz_owned);
-
-          const auto R_rowptr = Kokkos::create_mirror_view(amd.rowptr);
-          const auto R_A_colindsub = Kokkos::create_mirror_view(amd.A_colindsub);
-
-          amd.rowptr_remote = size_type_1d_view("amd.rowptr_remote", overlap_communication_and_computation ? nrows + 1 : 0);
-          amd.A_colindsub_remote = local_ordinal_type_1d_view(do_not_initialize_tag("amd.A_colindsub_remote"), R_nnz_remote);
-
-          const auto R_rowptr_remote = Kokkos::create_mirror_view(amd.rowptr_remote);
-          const auto R_A_colindsub_remote = Kokkos::create_mirror_view(amd.A_colindsub_remote);
-
-          {
-            const Kokkos::RangePolicy<host_execution_space> policy(0,nrows);
-            Kokkos::parallel_for
-              ("performSymbolicPhase::RangePolicy<host_execution_space>::R_graph_count",
-               policy, KOKKOS_LAMBDA(const local_ordinal_type &lr) {
-                const local_ordinal_type ri0 = lclrow2idx[lr];
-                const local_ordinal_type pi0 = rowidx2part(ri0);
-                const size_type j0 = local_graph_rowptr(lr);
-                for (size_type j=j0;j<local_graph_rowptr(lr+1);++j) {
-                  const local_ordinal_type lc = local_graph_colidx(j);
-                  const local_ordinal_type lc2r = col2row[lc];
-                  if (lc2r != (local_ordinal_type) -1) {
-                    const local_ordinal_type ri = lclrow2idx[lc2r];
-                    const local_ordinal_type pi = rowidx2part(ri);
-                    if (pi == pi0 && ri + 1 >= ri0 && ri <= ri0 + 1) {
-                      continue;
-                    }
-                  }
-                  // exclusive scan will be performed later
-                  if (!overlap_communication_and_computation || lc < nrows) {
-                    ++R_rowptr(lr);
-                  } else {
-                    ++R_rowptr_remote(lr);
-                  }
-                }
-              });
-          }
-
-          // exclusive scan
-          typedef BlockHelperDetails::ArrayValueType<size_type,2> update_type;
-          {
-            Kokkos::RangePolicy<host_execution_space> policy(0,nrows+1);
-            Kokkos::parallel_scan
-              ("performSymbolicPhase::RangePolicy<host_execution_space>::R_graph_fill",
-               policy, KOKKOS_LAMBDA(const local_ordinal_type &lr,
-                                     update_type &update,
-                                     const bool &final) {
-                update_type val;
-                val.v[0] = R_rowptr(lr);
-                if (overlap_communication_and_computation)
-                  val.v[1] = R_rowptr_remote(lr);
-
-                if (final) {
-                  R_rowptr(lr) = update.v[0];
-                  if (overlap_communication_and_computation)
-                    R_rowptr_remote(lr) = update.v[1];
-
-                  if (lr < nrows) {
-                    const local_ordinal_type ri0 = lclrow2idx[lr];
-                    const local_ordinal_type pi0 = rowidx2part(ri0);
-
-                    size_type cnt_rowptr = R_rowptr(lr);
-                    size_type cnt_rowptr_remote = overlap_communication_and_computation ? R_rowptr_remote(lr) : 0; // when not overlap_communication_and_computation, this value is garbage
-
-                    const size_type j0 = local_graph_rowptr(lr);
-                    for (size_type j=j0;j<local_graph_rowptr(lr+1);++j) {
-                      const local_ordinal_type lc = local_graph_colidx(j);
-                      const local_ordinal_type lc2r = col2row[lc];
-                      if (lc2r != (local_ordinal_type) -1) {
-                        const local_ordinal_type ri = lclrow2idx[lc2r];
-                        const local_ordinal_type pi = rowidx2part(ri);
-                        if (pi == pi0 && ri + 1 >= ri0 && ri <= ri0 + 1)
-                          continue;
-                      }
-                      const local_ordinal_type row_entry = j - j0;
-                      if (!overlap_communication_and_computation || lc < nrows)
-                        R_A_colindsub(cnt_rowptr++) = row_entry;
-                      else
-                        R_A_colindsub_remote(cnt_rowptr_remote++) = row_entry;
-                    }
-                  }
-                }
-                update += val;
-              });
-          }
-          TEUCHOS_ASSERT(R_rowptr(nrows) == R_nnz_owned);
-          Kokkos::deep_copy(amd.rowptr, R_rowptr);
-          Kokkos::deep_copy(amd.A_colindsub, R_A_colindsub);
-          if (overlap_communication_and_computation) {
-            TEUCHOS_ASSERT(R_rowptr_remote(nrows) == R_nnz_remote);
-            Kokkos::deep_copy(amd.rowptr_remote, R_rowptr_remote);
-            Kokkos::deep_copy(amd.A_colindsub_remote, R_A_colindsub_remote);
-          }
-
           // Allocate or view values.
-          amd.tpetra_values = (const_cast<block_crs_matrix_type*>(A.get())->getValuesDeviceNonConst());
-                               
+          amd.tpetra_values = (const_cast<block_crs_matrix_type*>(A.get())->getValuesDeviceNonConst());                   
         }
 
         // Allocate view for E and initialize the values with B:
@@ -3984,7 +3879,6 @@ namespace Ifpack2 {
     int
     applyInverseJacobi(// importer
                        const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A,
-                       const bool overlap_communication_and_computation,
                        // tpetra interface
                        const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_multivector_type &X,  // tpetra interface
                        /* */ typename BlockHelperDetails::ImplType<MatrixType>::tpetra_multivector_type &Y,  // tpetra interface
@@ -4123,7 +4017,6 @@ namespace Ifpack2 {
 
       // distructed objects
       Teuchos::RCP<const typename impl_type::tpetra_block_crs_matrix_type> A;
-      bool overlap_communication_and_computation;
 
       // copy of Y (mutable to penentrate const)
       mutable typename impl_type::tpetra_multivector_type Z;
