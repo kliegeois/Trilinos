@@ -3954,11 +3954,22 @@ namespace Ifpack2 {
               IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ComputeResidual");
 
               // y := x - A y
-              Y.assign(X);
-              A->apply(Z, Y, Teuchos::NO_TRANS, mone, one);
-
+              {
+                IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ComputeResidual::assign");
+                Y.assign(X);
+                IFPACK2_BLOCKHELPER_TIMER_FENCE(typename impl_type::execution_space)
+              }
+              {
+                IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ComputeResidual::apply");
+                A->apply(Z, Y, Teuchos::NO_TRANS, mone, one);
+                IFPACK2_BLOCKHELPER_TIMER_FENCE(typename impl_type::execution_space)
+              }
               // pmv := y(lclrow).
-              multivector_converter.run(YY);
+              {
+                IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ComputeResidual::MVConverter");
+                multivector_converter.run(YY);
+                IFPACK2_BLOCKHELPER_TIMER_FENCE(typename impl_type::execution_space)
+              }
               IFPACK2_BLOCKHELPER_PROFILER_REGION_END;
               IFPACK2_BLOCKHELPER_TIMER_FENCE(typename impl_type::execution_space)
             }
@@ -3971,9 +3982,13 @@ namespace Ifpack2 {
           solve_tridiags.run(YY, W);
         }
 
-        Y.update(one, Z, damping_factor);
-        Z.assign(Y);
-        multivector_converter.run(YY);
+        {
+          IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ComputeResidual::update");
+          Y.update(one, Z, damping_factor);
+          Z.assign(Y);
+          multivector_converter.run(YY);
+          IFPACK2_BLOCKHELPER_TIMER_FENCE(typename impl_type::execution_space)
+        }
 
         {
           if (is_norm_manager_active) {
