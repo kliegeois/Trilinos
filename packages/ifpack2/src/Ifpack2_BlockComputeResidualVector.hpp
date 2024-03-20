@@ -44,6 +44,7 @@
 #define IFPACK2_BLOCKCOMPUTERES_IMPL_HPP
 
 #include "Ifpack2_BlockHelper.hpp"
+#include <KokkosSparse_spmv.hpp>
 
 namespace Ifpack2 {
 
@@ -216,6 +217,8 @@ namespace Ifpack2 {
       using vector_type_3d_view = typename impl_type::vector_type_3d_view;
       using btdm_scalar_type_4d_view = typename impl_type::btdm_scalar_type_4d_view;
       static constexpr int vector_length = impl_type::vector_length;
+
+      using Bsr = KokkosSparse::Experimental::BsrMatrix<impl_scalar_type,int, execution_space, void, int>;
 
       /// team policy member type (used in cuda)
       using member_type = typename Kokkos::TeamPolicy<execution_space>::member_type;
@@ -695,6 +698,15 @@ namespace Ifpack2 {
           y_packed = y_packed_;
         }
 
+        const impl_scalar_type one(1.0);
+        const impl_scalar_type zero(0.0);
+        const impl_scalar_type mone = impl_scalar_type(-one);
+
+        //The following tests FAILED:
+        //        366 - Ifpack2_unit_tests_MPI_4 (Failed)
+        //        375 - Ifpack2_BlockTriDiContainerUnitAndPerfTests_MPI_4 (Failed)
+        //Errors while running CTest        
+
         if constexpr (is_device<execution_space>::value) {
           const local_ordinal_type blocksize = blocksize_requested;
           const local_ordinal_type team_size = 8;
@@ -705,15 +717,48 @@ namespace Ifpack2 {
           // const local_ordinal_type vl = vl_power_of_two > vector_length ? vector_length : vl_power_of_two;
 #define BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(B)  \
           if (compute_owned) {                                          \
-            const Kokkos::TeamPolicy<execution_space,OverlapTag<0,B> > \
-              policy(rowidx2part.extent(0), team_size, vector_size);    \
-            Kokkos::parallel_for                                        \
-              ("ComputeResidual::TeamPolicy::run<OverlapTag<0> >", policy, *this); \
+            auto rowptr_t = typename Bsr::row_map_type::non_const_type  \
+              ("rowptr_t", rowptr.extent(0));                           \
+            auto colindsub_t = typename Bsr::index_type::non_const_type \
+              ("colindsub_t", colindsub.extent(0));                     \
+            auto values_t = typename Bsr::values_type::non_const_type   \
+              ("values_t", tpetra_values.extent(0));                    \
+                                                                        \
+            Kokkos::deep_copy(rowptr_t, rowptr);                        \
+            Kokkos::deep_copy(colindsub_t, colindsub);                  \
+            Kokkos::deep_copy(values_t, tpetra_values);                 \
+                                                                        \
+            Bsr bsrmat = Bsr("CrsMatrix",                               \
+                            y.extent(0),                                \
+                            x.extent(0),                                \
+                            colindsub_t.extent(0),                      \
+                            values_t,                                   \
+                            rowptr_t,                                   \
+                            colindsub_t,                                \
+                            blocksize_requested);                       \
+            Kokkos::deep_copy(y, b);                                    \
+            KokkosSparse::spmv("N", mone, bsrmat, x, one, y);           \
           } else {                                                      \
-            const Kokkos::TeamPolicy<execution_space,OverlapTag<1,B> > \
-              policy(rowidx2part.extent(0), team_size, vector_size);    \
-            Kokkos::parallel_for                                        \
-              ("ComputeResidual::TeamPolicy::run<OverlapTag<1> >", policy, *this); \
+            auto rowptr_t = typename Bsr::row_map_type::non_const_type  \
+              ("rowptr_t", rowptr_remote.extent(0));                    \
+            auto colindsub_t = typename Bsr::index_type::non_const_type \
+              ("colindsub_t", colindsub_remote.extent(0));              \
+            auto values_t = typename Bsr::values_type::non_const_type   \
+              ("values_t", tpetra_values.extent(0));                    \
+                                                                        \
+            Kokkos::deep_copy(rowptr_t, rowptr_remote);                 \
+            Kokkos::deep_copy(colindsub_t, colindsub_remote);           \
+            Kokkos::deep_copy(values_t, tpetra_values);                 \
+                                                                        \
+            Bsr bsrmat = Bsr("CrsMatrix",                               \
+                            y.extent(0),                                \
+                            x_remote.extent(0),                         \
+                            colindsub_t.extent(0),                      \
+                            values_t,                                   \
+                            rowptr_t,                                   \
+                            colindsub_t,                                \
+                            blocksize_requested);                       \
+            KokkosSparse::spmv("N", mone, bsrmat, x_remote, one, y);    \
           } break
           switch (blocksize_requested) {
           case   3: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 3);
