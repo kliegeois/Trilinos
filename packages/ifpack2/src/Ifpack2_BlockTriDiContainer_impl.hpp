@@ -83,6 +83,7 @@
 
 #include "Ifpack2_BlockHelper.hpp"
 #include "Ifpack2_BlockComputeResidualVector.hpp"
+#include <KokkosSparse_spmv.hpp>
 
 //#include <KokkosBlas2_gemv.hpp>
 
@@ -3703,6 +3704,8 @@ namespace Ifpack2 {
       using team_policy_type = Kokkos::TeamPolicy<execution_space>;
       using member_type = typename team_policy_type::member_type;
 
+      using Bsr = KokkosSparse::Experimental::BsrMatrix<impl_scalar_type, int, execution_space, void, int>;
+
     private:
       // part interface
       local_ordinal_type n_subparts_per_part;
@@ -3716,6 +3719,7 @@ namespace Ifpack2 {
       const ConstUnmanaged<local_ordinal_type_1d_view> packptr_sub;
 
       const ConstUnmanaged<local_ordinal_type_2d_view> partptr_sub;
+      local_ordinal_type max_partsz;
       const ConstUnmanaged<size_type_2d_view> pack_td_ptr_schur;
 
       // block tridiags
@@ -3734,6 +3738,8 @@ namespace Ifpack2 {
 
       const local_ordinal_type vector_loop_size;
 
+      impl_scalar_type_2d_view_tpetra tmp;
+
       // copy to multivectors : damping factor and Y_scalar_multivector
       Unmanaged<impl_scalar_type_2d_view_tpetra> Y_scalar_multivector;
 #if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__) || defined(__SYCL_DEVICE_ONLY__)
@@ -3743,6 +3749,8 @@ namespace Ifpack2 {
 #endif
       const impl_scalar_type df;
       const bool compute_diff;
+
+      Bsr bsrmat;
 
     public:
       SolveTridiags(const BlockHelperDetails::PartInterface<MatrixType> &interf,
@@ -3762,6 +3770,7 @@ namespace Ifpack2 {
         lclrow(interf.lclrow),
         packptr_sub(interf.packptr_sub),
         partptr_sub(interf.partptr_sub),
+        max_partsz(interf.max_partsz),
         pack_td_ptr_schur(btdm.pack_td_ptr_schur),
         // block tridiags and  multivector
         pack_td_ptr(btdm.pack_td_ptr),
@@ -3801,7 +3810,41 @@ namespace Ifpack2 {
         Z_scalar_vector(),
         df(damping_factor),
         compute_diff(is_norm_manager_active)
-      {}
+      {
+        if (max_partsz == 1) {
+          const local_ordinal_type blocksize = btdm.values.extent(1);
+
+          const local_ordinal_type nparts = partptr.extent(0) - 1;
+
+          auto rowptr_t = typename Bsr::row_map_type::non_const_type("rowptr_t", nparts+1);
+          auto colindsub_t = typename Bsr::index_type::non_const_type("colindsub_t", nparts);
+          auto values_t = typename Bsr::values_type::non_const_type((btdm_scalar_type*)btdm.values.data(),nparts);
+
+          const auto host_rowptr_t = Kokkos::create_mirror_view(rowptr_t);
+          const auto host_colindsub_t = Kokkos::create_mirror_view(colindsub_t);
+
+          for (local_ordinal_type i = 0; i < nparts; ++i) {
+            host_rowptr_t(i) = i;
+            host_colindsub_t(i) = i;
+          }
+
+          host_rowptr_t(nparts) = nparts;
+
+          Kokkos::deep_copy(rowptr_t, host_rowptr_t);
+          Kokkos::deep_copy(colindsub_t, host_colindsub_t);
+
+          bsrmat = Bsr("CrsMatrix",
+                       nparts,
+                       nparts,
+                       nparts,
+                       values_t,
+                       rowptr_t,
+                       colindsub_t,
+                       blocksize);
+          
+          tmp = impl_scalar_type_2d_view_tpetra("tmp", nparts*blocksize, 1);
+        }
+      }
 
     public:
 
@@ -4503,6 +4546,26 @@ namespace Ifpack2 {
         const local_ordinal_type num_vectors = X_internal_vector_values.extent(2);
         const local_ordinal_type blocksize = D_internal_vector_values.extent(1);
 
+        const bool jacobi = max_partsz == 1;
+
+        if (jacobi && num_vectors == 1) {
+
+          const impl_scalar_type one(1.0);
+          const impl_scalar_type zero(0.0);
+
+          {
+            IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::SolveTridiags::deep_copy");
+            Kokkos::deep_copy(tmp, Y);
+            IFPACK2_BLOCKHELPER_TIMER_FENCE(execution_space)
+          }
+          {
+            IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::SolveTridiags::bspmv");
+            KokkosSparse::spmv("N", one, bsrmat, tmp, zero, Y);
+            IFPACK2_BLOCKHELPER_TIMER_FENCE(execution_space)
+          }
+          return;
+        }
+
         const local_ordinal_type team_size =
           SolveTridiagsDefaultModeAndAlgo<typename execution_space::memory_space>::
           recommended_team_size(blocksize, vector_length, internal_vector_length);
@@ -4792,6 +4855,7 @@ namespace Ifpack2 {
         // pmv := inv(D) pmv.
         {
           solve_tridiags.run(YY, W);
+          multivector_converter.run(YY);
         }
         {
           if (is_norm_manager_active) {
