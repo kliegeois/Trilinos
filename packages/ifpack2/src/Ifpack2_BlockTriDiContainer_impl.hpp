@@ -82,6 +82,7 @@
 #include <memory>
 
 #include "Ifpack2_BlockHelper.hpp"
+#include "Tpetra_Details_residual.hpp"
 
 //#include <KokkosBlas2_gemv.hpp>
 
@@ -3953,17 +3954,26 @@ namespace Ifpack2 {
               IFPACK2_BLOCKHELPER_PROFILER_REGION_BEGIN;
               IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ComputeResidual");
 
-              // y := x - A y
+              // y := x - A z
+              if (false) {
+                {
+                  IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ComputeResidual::assign");
+                  Y.assign(X);
+                  IFPACK2_BLOCKHELPER_TIMER_FENCE(typename impl_type::execution_space)
+                }
+                {
+                  IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ComputeResidual::apply");
+                  A->apply(Z, Y, Teuchos::NO_TRANS, mone, one);
+                  IFPACK2_BLOCKHELPER_TIMER_FENCE(typename impl_type::execution_space)
+                }
+              }
+              else
               {
-                IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ComputeResidual::assign");
-                Y.assign(X);
+                IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ComputeResidual::residual");
+                Tpetra::Details::residual(*A, Z, X, Y);
                 IFPACK2_BLOCKHELPER_TIMER_FENCE(typename impl_type::execution_space)
               }
-              {
-                IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ComputeResidual::apply");
-                A->apply(Z, Y, Teuchos::NO_TRANS, mone, one);
-                IFPACK2_BLOCKHELPER_TIMER_FENCE(typename impl_type::execution_space)
-              }
+
               // pmv := y(lclrow).
               {
                 IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::ComputeResidual::MVConverter");
