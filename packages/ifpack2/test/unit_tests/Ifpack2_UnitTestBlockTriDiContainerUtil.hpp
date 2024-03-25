@@ -172,6 +172,7 @@ struct BlockTriDiContainerTester {
       p.set<LO>("partitioner: local parts", parts.size());
       p.set("partitioner: parts", parts);
       p.set("partitioner: subparts per part", 1);
+      p.set("partitioner: block size", -1);
       T->setParameters(p);
     }
     return T;
