@@ -209,12 +209,8 @@ namespace Ifpack2 {
 
       const auto g = hasBlockCrsMatrix ? A_bcrs->getCrsGraph() : A_crs->getCrsGraph(); // tpetra crs graph object
 
-      if (!hasBlockCrsMatrix) {
-        std::string msg = "usePointMatrix with inline matrix is not yet implemented";
-        throw std::runtime_error(msg);
-      }
 
-      const auto blocksize = A_bcrs->getBlockSize();
+      const auto blocksize = hasBlockCrsMatrix ? A_bcrs->getBlockSize() : 1;
       const auto src = Teuchos::rcp(new tpetra_map_type(tpetra_mv_type::makePointMap(*g.getDomainMap(), blocksize)));
       const auto tgt = Teuchos::rcp(new tpetra_map_type(tpetra_mv_type::makePointMap(*g.getColMap()   , blocksize)));
       IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
@@ -814,11 +810,7 @@ namespace Ifpack2 {
 
       const auto g = hasBlockCrsMatrix ? A_bcrs->getCrsGraph() : A_crs->getCrsGraph(); // tpetra crs graph object
 
-      if (!hasBlockCrsMatrix) {
-        std::string msg = "usePointMatrix with inline matrix is not yet implemented";
-        throw std::runtime_error(msg);
-      }
-      const auto blocksize = A_bcrs->getBlockSize();
+      const auto blocksize = hasBlockCrsMatrix ? A_bcrs->getBlockSize() : 1;
       const auto domain_map = g.getDomainMap();
       const auto column_map = g.getColMap();
 
