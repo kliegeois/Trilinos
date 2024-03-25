@@ -207,7 +207,7 @@ namespace Ifpack2 {
 
       bool hasBlockCrsMatrix = ! A_bcrs.is_null ();
 
-      const auto g = A_bcrs->getCrsGraph(); // tpetra crs graph object
+      const auto g = hasBlockCrsMatrix ? A_bcrs->getCrsGraph() : *(A_crs->getCrsGraph()); // tpetra crs graph object
 
 
       const auto blocksize = hasBlockCrsMatrix ? A_bcrs->getBlockSize() : 1;
@@ -808,7 +808,7 @@ namespace Ifpack2 {
 
       bool hasBlockCrsMatrix = ! A_bcrs.is_null ();
 
-      const auto g = A_bcrs->getCrsGraph(); // tpetra crs graph object
+      const auto g = hasBlockCrsMatrix ? A_bcrs->getCrsGraph() : *(A_crs->getCrsGraph()); // tpetra crs graph object
 
       const auto blocksize = hasBlockCrsMatrix ? A_bcrs->getBlockSize() : 1;
       const auto domain_map = g.getDomainMap();
@@ -1767,7 +1767,7 @@ namespace Ifpack2 {
 
       bool hasBlockCrsMatrix = ! A_bcrs.is_null ();
 
-      const auto& g = A_bcrs->getCrsGraph();
+      const auto& g = hasBlockCrsMatrix ? A_bcrs->getCrsGraph() : *(A_crs->getCrsGraph()); // tpetra crs graph object
 
       const auto blocksize = A->getBlockSize();
 
