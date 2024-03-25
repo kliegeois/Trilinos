@@ -400,7 +400,8 @@ namespace Ifpack2 {
     void initInternal (const Teuchos::RCP<const row_matrix_type>& matrix,
                        const Teuchos::RCP<const import_type> &importer,
                        const bool overlapCommAndComp,
-                       const bool useSeqMethod);
+                       const bool useSeqMethod,
+                       const int block_size = -1);
 
     void clearInternal();
   };
