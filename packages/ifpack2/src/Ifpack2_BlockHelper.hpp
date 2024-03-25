@@ -335,7 +335,7 @@ namespace Ifpack2 {
       typedef Tpetra::Map<local_ordinal_type,global_ordinal_type,node_type> tpetra_map_type;
       typedef Tpetra::Import<local_ordinal_type,global_ordinal_type,node_type> tpetra_import_type;
       typedef Tpetra::RowMatrix<scalar_type,local_ordinal_type,global_ordinal_type,node_type> tpetra_row_matrix_type;
-      typedef Tpetra::BlockCrsMatrix<scalar_type,local_ordinal_type,global_ordinal_type,node_type> tpetra_crs_matrix_type;
+      typedef Tpetra::CrsMatrix<scalar_type,local_ordinal_type,global_ordinal_type,node_type> tpetra_crs_matrix_type;
       typedef Tpetra::BlockCrsMatrix<scalar_type,local_ordinal_type,global_ordinal_type,node_type> tpetra_block_crs_matrix_type;
       typedef typename tpetra_block_crs_matrix_type::little_block_type tpetra_block_access_view_type;
       typedef Tpetra::BlockMultiVector<scalar_type,local_ordinal_type,global_ordinal_type,node_type> tpetra_block_multivector_type;
