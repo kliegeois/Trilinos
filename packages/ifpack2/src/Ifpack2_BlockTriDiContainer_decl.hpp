@@ -231,7 +231,9 @@ namespace Ifpack2 {
     BlockTriDiContainer (const Teuchos::RCP<const row_matrix_type>& matrix,
                          const Teuchos::Array<Teuchos::Array<local_ordinal_type> >& partitions,
                          const int n_subparts_per_part = 1,
-                         bool overlapCommAndComp = false, bool useSequentialMethod = false);
+                         bool overlapCommAndComp = false,
+                         bool useSequentialMethod = false, 
+                         const int block_size = -1);
 
     //! Destructor (declared virtual for memory safety of derived classes).
     ~BlockTriDiContainer () override;
@@ -398,7 +400,8 @@ namespace Ifpack2 {
     void initInternal (const Teuchos::RCP<const row_matrix_type>& matrix,
                        const Teuchos::RCP<const import_type> &importer,
                        const bool overlapCommAndComp,
-                       const bool useSeqMethod);
+                       const bool useSeqMethod,
+                       const int block_size = -1);
 
     void clearInternal();
   };

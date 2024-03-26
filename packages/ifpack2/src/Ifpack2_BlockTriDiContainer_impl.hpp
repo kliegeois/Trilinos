@@ -83,6 +83,7 @@
 
 #include "Ifpack2_BlockHelper.hpp"
 #include "Ifpack2_BlockComputeResidualVector.hpp"
+#include <Tpetra_BlockCrsMatrix_Helpers.hpp>
 
 //#include <KokkosBlas2_gemv.hpp>
 
@@ -193,15 +194,24 @@ namespace Ifpack2 {
     ///
     template<typename MatrixType>
     typename Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_import_type>
-    createBlockCrsTpetraImporter(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A) {
+    createBlockCrsTpetraImporter(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_row_matrix_type> &A) {
       IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::CreateBlockCrsTpetraImporter");
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using tpetra_map_type = typename impl_type::tpetra_map_type;
       using tpetra_mv_type = typename impl_type::tpetra_block_multivector_type;
       using tpetra_import_type = typename impl_type::tpetra_import_type;
+      using crs_matrix_type = typename impl_type::tpetra_crs_matrix_type;
+      using block_crs_matrix_type = typename impl_type::tpetra_block_crs_matrix_type;
 
-      const auto g = A->getCrsGraph();  // tpetra crs graph object
-      const auto blocksize = A->getBlockSize();
+      auto A_crs = Teuchos::rcp_dynamic_cast<const crs_matrix_type>(A);
+      auto A_bcrs = Teuchos::rcp_dynamic_cast<const block_crs_matrix_type>(A);
+
+      bool hasBlockCrsMatrix = ! A_bcrs.is_null ();
+
+      const auto g = hasBlockCrsMatrix ? A_bcrs->getCrsGraph() : *(A_crs->getCrsGraph()); // tpetra crs graph object
+
+
+      const auto blocksize = hasBlockCrsMatrix ? A_bcrs->getBlockSize() : 1;
       const auto src = Teuchos::rcp(new tpetra_map_type(tpetra_mv_type::makePointMap(*g.getDomainMap(), blocksize)));
       const auto tgt = Teuchos::rcp(new tpetra_map_type(tpetra_mv_type::makePointMap(*g.getColMap()   , blocksize)));
       IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
@@ -785,15 +795,23 @@ namespace Ifpack2 {
     ///
     template<typename MatrixType>
     Teuchos::RCP<AsyncableImport<MatrixType> >
-    createBlockCrsAsyncImporter(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A) {
+    createBlockCrsAsyncImporter(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_row_matrix_type> &A) {
       using impl_type = BlockHelperDetails::ImplType<MatrixType>;
       using tpetra_map_type = typename impl_type::tpetra_map_type;
       using local_ordinal_type = typename impl_type::local_ordinal_type;
       using global_ordinal_type = typename impl_type::global_ordinal_type;
       using local_ordinal_type_1d_view = typename impl_type::local_ordinal_type_1d_view;
+      using crs_matrix_type = typename impl_type::tpetra_crs_matrix_type;
+      using block_crs_matrix_type = typename impl_type::tpetra_block_crs_matrix_type;
 
-      const auto g = A->getCrsGraph();  // tpetra crs graph object
-      const auto blocksize = A->getBlockSize();
+      auto A_crs = Teuchos::rcp_dynamic_cast<const crs_matrix_type>(A);
+      auto A_bcrs = Teuchos::rcp_dynamic_cast<const block_crs_matrix_type>(A);
+
+      bool hasBlockCrsMatrix = ! A_bcrs.is_null ();
+
+      const auto g = hasBlockCrsMatrix ? A_bcrs->getCrsGraph() : *(A_crs->getCrsGraph()); // tpetra crs graph object
+
+      const auto blocksize = hasBlockCrsMatrix ? A_bcrs->getBlockSize() : 1;
       const auto domain_map = g.getDomainMap();
       const auto column_map = g.getColMap();
 
@@ -906,7 +924,7 @@ namespace Ifpack2 {
     ///
     template<typename MatrixType>
     BlockHelperDetails::PartInterface<MatrixType>
-    createPartInterface(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A,
+    createPartInterface(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_row_matrix_type> &A,
                         const Teuchos::Array<Teuchos::Array<typename BlockHelperDetails::ImplType<MatrixType>::local_ordinal_type> > &partitions,
                         const typename BlockHelperDetails::ImplType<MatrixType>::local_ordinal_type n_subparts_per_part_in) {
       IFPACK2_BLOCKHELPER_TIMER("createPartInterface");
@@ -1719,7 +1737,7 @@ namespace Ifpack2 {
     ///
     template<typename MatrixType>
     void
-    performSymbolicPhase(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A,
+    performSymbolicPhase(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_row_matrix_type> &A,
                          const BlockHelperDetails::PartInterface<MatrixType> &interf,
                          BlockTridiags<MatrixType> &btdm,
                          BlockHelperDetails::AmD<MatrixType> &amd,
@@ -1738,13 +1756,19 @@ namespace Ifpack2 {
       using size_type_1d_view = typename impl_type::size_type_1d_view;
       using vector_type_3d_view = typename impl_type::vector_type_3d_view;
       using vector_type_4d_view = typename impl_type::vector_type_4d_view;
+      using crs_matrix_type = typename impl_type::tpetra_crs_matrix_type;
       using block_crs_matrix_type = typename impl_type::tpetra_block_crs_matrix_type;
 
       constexpr int vector_length = impl_type::vector_length;
 
       const auto comm = A->getRowMap()->getComm();
 
-      const auto& g = A->getCrsGraph();
+      auto A_crs = Teuchos::rcp_dynamic_cast<const crs_matrix_type>(A);
+      auto A_bcrs = Teuchos::rcp_dynamic_cast<const block_crs_matrix_type>(A);
+
+      bool hasBlockCrsMatrix = ! A_bcrs.is_null ();
+
+      const auto& g = hasBlockCrsMatrix ? A_bcrs->getCrsGraph() : *(A_crs->getCrsGraph());
 
       const auto blocksize = A->getBlockSize();
 
@@ -2018,7 +2042,11 @@ namespace Ifpack2 {
           }
 
           // Allocate or view values.
-          amd.tpetra_values = (const_cast<block_crs_matrix_type*>(A.get())->getValuesDeviceNonConst());
+          if (hasBlockCrsMatrix)
+            amd.tpetra_values = (const_cast<block_crs_matrix_type*>(A_bcrs.get())->getValuesDeviceNonConst());
+          else {
+            // to be implemented
+          }
                                
         }
 
@@ -2615,7 +2643,7 @@ namespace Ifpack2 {
       using impl_scalar_type = typename impl_type::impl_scalar_type;
       using magnitude_type = typename impl_type::magnitude_type;
       /// tpetra interface
-      using block_crs_matrix_type = typename impl_type::tpetra_block_crs_matrix_type;
+      using row_matrix_type = typename impl_type::tpetra_row_matrix_type;
       /// views
       using local_ordinal_type_1d_view = typename impl_type::local_ordinal_type_1d_view;
       using local_ordinal_type_2d_view = typename impl_type::local_ordinal_type_2d_view;
@@ -2648,8 +2676,8 @@ namespace Ifpack2 {
       const local_ordinal_type max_partsz;
       // block crs matrix (it could be Kokkos::UVMSpace::size_type, which is int)
       using size_type_1d_view_tpetra = Kokkos::View<size_t*,typename impl_type::node_device_type>;
-      const ConstUnmanaged<size_type_1d_view_tpetra> A_rowptr;
-      const ConstUnmanaged<impl_scalar_type_1d_view_tpetra> A_values;
+      ConstUnmanaged<size_type_1d_view_tpetra> A_rowptr;
+      ConstUnmanaged<impl_scalar_type_1d_view_tpetra> A_values;
       // block tridiags
       const ConstUnmanaged<size_type_2d_view> pack_td_ptr, flat_td_ptr, pack_td_ptr_schur;
       const ConstUnmanaged<local_ordinal_type_1d_view> A_colindsub;
@@ -2667,7 +2695,7 @@ namespace Ifpack2 {
     public:
       ExtractAndFactorizeTridiags(const BlockTridiags<MatrixType> &btdm_,
                                   const BlockHelperDetails::PartInterface<MatrixType> &interf_,
-                                  const Teuchos::RCP<const block_crs_matrix_type> &A_,
+                                  const Teuchos::RCP<const row_matrix_type> &A_,
                                   const magnitude_type& tiny_) :
         // interface
         partptr(interf_.partptr),
@@ -2680,8 +2708,8 @@ namespace Ifpack2 {
         packindices_schur(interf_.packindices_schur),
         max_partsz(interf_.max_partsz),
         // block crs matrix
-        A_rowptr(A_->getCrsGraph().getLocalGraphDevice().row_map),
-        A_values(const_cast<block_crs_matrix_type*>(A_.get())->getValuesDeviceNonConst()),
+        //A_rowptr(A_->getCrsGraph().getLocalGraphDevice().row_map),
+        //A_values(const_cast<row_matrix_type*>(A_.get())->getValuesDeviceNonConst()),
         // block tridiags
         pack_td_ptr(btdm_.pack_td_ptr),
         flat_td_ptr(btdm_.flat_td_ptr),
@@ -2724,7 +2752,27 @@ namespace Ifpack2 {
         // diagonal weight to avoid zero pivots
         tiny(tiny_),
         vector_loop_size(vector_length/internal_vector_length),
-        vector_length_value(vector_length) {}
+        vector_length_value(vector_length) {
+          using crs_matrix_type = typename impl_type::tpetra_crs_matrix_type;
+          using block_crs_matrix_type = typename impl_type::tpetra_block_crs_matrix_type;
+
+          auto A_crs = Teuchos::rcp_dynamic_cast<const crs_matrix_type>(A_);
+          auto A_bcrs = Teuchos::rcp_dynamic_cast<const block_crs_matrix_type>(A_);
+
+          bool hasBlockCrsMatrix = ! A_bcrs.is_null ();
+
+          if(!hasBlockCrsMatrix) {
+            A_bcrs = Tpetra::convertToBlockCrsMatrix(*A_crs, blocksize);
+            hasBlockCrsMatrix = true;
+          }
+
+          auto meshCrsGraph = hasBlockCrsMatrix ? A_bcrs->getCrsGraph() : *(Tpetra::getBlockCrsGraph(*A_crs, blocksize));
+
+          if (hasBlockCrsMatrix)
+            A_values = const_cast<block_crs_matrix_type*>(A_bcrs.get())->getValuesDeviceNonConst();
+          else
+            ;//A_values = const_cast<crs_matrix_type*>(A_crs.get())->getValuesDeviceNonConst();
+        }
 
     private:
 
@@ -3380,7 +3428,7 @@ namespace Ifpack2 {
     ///
     template<typename MatrixType>
     void
-    performNumericPhase(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A,
+    performNumericPhase(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_row_matrix_type> &A,
                         const BlockHelperDetails::PartInterface<MatrixType> &interf,
                         BlockTridiags<MatrixType> &btdm,
                         const typename BlockHelperDetails::ImplType<MatrixType>::magnitude_type tiny) {
@@ -4638,7 +4686,7 @@ namespace Ifpack2 {
     template<typename MatrixType>
     int
     applyInverseJacobi(// importer
-                       const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_block_crs_matrix_type> &A,
+                       const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_row_matrix_type> &A,
                        const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_import_type> &tpetra_importer,
                        const Teuchos::RCP<AsyncableImport<MatrixType> > &async_importer,
                        const bool overlap_communication_and_computation,
@@ -4740,8 +4788,19 @@ namespace Ifpack2 {
                                                damping_factor, is_norm_manager_active);
 
       const local_ordinal_type_1d_view dummy_local_ordinal_type_1d_view;
+
+      using crs_matrix_type = typename impl_type::tpetra_crs_matrix_type;
+      using block_crs_matrix_type = typename impl_type::tpetra_block_crs_matrix_type;
+
+      auto A_crs = Teuchos::rcp_dynamic_cast<const crs_matrix_type>(A);
+      auto A_bcrs = Teuchos::rcp_dynamic_cast<const block_crs_matrix_type>(A);
+
+      bool hasBlockCrsMatrix = ! A_bcrs.is_null ();
+
+      auto meshCrsGraph = hasBlockCrsMatrix ? A_bcrs->getCrsGraph() : *(Tpetra::getBlockCrsGraph(*A_crs, blocksize));
+
       BlockHelperDetails::ComputeResidualVector<MatrixType>
-        compute_residual_vector(amd, A->getCrsGraph().getLocalGraphDevice(), blocksize, interf,
+        compute_residual_vector(amd, meshCrsGraph.getLocalGraphDevice(), blocksize, interf,
                                 is_async_importer_active ? async_importer->dm2cm : dummy_local_ordinal_type_1d_view);
 
       // norm manager workspace resize
@@ -4825,7 +4884,7 @@ namespace Ifpack2 {
       using async_import_type = AsyncableImport<MatrixType>;
 
       // distructed objects
-      Teuchos::RCP<const typename impl_type::tpetra_block_crs_matrix_type> A;
+      Teuchos::RCP<const typename impl_type::tpetra_row_matrix_type> A;
       Teuchos::RCP<const typename impl_type::tpetra_import_type> tpetra_importer;
       Teuchos::RCP<async_import_type> async_importer;
       bool overlap_communication_and_computation;

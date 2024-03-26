@@ -292,10 +292,9 @@ namespace Tpetra {
   }
 
   template<class Scalar, class LO, class GO, class Node>
-  Teuchos::RCP<BlockCrsMatrix<Scalar, LO, GO, Node> >
-  convertToBlockCrsMatrix(const Tpetra::CrsMatrix<Scalar, LO, GO, Node>& pointMatrix, const LO &blockSize)
+  Teuchos::RCP<Tpetra::CrsGraph<LO,GO,Node> >
+  getBlockCrsGraph(const Tpetra::CrsMatrix<Scalar, LO, GO, Node>& pointMatrix, const LO &blockSize)
   {
-
       /*
         ASSUMPTIONS:
 
@@ -308,7 +307,6 @@ namespace Tpetra {
       using Teuchos::ArrayView;
       using Teuchos::RCP;
 
-      typedef Tpetra::BlockCrsMatrix<Scalar,LO,GO,Node> block_crs_matrix_type;
       typedef Tpetra::Map<LO,GO,Node>                   map_type;
       typedef Tpetra::CrsGraph<LO,GO,Node>              crs_graph_type;
       typedef Tpetra::CrsMatrix<Scalar, LO,GO,Node>     crs_matrix_type;
@@ -367,6 +365,51 @@ namespace Tpetra {
         meshColGids.clear();
       }
       meshCrsGraph->fillComplete(meshDomainMap,meshRangeMap);
+
+      return meshCrsGraph;
+  }
+
+  template<class Scalar, class LO, class GO, class Node>
+  Teuchos::RCP<BlockCrsMatrix<Scalar, LO, GO, Node> >
+  convertToBlockCrsMatrix(const Tpetra::CrsMatrix<Scalar, LO, GO, Node>& pointMatrix, const LO &blockSize)
+  {
+      /*
+        ASSUMPTIONS:
+
+           1) In point matrix, all entries associated with a little block are present (even if they are zero).
+           2) For given mesh DOF, point DOFs appear consecutively and in ascending order in row & column maps.
+           3) Point column map and block column map are ordered consistently.
+      */
+
+      using Teuchos::Array;
+      using Teuchos::ArrayView;
+      using Teuchos::RCP;
+
+      typedef Tpetra::BlockCrsMatrix<Scalar,LO,GO,Node> block_crs_matrix_type;
+      typedef Tpetra::Map<LO,GO,Node>                   map_type;
+      typedef Tpetra::CrsGraph<LO,GO,Node>              crs_graph_type;
+      typedef Tpetra::CrsMatrix<Scalar, LO,GO,Node>     crs_matrix_type;
+
+      const map_type &pointRowMap = *(pointMatrix.getRowMap());
+      RCP<const map_type> meshRowMap = createMeshMap<LO,GO,Node>(blockSize, pointRowMap);
+
+      const map_type &pointColMap = *(pointMatrix.getColMap());
+      RCP<const map_type> meshColMap = createMeshMap<LO,GO,Node>(blockSize, pointColMap);
+      if(meshColMap.is_null()) throw std::runtime_error("ERROR: Cannot create mesh colmap");
+
+      const map_type &pointDomainMap = *(pointMatrix.getDomainMap());
+      RCP<const map_type> meshDomainMap = createMeshMap<LO,GO,Node>(blockSize, pointDomainMap);
+
+      const map_type &pointRangeMap = *(pointMatrix.getRangeMap());
+      RCP<const map_type> meshRangeMap = createMeshMap<LO,GO,Node>(blockSize, pointRangeMap);
+
+      // Use graph ctor that provides column map and upper bound on nonzeros per row.
+      // We can use static profile because the point graph should have at least as many entries per
+      // row as the mesh graph.
+      RCP<crs_graph_type> meshCrsGraph = getBlockCrsGraph(pointMatrix, blockSize);
+
+      typename crs_matrix_type::local_inds_host_view_type pointColInds;
+      typename crs_matrix_type::values_host_view_type pointVals;
 
       //create and populate the block matrix
       RCP<block_crs_matrix_type> blockMatrix = rcp(new block_crs_matrix_type(*meshCrsGraph, blockSize));
