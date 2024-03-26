@@ -54,6 +54,8 @@
 #include "Ifpack2_Parameters.hpp"
 #include "Teuchos_TimeMonitor.hpp"
 
+#include "Tpetra_BlockCrsMatrix_Helpers_decl.hpp"
+
 namespace Ifpack2 {
 
 template<class MatrixType,class ContainerType>
@@ -176,6 +178,7 @@ getValidParameters () const
   validParams->set("partitioner: coordinates",dummy);
   validParams->set("timer for apply", true);
   validParams->set("partitioner: subparts per part", 1);
+  validParams->set("partitioner: block size", -1);
 
   return validParams;
 }
@@ -629,11 +632,16 @@ initialize ()
     Teuchos::RCP<const block_crs_matrix_type> A_bcrs =
       Teuchos::rcp_dynamic_cast<const block_crs_matrix_type> (A_);
     hasBlockCrsMatrix_ = !A_bcrs.is_null();
-    if (A_bcrs.is_null ()) {
-      hasBlockCrsMatrix_ = false;
-    }
-    else {
+
+    if(!hasBlockCrsMatrix_ && List_.isParameter("relaxation: container") && List_.get<std::string>("relaxation: container") == "BlockTriDi" ) {
+      TEUCHOS_FUNC_TIME_MONITOR("Ifpack2::BlockRelaxation::initialize::convertToBlockCrsMatrix");
+      int block_size = List_.get<int>("partitioner: block size");
+      TEUCHOS_TEST_FOR_EXCEPT_MSG
+        (block_size == -1, "A pointwise matrix and block_size = -1 were given as inputs.");
+      A_bcrs = Tpetra::convertToBlockCrsMatrix(*Teuchos::rcp_dynamic_cast<const crs_matrix_type>(A_), block_size);
+      A_ = A_bcrs;
       hasBlockCrsMatrix_ = true;
+      Kokkos::DefaultExecutionSpace().fence();
     }
 
     NumLocalRows_      = A_->getLocalNumRows ();

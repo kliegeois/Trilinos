@@ -21,11 +21,11 @@ TRIBITS_ADD_EXECUTABLE(
 )
 
 
- TRIBITS_ADD_TEST(
-    BlockTriDiagonalSolver
-    NAME BlockTriDiExample
-    ARGS ""
-    COMM serial mpi
-    NUM_MPI_PROCS 1-4
-    STANDARD_PASS_OUTPUT
-    )
+TRIBITS_ADD_TEST(
+  BlockTriDiagonalSolver
+  NAME BlockTriDiExample
+  ARGS ""
+  COMM serial mpi
+  NUM_MPI_PROCS 1-4
+  STANDARD_PASS_OUTPUT
+)
