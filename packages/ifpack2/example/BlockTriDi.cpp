@@ -494,15 +494,9 @@ main (int argc, char* argv[])
         return EXIT_FAILURE;
       }
       
-      if(args.usePointMatrix) {
-        Ablock = A;
-      }
-      else {
-        // Convert Matrix to Block
-        if(rank0) std::cout<<"Converting A from point to block..."<<std::endl;
-        Ablock = Tpetra::convertToBlockCrsMatrix<SC,LO,GO,NO>(*A, args.blockSize);
-      }
-
+      // Convert Matrix to Block
+      if(rank0) std::cout<<"Converting A from point to block..."<<std::endl;
+      Ablock = Tpetra::convertToBlockCrsMatrix<SC,LO,GO,NO>(*A, args.blockSize);
 
       // Read line information vector
       // We assume the vector contains the local line ids for each node
@@ -587,7 +581,7 @@ main (int argc, char* argv[])
   {
     Teuchos::TimeMonitor precSetupTimeMon (*precSetupTime);
     if(args.usePointMatrix)
-      precond = rcp(new BTDC(Ablock,parts,args.sublinesPerLineSchur,args.overlapCommAndComp, false, args.blockSize));
+      precond = rcp(new BTDC(A,parts,args.sublinesPerLineSchur,args.overlapCommAndComp, false, args.blockSize));
     else
       precond = rcp(new BTDC(Ablock,parts,args.sublinesPerLineSchur,args.overlapCommAndComp));
 
