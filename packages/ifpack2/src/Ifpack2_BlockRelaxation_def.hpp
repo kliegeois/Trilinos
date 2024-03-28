@@ -179,6 +179,7 @@ getValidParameters () const
   validParams->set("timer for apply", true);
   validParams->set("partitioner: subparts per part", 1);
   validParams->set("partitioner: block size", -1);
+  validParams->set("partitioner: print level", false);
 
   return validParams;
 }
