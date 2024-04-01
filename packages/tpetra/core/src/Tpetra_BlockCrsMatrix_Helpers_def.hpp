@@ -291,6 +291,7 @@ namespace Tpetra {
 
   }
 
+
   template<class Scalar, class LO, class GO, class Node>
   Teuchos::RCP<BlockCrsMatrix<Scalar, LO, GO, Node> >
   convertToBlockCrsMatrix(const Tpetra::CrsMatrix<Scalar, LO, GO, Node>& pointMatrix, const LO &blockSize)
@@ -341,28 +342,21 @@ namespace Tpetra {
       // We can use static profile because the point graph should have at least as many entries per
       // row as the mesh graph.
       RCP<crs_graph_type> meshCrsGraph;
-      // Fill the graph by walking through the matrix.  For each mesh row, we query the collection of point
-      // rows associated with it. The point column ids are converted to mesh column ids and put into an array.
-      // As each point row collection is finished, the mesh column ids are sorted, made unique, and inserted
-      // into the mesh graph.
-      typename crs_matrix_type::local_inds_host_view_type pointColInds;
-      typename crs_matrix_type::values_host_view_type pointVals;
-      Array<GO> meshColGids;
-      meshColGids.reserve(pointMatrix.getGlobalMaxNumRowEntries());
+      RCP<block_crs_matrix_type> blockMatrix;
 
-      auto pointLocalGraph = pointMatrix.getCrsGraph()->getLocalGraphDevice();
-      auto pointRowptr = pointLocalGraph.row_map;
-      auto pointColind = pointLocalGraph.entries;
-
-      const auto bs2 = blockSize * blockSize;
-
-      const LO block_rows = (pointRowptr.extent(0)-1)/blockSize;
-      // Generate the point matrix rowptr / colind / values
-      row_map_type blockRowptr("blockRowptr", block_rows+1);
-      entries_type blockColind("blockColind", pointColind.extent(0)/(bs2));
-      values_type blockValues("values",  pointColind.extent(0));
+      offset_type nnz,  block_rows;
+      const offset_type bs2 = blockSize * blockSize;
 
       {
+        auto pointLocalGraph = pointMatrix.getCrsGraph()->getLocalGraphDevice();
+        auto pointRowptr = pointLocalGraph.row_map;
+        auto pointColind = pointLocalGraph.entries;
+
+        block_rows = (pointRowptr.extent(0)-1)/blockSize;
+        row_map_type blockRowptr("blockRowptr", block_rows+1);
+        entries_type blockColind("blockColind", pointColind.extent(0)/(bs2));
+        nnz = pointColind.extent(0);
+
         TEUCHOS_FUNC_TIME_MONITOR("Tpetra::convertToBlockCrsMatrix::fillCrsGraph");
         Kokkos::parallel_for("fillRowPtr",range_type(0,block_rows), KOKKOS_LAMBDA(const LO i) {
           if (i==block_rows-1)
@@ -385,7 +379,10 @@ namespace Tpetra {
       }
       {
         TEUCHOS_FUNC_TIME_MONITOR("Tpetra::convertToBlockCrsMatrix::fillBlockCrsMatrix");
+        values_type blockValues("values",  nnz);
         auto pointValues = pointMatrix.getLocalValuesDevice (Access::ReadOnly);
+        auto blockRowptr = meshCrsGraph->getLocalGraphDevice().row_map;
+        auto pointRowptr = pointMatrix.getCrsGraph()->getLocalGraphDevice().row_map;
 
         Kokkos::parallel_for("copyEntriesAndValues",range_type(0,block_rows),KOKKOS_LAMBDA(const LO i) {
           const offset_type blkBeg    = blockRowptr[i];
@@ -405,11 +402,9 @@ namespace Tpetra {
 
           }
           });
+        blockMatrix = rcp(new block_crs_matrix_type(*meshCrsGraph, blockValues, blockSize));
         Kokkos::DefaultExecutionSpace().fence();
       }
-
-      //create and populate the block matrix
-      RCP<block_crs_matrix_type> blockMatrix = rcp(new block_crs_matrix_type(*meshCrsGraph, blockValues, blockSize));
 
       return blockMatrix;
 
