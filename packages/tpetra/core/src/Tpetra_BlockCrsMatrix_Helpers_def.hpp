@@ -313,6 +313,15 @@ namespace Tpetra {
       typedef Tpetra::CrsGraph<LO,GO,Node>              crs_graph_type;
       typedef Tpetra::CrsMatrix<Scalar, LO,GO,Node>     crs_matrix_type;
 
+      using local_graph_device_type  = typename crs_matrix_type::local_graph_device_type;
+      using local_matrix_device_type = typename crs_matrix_type::local_matrix_device_type;
+      using row_map_type             = typename local_graph_device_type::row_map_type::non_const_type;
+      using entries_type             = typename local_graph_device_type::entries_type::non_const_type;
+      using values_type              = typename local_matrix_device_type::values_type::non_const_type;
+
+      using execution_space = typename Node::execution_space;
+      using range_type = Kokkos::RangePolicy<execution_space, LO>;
+
       const map_type &pointRowMap = *(pointMatrix.getRowMap());
       RCP<const map_type> meshRowMap = createMeshMap<LO,GO,Node>(blockSize, pointRowMap);
 
@@ -329,8 +338,7 @@ namespace Tpetra {
       // Use graph ctor that provides column map and upper bound on nonzeros per row.
       // We can use static profile because the point graph should have at least as many entries per
       // row as the mesh graph.
-      RCP<crs_graph_type> meshCrsGraph = rcp(new crs_graph_type(meshRowMap, meshColMap,
-                                                 pointMatrix.getGlobalMaxNumRowEntries()));
+      RCP<crs_graph_type> meshCrsGraph;
       // Fill the graph by walking through the matrix.  For each mesh row, we query the collection of point
       // rows associated with it. The point column ids are converted to mesh column ids and put into an array.
       // As each point row collection is finished, the mesh column ids are sorted, made unique, and inserted
@@ -340,34 +348,39 @@ namespace Tpetra {
       Array<GO> meshColGids;
       meshColGids.reserve(pointMatrix.getGlobalMaxNumRowEntries());
 
-      //again, I assume that point GIDs associated with a mesh GID are consecutive.
-      //if they are not, this will break!!
-      GO indexBase = pointColMap.getIndexBase();
-      for (size_t i=0; i<pointMatrix.getLocalNumRows()/blockSize; i++) {
-        for (int j=0; j<blockSize; ++j) {
-          LO rowLid = i*blockSize+j;
-          pointMatrix.getLocalRowView(rowLid,pointColInds,pointVals); //TODO optimization: Since I don't care about values,
-                                                                      //TODO I should use the graph instead.
-          for (size_t k=0; k<pointColInds.size(); ++k) {
-            GO meshColInd = (pointColMap.getGlobalElement(pointColInds[k]) - indexBase) / blockSize + indexBase;
-            if (meshColMap->getLocalElement(meshColInd) == Teuchos::OrdinalTraits<GO>::invalid()) {
-              std::ostringstream oss;
-              oss<< "["<<i<<"] ERROR: meshColId "<< meshColInd <<" is not in the column map.  Correspnds to pointColId = "<<pointColInds[k]<<std::endl;
-              throw std::runtime_error(oss.str());
-            }
+      auto pointLocalGraph = pointMatrix.getCrsGraph()->getLocalGraphDevice();
+      auto pointRowptr = pointLocalGraph.row_map;
+      auto pointColind = pointLocalGraph.entries;
 
-            meshColGids.push_back(meshColInd);
+      const auto bs2 = blockSize * blockSize;
+
+      const LO block_rows = (pointRowptr.extent(0)-1)/blockSize;
+      // Generate the point matrix rowptr / colind / values
+      row_map_type blockRowptr("blockRowptr", block_rows+1);
+      entries_type blockColind("blockColind", pointColind.extent(0)/(bs2));
+      values_type values("values",  pointColind.extent(0));
+
+      {
+        TEUCHOS_FUNC_TIME_MONITOR("Tpetra::convertToBlockCrsMatrix::fillCrsGraph");
+        Kokkos::parallel_for("fillRowPtr",range_type(0,block_rows), KOKKOS_LAMBDA(const LO i) {
+          if (i==block_rows-1)
+            blockRowptr(i+1) = pointRowptr(block_rows*blockSize)/(bs2);
+          blockRowptr(i) = pointRowptr(i*blockSize)/bs2;
+        });
+
+        Kokkos::parallel_for("fillRowPtr",range_type(0,block_rows), KOKKOS_LAMBDA(const LO i) {
+          auto offset_b = blockRowptr(i);
+          auto offset_b_max = blockRowptr(i+1);
+          auto offset_p = pointRowptr(i*blockSize);
+          for (size_t k=0; k<offset_b_max-offset_b; ++k) {
+            blockColind(offset_b + k) = pointColind(offset_p + k * blockSize)/blockSize;
           }
-        }
-        //List of mesh GIDs probably contains duplicates because we looped over all point rows in the block.
-        //Sort and make unique.
-        std::sort(meshColGids.begin(), meshColGids.end());
-        meshColGids.erase( std::unique(meshColGids.begin(), meshColGids.end()), meshColGids.end() );
-        meshCrsGraph->insertGlobalIndices(meshRowMap->getGlobalElement(i), meshColGids());
-        meshColGids.clear();
-      }
-      meshCrsGraph->fillComplete(meshDomainMap,meshRangeMap);
+        });
 
+        meshCrsGraph = rcp(new crs_graph_type(meshRowMap, meshColMap, blockRowptr, blockColind));
+        meshCrsGraph->fillComplete(meshDomainMap,meshRangeMap);
+        Kokkos::DefaultExecutionSpace().fence();
+      }
       //create and populate the block matrix
       RCP<block_crs_matrix_type> blockMatrix = rcp(new block_crs_matrix_type(*meshCrsGraph, blockSize));
 
@@ -388,50 +401,54 @@ namespace Tpetra {
       //int offset;
       //if (pointMatrix.getIndexBase()) offset = 0;
       //else                     offset = 1;
-      for (size_t i=0; i<pointMatrix.getLocalNumRows()/blockSize; i++) {
-        int blkCnt=0; //how many unique block entries encountered so far in current block row
-        for (int j=0; j<blockSize; ++j) {
-          LO rowLid = i*blockSize+j;
-          pointMatrix.getLocalRowView(rowLid,pointColInds,pointVals);
-          for (size_t k=0; k<pointColInds.size(); ++k) {
-            //convert point column to block col
-            LO meshColInd = pointColInds[k] / blockSize;
-            iter = bcol2bentry.find(meshColInd);
-            if (iter == bcol2bentry.end()) {
-              //new block column
-              bcol2bentry[meshColInd] = blkCnt;
-              blocks[blkCnt].push_back(pointVals[k]);
-              blkCnt++;
-            } else {
-              //block column found previously
-              int littleBlock = iter->second;
-              blocks[littleBlock].push_back(pointVals[k]);
+      {
+        TEUCHOS_FUNC_TIME_MONITOR("Tpetra::convertToBlockCrsMatrix::fillBlockCrsMatrix");
+        for (size_t i=0; i<pointMatrix.getLocalNumRows()/blockSize; i++) {
+          int blkCnt=0; //how many unique block entries encountered so far in current block row
+          for (int j=0; j<blockSize; ++j) {
+            LO rowLid = i*blockSize+j;
+            pointMatrix.getLocalRowView(rowLid,pointColInds,pointVals);
+            for (size_t k=0; k<pointColInds.size(); ++k) {
+              //convert point column to block col
+              LO meshColInd = pointColInds[k] / blockSize;
+              iter = bcol2bentry.find(meshColInd);
+              if (iter == bcol2bentry.end()) {
+                //new block column
+                bcol2bentry[meshColInd] = blkCnt;
+                blocks[blkCnt].push_back(pointVals[k]);
+                blkCnt++;
+              } else {
+                //block column found previously
+                int littleBlock = iter->second;
+                blocks[littleBlock].push_back(pointVals[k]);
+              }
             }
           }
-        }
-        // TODO This inserts the blocks one block entry at a time.  It is probably more efficient to
-        // TODO store all the blocks in a block row contiguously so they can be inserted with a single call.
-        for (iter=bcol2bentry.begin(); iter != bcol2bentry.end(); ++iter) {
-          LO localBlockCol = iter->first;
-          Scalar *vals = (blocks[iter->second]).getRawPtr();
-          if (std::is_same<typename block_crs_matrix_type::little_block_type::array_layout,Kokkos::LayoutLeft>::value) {
-            /// col major
-            for (LO ii=0;ii<blockSize;++ii)
-              for (LO jj=0;jj<blockSize;++jj)
-                tmpBlock[ii+jj*blockSize] = vals[ii*blockSize+jj];
-            Scalar *tmp_vals = tmpBlock.getRawPtr();
-            blockMatrix->replaceLocalValues(i, &localBlockCol, tmp_vals, 1);
-          } else {
-            /// row major
-            blockMatrix->replaceLocalValues(i, &localBlockCol, vals, 1);
+          // TODO This inserts the blocks one block entry at a time.  It is probably more efficient to
+          // TODO store all the blocks in a block row contiguously so they can be inserted with a single call.
+          for (iter=bcol2bentry.begin(); iter != bcol2bentry.end(); ++iter) {
+            LO localBlockCol = iter->first;
+            Scalar *vals = (blocks[iter->second]).getRawPtr();
+            if (std::is_same<typename block_crs_matrix_type::little_block_type::array_layout,Kokkos::LayoutLeft>::value) {
+              /// col major
+              for (LO ii=0;ii<blockSize;++ii)
+                for (LO jj=0;jj<blockSize;++jj)
+                  tmpBlock[ii+jj*blockSize] = vals[ii*blockSize+jj];
+              Scalar *tmp_vals = tmpBlock.getRawPtr();
+              blockMatrix->replaceLocalValues(i, &localBlockCol, tmp_vals, 1);
+            } else {
+              /// row major
+              blockMatrix->replaceLocalValues(i, &localBlockCol, vals, 1);
+            }
           }
-        }
 
-        //Done with block row.  Zero everything out.
-        for (int j=0; j<maxBlockEntries; ++j)
-          blocks[j].clear();
-        blkCnt = 0;
-        bcol2bentry.clear();
+          //Done with block row.  Zero everything out.
+          for (int j=0; j<maxBlockEntries; ++j)
+            blocks[j].clear();
+          blkCnt = 0;
+          bcol2bentry.clear();
+        }
+        Kokkos::DefaultExecutionSpace().fence();
       }
 
       tmpBlock.clear();
