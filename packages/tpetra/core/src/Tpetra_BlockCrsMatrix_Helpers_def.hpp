@@ -293,6 +293,92 @@ namespace Tpetra {
 
 
   template<class Scalar, class LO, class GO, class Node>
+  Teuchos::RCP<Tpetra::CrsGraph<LO, GO, Node> >
+  getBlockCrsGraph(const Tpetra::CrsMatrix<Scalar, LO, GO, Node>& pointMatrix, const LO &blockSize)
+  {
+
+      /*
+        ASSUMPTIONS:
+
+           1) In point matrix, all entries associated with a little block are present (even if they are zero).
+           2) For given mesh DOF, point DOFs appear consecutively and in ascending order in row & column maps.
+           3) Point column map and block column map are ordered consistently.
+      */
+
+      using Teuchos::Array;
+      using Teuchos::ArrayView;
+      using Teuchos::RCP;
+
+      typedef Tpetra::BlockCrsMatrix<Scalar,LO,GO,Node> block_crs_matrix_type;
+      typedef Tpetra::Map<LO,GO,Node>                   map_type;
+      typedef Tpetra::CrsGraph<LO,GO,Node>              crs_graph_type;
+      typedef Tpetra::CrsMatrix<Scalar, LO,GO,Node>     crs_matrix_type;
+
+      using local_graph_device_type  = typename crs_matrix_type::local_graph_device_type;
+      using local_matrix_device_type = typename crs_matrix_type::local_matrix_device_type;
+      using row_map_type             = typename local_graph_device_type::row_map_type::non_const_type;
+      using entries_type             = typename local_graph_device_type::entries_type::non_const_type;
+      using values_type              = typename local_matrix_device_type::values_type::non_const_type;
+
+      using offset_type              = typename row_map_type::non_const_value_type;
+
+      using execution_space = typename Node::execution_space;
+      using range_type = Kokkos::RangePolicy<execution_space, LO>;
+
+      const map_type &pointRowMap = *(pointMatrix.getRowMap());
+      RCP<const map_type> meshRowMap = createMeshMap<LO,GO,Node>(blockSize, pointRowMap);
+
+      const map_type &pointColMap = *(pointMatrix.getColMap());
+      RCP<const map_type> meshColMap = createMeshMap<LO,GO,Node>(blockSize, pointColMap);
+      if(meshColMap.is_null()) throw std::runtime_error("ERROR: Cannot create mesh colmap");
+
+      const map_type &pointDomainMap = *(pointMatrix.getDomainMap());
+      RCP<const map_type> meshDomainMap = createMeshMap<LO,GO,Node>(blockSize, pointDomainMap);
+
+      const map_type &pointRangeMap = *(pointMatrix.getRangeMap());
+      RCP<const map_type> meshRangeMap = createMeshMap<LO,GO,Node>(blockSize, pointRangeMap);
+
+      // Use graph ctor that provides column map and upper bound on nonzeros per row.
+      // We can use static profile because the point graph should have at least as many entries per
+      // row as the mesh graph.
+      RCP<crs_graph_type> meshCrsGraph;
+
+      const offset_type bs2 = blockSize * blockSize;
+
+      {
+        auto pointLocalGraph = pointMatrix.getCrsGraph()->getLocalGraphDevice();
+        auto pointRowptr = pointLocalGraph.row_map;
+        auto pointColind = pointLocalGraph.entries;
+
+        LO block_rows = (pointRowptr.extent(0)-1)/blockSize;
+        row_map_type blockRowptr("blockRowptr", block_rows+1);
+        entries_type blockColind("blockColind", pointColind.extent(0)/(bs2));
+
+        TEUCHOS_FUNC_TIME_MONITOR("Tpetra::convertToBlockCrsMatrix::fillCrsGraph");
+        Kokkos::parallel_for("fillRowPtr",range_type(0,block_rows), KOKKOS_LAMBDA(const LO i) {
+          if (i==block_rows-1)
+            blockRowptr(i+1) = pointRowptr(block_rows*blockSize)/(bs2);
+          blockRowptr(i) = pointRowptr(i*blockSize)/bs2;
+        });
+
+        Kokkos::parallel_for("fillRowPtr",range_type(0,block_rows), KOKKOS_LAMBDA(const LO i) {
+          auto offset_b = blockRowptr(i);
+          auto offset_b_max = blockRowptr(i+1);
+          auto offset_p = pointRowptr(i*blockSize);
+          for (size_t k=0; k<offset_b_max-offset_b; ++k) {
+            blockColind(offset_b + k) = pointColind(offset_p + k * blockSize)/blockSize;
+          }
+        });
+
+        meshCrsGraph = rcp(new crs_graph_type(meshRowMap, meshColMap, blockRowptr, blockColind));
+        meshCrsGraph->fillComplete(meshDomainMap,meshRangeMap);
+        Kokkos::DefaultExecutionSpace().fence();
+      }
+
+      return meshCrsGraph;
+  }
+
+  template<class Scalar, class LO, class GO, class Node>
   Teuchos::RCP<BlockCrsMatrix<Scalar, LO, GO, Node> >
   convertToBlockCrsMatrix(const Tpetra::CrsMatrix<Scalar, LO, GO, Node>& pointMatrix, const LO &blockSize)
   {
@@ -341,48 +427,21 @@ namespace Tpetra {
       // Use graph ctor that provides column map and upper bound on nonzeros per row.
       // We can use static profile because the point graph should have at least as many entries per
       // row as the mesh graph.
-      RCP<crs_graph_type> meshCrsGraph;
       RCP<block_crs_matrix_type> blockMatrix;
 
-      offset_type nnz,  block_rows;
       const offset_type bs2 = blockSize * blockSize;
 
+      auto meshCrsGraph = getBlockCrsGraph(pointMatrix, blockSize);
       {
         auto pointLocalGraph = pointMatrix.getCrsGraph()->getLocalGraphDevice();
         auto pointRowptr = pointLocalGraph.row_map;
         auto pointColind = pointLocalGraph.entries;
 
-        block_rows = (pointRowptr.extent(0)-1)/blockSize;
-        row_map_type blockRowptr("blockRowptr", block_rows+1);
-        entries_type blockColind("blockColind", pointColind.extent(0)/(bs2));
-        nnz = pointColind.extent(0);
-
-        TEUCHOS_FUNC_TIME_MONITOR("Tpetra::convertToBlockCrsMatrix::fillCrsGraph");
-        Kokkos::parallel_for("fillRowPtr",range_type(0,block_rows), KOKKOS_LAMBDA(const LO i) {
-          if (i==block_rows-1)
-            blockRowptr(i+1) = pointRowptr(block_rows*blockSize)/(bs2);
-          blockRowptr(i) = pointRowptr(i*blockSize)/bs2;
-        });
-
-        Kokkos::parallel_for("fillRowPtr",range_type(0,block_rows), KOKKOS_LAMBDA(const LO i) {
-          auto offset_b = blockRowptr(i);
-          auto offset_b_max = blockRowptr(i+1);
-          auto offset_p = pointRowptr(i*blockSize);
-          for (size_t k=0; k<offset_b_max-offset_b; ++k) {
-            blockColind(offset_b + k) = pointColind(offset_p + k * blockSize)/blockSize;
-          }
-        });
-
-        meshCrsGraph = rcp(new crs_graph_type(meshRowMap, meshColMap, blockRowptr, blockColind));
-        meshCrsGraph->fillComplete(meshDomainMap,meshRangeMap);
-        Kokkos::DefaultExecutionSpace().fence();
-      }
-      {
+        offset_type block_rows = (pointRowptr.extent(0)-1)/blockSize;
         TEUCHOS_FUNC_TIME_MONITOR("Tpetra::convertToBlockCrsMatrix::fillBlockCrsMatrix");
-        values_type blockValues("values",  nnz);
+        values_type blockValues("values",  meshCrsGraph->getLocalNumEntries()*bs2);
         auto pointValues = pointMatrix.getLocalValuesDevice (Access::ReadOnly);
         auto blockRowptr = meshCrsGraph->getLocalGraphDevice().row_map;
-        auto pointRowptr = pointMatrix.getCrsGraph()->getLocalGraphDevice().row_map;
 
         Kokkos::parallel_for("copyEntriesAndValues",range_type(0,block_rows),KOKKOS_LAMBDA(const LO i) {
           const offset_type blkBeg    = blockRowptr[i];
