@@ -53,7 +53,6 @@
 #include "Ifpack2_LocalFilter.hpp"
 #include "Ifpack2_Parameters.hpp"
 #include "Teuchos_TimeMonitor.hpp"
-
 #include "Tpetra_BlockCrsMatrix_Helpers_decl.hpp"
 
 namespace Ifpack2 {
