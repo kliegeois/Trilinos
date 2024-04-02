@@ -400,26 +400,12 @@ namespace Tpetra {
       using local_graph_device_type  = typename crs_matrix_type::local_graph_device_type;
       using local_matrix_device_type = typename crs_matrix_type::local_matrix_device_type;
       using row_map_type             = typename local_graph_device_type::row_map_type::non_const_type;
-      using entries_type             = typename local_graph_device_type::entries_type::non_const_type;
       using values_type              = typename local_matrix_device_type::values_type::non_const_type;
 
       using offset_type              = typename row_map_type::non_const_value_type;
 
       using execution_space = typename Node::execution_space;
       using range_type = Kokkos::RangePolicy<execution_space, LO>;
-
-      const map_type &pointRowMap = *(pointMatrix.getRowMap());
-      RCP<const map_type> meshRowMap = createMeshMap<LO,GO,Node>(blockSize, pointRowMap);
-
-      const map_type &pointColMap = *(pointMatrix.getColMap());
-      RCP<const map_type> meshColMap = createMeshMap<LO,GO,Node>(blockSize, pointColMap);
-      if(meshColMap.is_null()) throw std::runtime_error("ERROR: Cannot create mesh colmap");
-
-      const map_type &pointDomainMap = *(pointMatrix.getDomainMap());
-      RCP<const map_type> meshDomainMap = createMeshMap<LO,GO,Node>(blockSize, pointDomainMap);
-
-      const map_type &pointRangeMap = *(pointMatrix.getRangeMap());
-      RCP<const map_type> meshRangeMap = createMeshMap<LO,GO,Node>(blockSize, pointRangeMap);
 
       RCP<block_crs_matrix_type> blockMatrix;
 
