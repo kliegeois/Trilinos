@@ -291,7 +291,6 @@ namespace Tpetra {
 
   }
 
-
   template<class Scalar, class LO, class GO, class Node>
   Teuchos::RCP<Tpetra::CrsGraph<LO, GO, Node> >
   getBlockCrsGraph(const Tpetra::CrsMatrix<Scalar, LO, GO, Node>& pointMatrix, const LO &blockSize)
