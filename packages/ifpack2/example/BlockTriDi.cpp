@@ -498,6 +498,7 @@ main (int argc, char* argv[])
       if(rank0) std::cout<<"Converting A from point to block..."<<std::endl;
       Ablock = Tpetra::convertToBlockCrsMatrix<SC,LO,GO,NO>(*A, args.blockSize);
 
+
       // Read line information vector
       // We assume the vector contains the local line ids for each node
       if(rank0) std::cout<<"Reading line info file..."<<std::endl;
