@@ -337,9 +337,6 @@ namespace Tpetra {
       const map_type &pointRangeMap = *(pointMatrix.getRangeMap());
       RCP<const map_type> meshRangeMap = createMeshMap<LO,GO,Node>(blockSize, pointRangeMap);
 
-      // Use graph ctor that provides column map and upper bound on nonzeros per row.
-      // We can use static profile because the point graph should have at least as many entries per
-      // row as the mesh graph.
       RCP<crs_graph_type> meshCrsGraph;
 
       const offset_type bs2 = blockSize * blockSize;
@@ -354,17 +351,18 @@ namespace Tpetra {
         entries_type blockColind("blockColind", pointColind.extent(0)/(bs2));
 
         TEUCHOS_FUNC_TIME_MONITOR("Tpetra::convertToBlockCrsMatrix::fillCrsGraph");
-        Kokkos::parallel_for("fillRowPtr",range_type(0,block_rows), KOKKOS_LAMBDA(const LO i) {
-          if (i==block_rows-1)
-            blockRowptr(i+1) = pointRowptr(block_rows*blockSize)/(bs2);
-          blockRowptr(i) = pointRowptr(i*blockSize)/bs2;
-        });
+        Kokkos::parallel_for("fillMesh",range_type(0,block_rows), KOKKOS_LAMBDA(const LO i) {
 
-        Kokkos::parallel_for("fillRowPtr",range_type(0,block_rows), KOKKOS_LAMBDA(const LO i) {
-          auto offset_b = blockRowptr(i);
-          auto offset_b_max = blockRowptr(i+1);
-          auto offset_p = pointRowptr(i*blockSize);
-          for (size_t k=0; k<offset_b_max-offset_b; ++k) {
+          const LO offset_b = pointRowptr(i*blockSize)/bs2;
+          const LO offset_b_max = pointRowptr((i+1)*blockSize)/bs2;
+
+          if (i==block_rows-1)
+            blockRowptr(i+1) = offset_b_max;
+          blockRowptr(i) = offset_b;
+
+          const LO offset_p = pointRowptr(i*blockSize);
+
+          for (LO k=0; k<offset_b_max-offset_b; ++k) {
             blockColind(offset_b + k) = pointColind(offset_p + k * blockSize)/blockSize;
           }
         });
@@ -423,9 +421,6 @@ namespace Tpetra {
       const map_type &pointRangeMap = *(pointMatrix.getRangeMap());
       RCP<const map_type> meshRangeMap = createMeshMap<LO,GO,Node>(blockSize, pointRangeMap);
 
-      // Use graph ctor that provides column map and upper bound on nonzeros per row.
-      // We can use static profile because the point graph should have at least as many entries per
-      // row as the mesh graph.
       RCP<block_crs_matrix_type> blockMatrix;
 
       const offset_type bs2 = blockSize * blockSize;
@@ -442,7 +437,7 @@ namespace Tpetra {
         auto pointValues = pointMatrix.getLocalValuesDevice (Access::ReadOnly);
         auto blockRowptr = meshCrsGraph->getLocalGraphDevice().row_map;
 
-        Kokkos::parallel_for("copyEntriesAndValues",range_type(0,block_rows),KOKKOS_LAMBDA(const LO i) {
+        Kokkos::parallel_for("copyblockValues",range_type(0,block_rows),KOKKOS_LAMBDA(const LO i) {
           const offset_type blkBeg    = blockRowptr[i];
           const offset_type numBlocks = blockRowptr[i+1] - blkBeg;
 
