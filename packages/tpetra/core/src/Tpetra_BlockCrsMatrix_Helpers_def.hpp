@@ -328,6 +328,9 @@ namespace Tpetra {
       RCP<const map_type> meshColMap = createMeshMap<LO,GO,Node>(blockSize, pointColMap);
       if(meshColMap.is_null()) throw std::runtime_error("ERROR: Cannot create mesh colmap");
 
+      auto localMeshColMap = meshColMap->getLocalMap();
+      auto localPointColMap = pointColMap.getLocalMap();
+
       const map_type &pointDomainMap = *(pointMatrix.getDomainMap());
       RCP<const map_type> meshDomainMap = createMeshMap<LO,GO,Node>(blockSize, pointDomainMap);
 
@@ -364,7 +367,8 @@ namespace Tpetra {
           const LO offset_p = pointRowptr(i*blockSize);
 
           for (LO k=0; k<offset_b_max-offset_b; ++k) {
-            blockColind(offset_b + k) = pointColind(offset_p + k * blockSize)/blockSize;
+            blockColind(offset_b + k) = 
+              localMeshColMap.getLocalElement(localPointColMap.getGlobalElement(pointColind(offset_p + k * blockSize))/blockSize);
           }
         });
 
