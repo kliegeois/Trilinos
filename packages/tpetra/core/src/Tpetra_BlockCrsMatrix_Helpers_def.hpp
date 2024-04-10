@@ -400,6 +400,14 @@ namespace Tpetra {
       typedef Tpetra::BlockCrsMatrix<Scalar,LO,GO,Node> block_crs_matrix_type;
       typedef Tpetra::CrsMatrix<Scalar, LO,GO,Node>     crs_matrix_type;
 
+      //using writer_type = Tpetra::MatrixMarket::Writer<Tpetra::CrsMatrix<Scalar, LO, GO, Node>>;
+      //writer_type::writeSparseFile ("pointMatrix.mm", pointMatrix, "pointMatrix", "");
+
+      //WriteLocal("localPointMatrix", pointMatrix);
+      //WriteGlobal("globalPointMatrix", pointMatrix);
+
+      //printf("start convertToBlockCrsMatrix\n");
+
       using local_graph_device_type  = typename crs_matrix_type::local_graph_device_type;
       using local_matrix_device_type = typename crs_matrix_type::local_matrix_device_type;
       using row_map_type             = typename local_graph_device_type::row_map_type::non_const_type;
@@ -415,6 +423,10 @@ namespace Tpetra {
       const offset_type bs2 = blockSize * blockSize;
 
       auto meshCrsGraph = getBlockCrsGraph(pointMatrix, blockSize);
+
+      auto localMeshColMap = meshCrsGraph->getColMap()->getLocalMap();
+      auto localPointColMap = pointMatrix.getColMap()->getLocalMap();
+
       {
         TEUCHOS_FUNC_TIME_MONITOR("Tpetra::convertToBlockCrsMatrix::fillBlockCrsMatrix");
         auto pointLocalGraph = pointMatrix.getCrsGraph()->getLocalGraphDevice();
@@ -425,6 +437,19 @@ namespace Tpetra {
         values_type blockValues("values",  meshCrsGraph->getLocalNumEntries()*bs2);
         auto pointValues = pointMatrix.getLocalValuesDevice (Access::ReadOnly);
         auto blockRowptr = meshCrsGraph->getLocalGraphDevice().row_map;
+        auto blockColind = meshCrsGraph->getLocalGraphDevice().entries;
+
+        row_map_type pointGColind("pointGColind", pointColind.extent(0));
+
+        Kokkos::parallel_for("computePointGColind",range_type(0,pointColind.extent(0)),KOKKOS_LAMBDA(const LO i) {
+          pointGColind(i) = localPointColMap.getGlobalElement(pointColind(i));
+        });
+
+        row_map_type blockGColind("blockGColind", blockColind.extent(0));
+
+        Kokkos::parallel_for("computeBlockGColind",range_type(0,blockGColind.extent(0)),KOKKOS_LAMBDA(const LO i) {
+          blockGColind(i) = localMeshColMap.getGlobalElement(blockColind(i));
+        });
 
         Kokkos::parallel_for("copyblockValues",range_type(0,block_rows),KOKKOS_LAMBDA(const LO i) {
           const offset_type blkBeg    = blockRowptr[i];
@@ -434,10 +459,21 @@ namespace Tpetra {
           for (offset_type block=0; block < numBlocks; block++) {
 
             // For each entry in the block...
-            for(LO little_row=0; little_row<blockSize; little_row++) {
-              offset_type point_row_offset = pointRowptr[i*blockSize + little_row];
-              for(LO little_col=0; little_col<blockSize; little_col++) {
-                blockValues((blkBeg+block) * bs2 + little_row * blockSize + little_col) = 
+            for(LO little_col=0; little_col<blockSize; little_col++) {
+
+              offset_type block_inv=0;
+              offset_type little_col_inv=0;
+              for (offset_type block_2=0; block_2 < numBlocks; block_2++) {
+                if (blockGColind(blkBeg+block_2) == pointGColind(pointRowptr[i*blockSize] + block*blockSize + little_col)/blockSize) {
+                  block_inv = block_2;
+                  little_col_inv = pointGColind(pointRowptr[i*blockSize] + block*blockSize + little_col)%blockSize;
+                }
+              }
+
+              for(LO little_row=0; little_row<blockSize; little_row++) {
+                offset_type point_row_offset = pointRowptr[i*blockSize + little_row];
+
+                blockValues((blkBeg+block_inv) * bs2 + little_row * blockSize + little_col_inv) = 
                   pointValues[point_row_offset + block*blockSize + little_col];
               }
             }
@@ -447,6 +483,14 @@ namespace Tpetra {
         blockMatrix = rcp(new block_crs_matrix_type(*meshCrsGraph, blockValues, blockSize));
         Kokkos::DefaultExecutionSpace().fence();
       }
+
+
+      //printf("end convertToBlockCrsMatrix\n");
+
+      //auto pointMatrixAfter = convertToCrsMatrix(*blockMatrix);
+
+      //WriteLocal("localPointMatrixAfter", *pointMatrixAfter);
+      //WriteGlobal("globalPointMatrixAfter", *pointMatrixAfter);
 
       return blockMatrix;
 
