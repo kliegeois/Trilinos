@@ -330,6 +330,7 @@ namespace Tpetra {
 
       auto localMeshColMap = meshColMap->getLocalMap();
       auto localPointColMap = pointColMap.getLocalMap();
+      auto localPointRowMap = pointRowMap.getLocalMap();
 
       const map_type &pointDomainMap = *(pointMatrix.getDomainMap());
       RCP<const map_type> meshDomainMap = createMeshMap<LO,GO,Node>(blockSize, pointDomainMap);
@@ -365,10 +366,22 @@ namespace Tpetra {
           blockRowptr(i) = offset_b;
 
           const LO offset_p = pointRowptr(i*blockSize);
+          const LO offset_p_max = pointRowptr((i+1)*blockSize);
 
-          for (LO k=0; k<offset_b_max-offset_b; ++k) {
-            blockColind(offset_b + k) = 
-              localMeshColMap.getLocalElement(localPointColMap.getGlobalElement(pointColind(offset_p + k * blockSize))/blockSize);
+          LO filled_block = 0;
+          for (LO p_i=0; p_i<offset_p_max-offset_p; ++p_i) {
+            auto bcol_GID = localPointColMap.getGlobalElement(pointColind(offset_p + p_i))/blockSize;
+            auto lcol_GID = localMeshColMap.getLocalElement(bcol_GID);
+
+            bool visited = false;
+            for (LO k=0; k<filled_block; ++k) {
+              if (blockColind(offset_b + k) == lcol_GID) 
+                visited = true;
+            }
+            if (!visited) {
+              blockColind(offset_b + filled_block) = lcol_GID;
+              ++filled_block;
+            }
           }
         });
 
@@ -415,6 +428,8 @@ namespace Tpetra {
 
       using offset_type              = typename row_map_type::non_const_value_type;
 
+      typedef Teuchos::OrdinalTraits<GO>                     TOT;
+
       using execution_space = typename Node::execution_space;
       using range_type = Kokkos::RangePolicy<execution_space, LO>;
 
@@ -455,27 +470,27 @@ namespace Tpetra {
           const offset_type blkBeg    = blockRowptr[i];
           const offset_type numBlocks = blockRowptr[i+1] - blkBeg;
 
-          // For each block in the row...
-          for (offset_type block=0; block < numBlocks; block++) {
+          for(LO little_row=0; little_row<blockSize; little_row++) {
+            offset_type point_row_offset = pointRowptr[i*blockSize + little_row];
 
-            // For each entry in the block...
-            for(LO little_col=0; little_col<blockSize; little_col++) {
+            // For each block in the row...
+            for (offset_type point_i=point_row_offset; point_i < pointRowptr[i*blockSize + little_row + 1]; point_i++) {
 
-              offset_type block_inv=0;
-              offset_type little_col_inv=0;
+              offset_type block_inv=TOT::invalid();
+              offset_type little_col_inv=TOT::invalid();
               for (offset_type block_2=0; block_2 < numBlocks; block_2++) {
-                if (blockGColind(blkBeg+block_2) == pointGColind(pointRowptr[i*blockSize] + block*blockSize + little_col)/blockSize) {
-                  block_inv = block_2;
-                  little_col_inv = pointGColind(pointRowptr[i*blockSize] + block*blockSize + little_col)%blockSize;
+                for (offset_type little_col_2=0; little_col_2 < blockSize; little_col_2++) {
+                  if (blockGColind(blkBeg+block_2)*blockSize + little_col_2 == pointGColind(point_i)) {
+                    block_inv = block_2;
+                    little_col_inv = little_col_2;
+                    break;
+                  }
                 }
+                if (block_inv!=TOT::invalid())
+                  break;
               }
 
-              for(LO little_row=0; little_row<blockSize; little_row++) {
-                offset_type point_row_offset = pointRowptr[i*blockSize + little_row];
-
-                blockValues((blkBeg+block_inv) * bs2 + little_row * blockSize + little_col_inv) = 
-                  pointValues[point_row_offset + block*blockSize + little_col];
-              }
+              blockValues((blkBeg+block_inv) * bs2 + little_row * blockSize + little_col_inv) = pointValues[point_i];
             }
 
           }
