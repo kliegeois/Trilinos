@@ -470,29 +470,26 @@ namespace Tpetra {
           const offset_type blkBeg    = blockRowptr[i];
           const offset_type numBlocks = blockRowptr[i+1] - blkBeg;
 
-          for(LO little_row=0; little_row<blockSize; little_row++) {
-            offset_type point_row_offset = pointRowptr[i*blockSize + little_row];
+          for (offset_type point_i=0; point_i < pointRowptr[i*blockSize + 1] - pointRowptr[i*blockSize]; point_i++) {
 
-            // For each block in the row...
-            for (offset_type point_i=point_row_offset; point_i < pointRowptr[i*blockSize + little_row + 1]; point_i++) {
-
-              offset_type block_inv=TOT::invalid();
-              offset_type little_col_inv=TOT::invalid();
-              for (offset_type block_2=0; block_2 < numBlocks; block_2++) {
-                for (offset_type little_col_2=0; little_col_2 < blockSize; little_col_2++) {
-                  if (blockGColind(blkBeg+block_2)*blockSize + little_col_2 == pointGColind(point_i)) {
-                    block_inv = block_2;
-                    little_col_inv = little_col_2;
-                    break;
-                  }
-                }
-                if (block_inv!=TOT::invalid())
+            offset_type block_inv=TOT::invalid();
+            offset_type little_col_inv=TOT::invalid();
+            for (offset_type block_2=0; block_2 < numBlocks; block_2++) {
+              for (offset_type little_col_2=0; little_col_2 < blockSize; little_col_2++) {
+                if (blockGColind(blkBeg+block_2)*blockSize + little_col_2 == pointGColind(pointRowptr[i*blockSize] + point_i)) {
+                  block_inv = block_2;
+                  little_col_inv = little_col_2;
                   break;
+                }
               }
-
-              blockValues((blkBeg+block_inv) * bs2 + little_row * blockSize + little_col_inv) = pointValues[point_i];
+              if (block_inv!=TOT::invalid())
+                break;
             }
 
+            for(LO little_row=0; little_row<blockSize; little_row++) {
+              offset_type point_row_offset = pointRowptr[i*blockSize + little_row];
+              blockValues((blkBeg+block_inv) * bs2 + little_row * blockSize + little_col_inv) = pointValues[pointRowptr[i*blockSize+little_row] + point_i];
+            }
           }
           });
         blockMatrix = rcp(new block_crs_matrix_type(*meshCrsGraph, blockValues, blockSize));
