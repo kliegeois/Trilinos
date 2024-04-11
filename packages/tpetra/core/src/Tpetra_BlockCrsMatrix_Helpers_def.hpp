@@ -428,8 +428,6 @@ namespace Tpetra {
 
       using offset_type              = typename row_map_type::non_const_value_type;
 
-      typedef Teuchos::OrdinalTraits<GO>                     TOT;
-
       using execution_space = typename Node::execution_space;
       using range_type = Kokkos::RangePolicy<execution_space, LO>;
 
@@ -444,54 +442,56 @@ namespace Tpetra {
 
       {
         TEUCHOS_FUNC_TIME_MONITOR("Tpetra::convertToBlockCrsMatrix::fillBlockCrsMatrix");
-        auto pointLocalGraph = pointMatrix.getCrsGraph()->getLocalGraphDevice();
-        auto pointRowptr = pointLocalGraph.row_map;
-        auto pointColind = pointLocalGraph.entries;
-
-        offset_type block_rows = pointRowptr.extent(0) == 0 ? 0 : (pointRowptr.extent(0)-1)/blockSize;
         values_type blockValues("values",  meshCrsGraph->getLocalNumEntries()*bs2);
-        auto pointValues = pointMatrix.getLocalValuesDevice (Access::ReadOnly);
-        auto blockRowptr = meshCrsGraph->getLocalGraphDevice().row_map;
-        auto blockColind = meshCrsGraph->getLocalGraphDevice().entries;
+        {
+          auto pointLocalGraph = pointMatrix.getCrsGraph()->getLocalGraphDevice();
+          auto pointRowptr = pointLocalGraph.row_map;
+          auto pointColind = pointLocalGraph.entries;
 
-        row_map_type pointGColind("pointGColind", pointColind.extent(0));
+          offset_type block_rows = pointRowptr.extent(0) == 0 ? 0 : (pointRowptr.extent(0)-1)/blockSize;
+          auto pointValues = pointMatrix.getLocalValuesDevice (Access::ReadOnly);
+          auto blockRowptr = meshCrsGraph->getLocalGraphDevice().row_map;
+          auto blockColind = meshCrsGraph->getLocalGraphDevice().entries;
 
-        Kokkos::parallel_for("computePointGColind",range_type(0,pointColind.extent(0)),KOKKOS_LAMBDA(const LO i) {
-          pointGColind(i) = localPointColMap.getGlobalElement(pointColind(i));
-        });
+          row_map_type pointGColind("pointGColind", pointColind.extent(0));
 
-        row_map_type blockGColind("blockGColind", blockColind.extent(0));
-
-        Kokkos::parallel_for("computeBlockGColind",range_type(0,blockGColind.extent(0)),KOKKOS_LAMBDA(const LO i) {
-          blockGColind(i) = localMeshColMap.getGlobalElement(blockColind(i));
-        });
-
-        Kokkos::parallel_for("copyblockValues",range_type(0,block_rows),KOKKOS_LAMBDA(const LO i) {
-          const offset_type blkBeg    = blockRowptr[i];
-          const offset_type numBlocks = blockRowptr[i+1] - blkBeg;
-
-          for (offset_type point_i=0; point_i < pointRowptr[i*blockSize + 1] - pointRowptr[i*blockSize]; point_i++) {
-
-            offset_type block_inv=TOT::invalid();
-            offset_type little_col_inv=TOT::invalid();
-            for (offset_type block_2=0; block_2 < numBlocks; block_2++) {
-              for (offset_type little_col_2=0; little_col_2 < blockSize; little_col_2++) {
-                if (blockGColind(blkBeg+block_2)*blockSize + little_col_2 == pointGColind(pointRowptr[i*blockSize] + point_i)) {
-                  block_inv = block_2;
-                  little_col_inv = little_col_2;
-                  break;
-                }
-              }
-              if (block_inv!=TOT::invalid())
-                break;
-            }
-
-            for(LO little_row=0; little_row<blockSize; little_row++) {
-              offset_type point_row_offset = pointRowptr[i*blockSize + little_row];
-              blockValues((blkBeg+block_inv) * bs2 + little_row * blockSize + little_col_inv) = pointValues[pointRowptr[i*blockSize+little_row] + point_i];
-            }
-          }
+          Kokkos::parallel_for("computePointGColind",range_type(0,pointColind.extent(0)),KOKKOS_LAMBDA(const LO i) {
+            pointGColind(i) = localPointColMap.getGlobalElement(pointColind(i));
           });
+
+          row_map_type blockGColind("blockGColind", blockColind.extent(0));
+
+          Kokkos::parallel_for("computeBlockGColind",range_type(0,blockGColind.extent(0)),KOKKOS_LAMBDA(const LO i) {
+            blockGColind(i) = localMeshColMap.getGlobalElement(blockColind(i));
+          });
+
+          Kokkos::parallel_for("copyblockValues",range_type(0,block_rows),KOKKOS_LAMBDA(const LO i) {
+            const offset_type blkBeg    = blockRowptr[i];
+            const offset_type numBlocks = blockRowptr[i+1] - blkBeg;
+
+            for (offset_type point_i=0; point_i < pointRowptr[i*blockSize + 1] - pointRowptr[i*blockSize]; point_i++) {
+
+              offset_type block_inv=static_cast<offset_type>(-1);
+              offset_type little_col_inv=static_cast<offset_type>(-1);
+              for (offset_type block_2=0; block_2 < numBlocks; block_2++) {
+                for (LO little_col_2=0; little_col_2 < blockSize; little_col_2++) {
+                  if (blockGColind(blkBeg+block_2)*blockSize + little_col_2 == pointGColind(pointRowptr[i*blockSize] + point_i)) {
+                    block_inv = block_2;
+                    little_col_inv = little_col_2;
+                    break;
+                  }
+                }
+                if (block_inv!=static_cast<offset_type>(-1))
+                  break;
+              }
+
+              for(LO little_row=0; little_row<blockSize; little_row++) {
+                offset_type point_row_offset = pointRowptr[i*blockSize + little_row];
+                blockValues((blkBeg+block_inv) * bs2 + little_row * blockSize + little_col_inv) = pointValues[pointRowptr[i*blockSize+little_row] + point_i];
+              }
+            }
+            });
+        }
         blockMatrix = rcp(new block_crs_matrix_type(*meshCrsGraph, blockValues, blockSize));
         Kokkos::DefaultExecutionSpace().fence();
       }
