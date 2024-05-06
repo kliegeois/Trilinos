@@ -633,17 +633,6 @@ initialize ()
       Teuchos::rcp_dynamic_cast<const block_crs_matrix_type> (A_);
     hasBlockCrsMatrix_ = !A_bcrs.is_null();
 
-    if(!hasBlockCrsMatrix_ && List_.isParameter("relaxation: container") && List_.get<std::string>("relaxation: container") == "BlockTriDi" ) {
-      TEUCHOS_FUNC_TIME_MONITOR("Ifpack2::BlockRelaxation::initialize::convertToBlockCrsMatrix");
-      int block_size = List_.get<int>("partitioner: block size");
-      TEUCHOS_TEST_FOR_EXCEPT_MSG
-        (block_size == -1, "A pointwise matrix and block_size = -1 were given as inputs.");
-      A_bcrs = Tpetra::convertToBlockCrsMatrix(*Teuchos::rcp_dynamic_cast<const crs_matrix_type>(A_), block_size);
-      A_ = A_bcrs;
-      hasBlockCrsMatrix_ = true;
-      Kokkos::DefaultExecutionSpace().fence();
-    }
-
     NumLocalRows_      = A_->getLocalNumRows ();
     NumGlobalRows_     = A_->getGlobalNumRows ();
     NumGlobalNonzeros_ = A_->getGlobalNumEntries ();

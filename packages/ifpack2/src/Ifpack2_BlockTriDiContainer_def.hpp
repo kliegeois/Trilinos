@@ -99,16 +99,7 @@ namespace Ifpack2 {
 
     {
       IFPACK2_BLOCKHELPER_TIMER("BlockTriDiContainer::setA");
-      impl_->A = Teuchos::rcp_dynamic_cast<const block_crs_matrix_type>(matrix);
-      if (impl_->A.is_null()) {
-        TEUCHOS_TEST_FOR_EXCEPT_MSG
-          (block_size == -1, "A pointwise matrix and block_size = -1 were given as inputs.");
-        {
-          IFPACK2_BLOCKHELPER_TIMER("BlockTriDiContainer::setA::convertToBlockCrsMatrix");
-          impl_->A = Tpetra::convertToBlockCrsMatrix(*Teuchos::rcp_dynamic_cast<const crs_matrix_type>(matrix), block_size);
-          IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
-        }
-      }
+      impl_->A = matrix;
       IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
     }
 
