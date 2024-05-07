@@ -1836,6 +1836,7 @@ namespace Ifpack2 {
     template<typename MatrixType>
     void
     performSymbolicPhase(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_row_matrix_type> &A,
+                         const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_crs_graph_type> &g,
                          const BlockHelperDetails::PartInterface<MatrixType> &interf,
                          BlockTridiags<MatrixType> &btdm,
                          BlockHelperDetails::AmD<MatrixType> &amd,
@@ -1866,7 +1867,7 @@ namespace Ifpack2 {
 
       bool hasBlockCrsMatrix = ! A_bcrs.is_null ();
 
-      const auto& g = hasBlockCrsMatrix ? A_bcrs->getCrsGraph() : *(A_crs->getCrsGraph()); // tpetra crs graph object
+      //const auto& g = hasBlockCrsMatrix ? A_bcrs->getCrsGraph() : *(A_crs->getCrsGraph()); // tpetra crs graph object
 
       const auto blocksize = A->getBlockSize();
 
@@ -1885,9 +1886,9 @@ namespace Ifpack2 {
       
       Kokkos::deep_copy(col2row, Teuchos::OrdinalTraits<local_ordinal_type>::invalid());
       {
-        const auto rowmap = g.getRowMap();
-        const auto colmap = g.getColMap();
-        const auto dommap = g.getDomainMap();
+        const auto rowmap = g->getRowMap();
+        const auto colmap = g->getColMap();
+        const auto dommap = g->getDomainMap();
         TEUCHOS_ASSERT( !(rowmap.is_null() || colmap.is_null() || dommap.is_null()));
 
 #if !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__) && !defined(__SYCL_DEVICE_ONLY__)
@@ -1912,7 +1913,7 @@ namespace Ifpack2 {
 
       // construct the D and R graphs in A = D + R.
       {
-        const auto local_graph = g.getLocalGraphHost();
+        const auto local_graph = g->getLocalGraphHost();
         const auto local_graph_rowptr = local_graph.row_map;
         TEUCHOS_ASSERT(local_graph_rowptr.size() == static_cast<size_t>(nrows + 1));
         const auto local_graph_colidx = local_graph.entries;
@@ -4982,6 +4983,7 @@ namespace Ifpack2 {
 
       // distructed objects
       Teuchos::RCP<const typename impl_type::tpetra_row_matrix_type> A;
+      Teuchos::RCP<const typename impl_type::tpetra_crs_graph_type> blockGraph;
       Teuchos::RCP<const typename impl_type::tpetra_import_type> tpetra_importer;
       Teuchos::RCP<async_import_type> async_importer;
       bool overlap_communication_and_computation;

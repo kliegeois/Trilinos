@@ -397,6 +397,7 @@ namespace Ifpack2 {
     // hide details of impl using ImplObj; finally I understand why AMB did that way.
     Teuchos::RCP<BlockTriDiContainerDetails::ImplObject<MatrixType> > impl_;
     int n_subparts_per_part_;
+    int block_size_;
     
     // initialize distributed and local objects
     void initInternal (const Teuchos::RCP<const row_matrix_type>& matrix,
