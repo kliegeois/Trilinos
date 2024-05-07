@@ -285,7 +285,8 @@ namespace Ifpack2 {
       this->initialize();
     {
       BlockTriDiContainerDetails::performNumericPhase<MatrixType>
-        (impl_->A, 
+        (impl_->A,
+         impl_->blockGraph, 
          impl_->part_interface, impl_->block_tridiags, 
          Kokkos::ArithTraits<magnitude_type>::zero());
     }
@@ -352,7 +353,8 @@ namespace Ifpack2 {
       this->initialize();
     {
       BlockTriDiContainerDetails::performNumericPhase<MatrixType>
-        (impl_->A, 
+        (impl_->A,
+         impl_->blockGraph, 
          impl_->part_interface, impl_->block_tridiags, 
          in.addRadiallyToDiagonal);
     }

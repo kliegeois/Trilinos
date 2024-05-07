@@ -2743,6 +2743,7 @@ namespace Ifpack2 {
       using magnitude_type = typename impl_type::magnitude_type;
       /// tpetra interface
       using row_matrix_type = typename impl_type::tpetra_row_matrix_type;
+      using crs_graph_type = typename impl_type::tpetra_crs_graph_type;
       /// views
       using local_ordinal_type_1d_view = typename impl_type::local_ordinal_type_1d_view;
       using local_ordinal_type_2d_view = typename impl_type::local_ordinal_type_2d_view;
@@ -2795,6 +2796,7 @@ namespace Ifpack2 {
       ExtractAndFactorizeTridiags(const BlockTridiags<MatrixType> &btdm_,
                                   const BlockHelperDetails::PartInterface<MatrixType> &interf_,
                                   const Teuchos::RCP<const row_matrix_type> &A_,
+                                  const Teuchos::RCP<const crs_graph_type> &G_,
                                   const magnitude_type& tiny_) :
         // interface
         partptr(interf_.partptr),
@@ -2860,12 +2862,13 @@ namespace Ifpack2 {
 
           bool hasBlockCrsMatrix = ! A_bcrs.is_null ();
 
+          A_rowptr = G_->getLocalGraphDevice().row_map;
+
           if (!hasBlockCrsMatrix) {
             std::string msg = "usePointMatrix with inline matrix is not yet implemented";
             throw std::runtime_error(msg);
           }
 
-          A_rowptr = A_bcrs->getCrsGraph().getLocalGraphDevice().row_map;
           A_values = const_cast<block_crs_matrix_type*>(A_bcrs.get())->getValuesDeviceNonConst();
         }
 
@@ -3524,11 +3527,12 @@ namespace Ifpack2 {
     template<typename MatrixType>
     void
     performNumericPhase(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_row_matrix_type> &A,
+                        const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_crs_graph_type> &G,
                         const BlockHelperDetails::PartInterface<MatrixType> &interf,
                         BlockTridiags<MatrixType> &btdm,
                         const typename BlockHelperDetails::ImplType<MatrixType>::magnitude_type tiny) {
       IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::NumericPhase");
-      ExtractAndFactorizeTridiags<MatrixType> function(btdm, interf, A, tiny);
+      ExtractAndFactorizeTridiags<MatrixType> function(btdm, interf, A, G, tiny);
       function.run();
       IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
     }
