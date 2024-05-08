@@ -241,7 +241,7 @@ namespace Ifpack2 {
         {
           IFPACK2_BLOCKHELPER_TIMER("BlockTriDiContainer::setA::convertToBlockCrsMatrix");
           auto A = Teuchos::rcp_dynamic_cast<const crs_matrix_type>(impl_->A);
-          impl_->blockGraph = Tpetra::getBlockCrsGraph(*A, block_size_);
+          impl_->blockGraph = Tpetra::getBlockCrsGraph(*A, block_size_, true);
           IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
         }
       }

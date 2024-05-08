@@ -207,8 +207,8 @@ namespace Ifpack2 {
 
       bool hasBlockCrsMatrix = ! A_bcrs.is_null ();
 
+      // This is OK here to use the graph of the A_crs matrix and a block size of 1
       const auto g = hasBlockCrsMatrix ? A_bcrs->getCrsGraph() : *(A_crs->getCrsGraph()); // tpetra crs graph object
-
 
       const auto blocksize = hasBlockCrsMatrix ? A_bcrs->getBlockSize() : 1;
       const auto src = Teuchos::rcp(new tpetra_map_type(tpetra_mv_type::makePointMap(*g.getDomainMap(), blocksize)));
@@ -906,8 +906,8 @@ namespace Ifpack2 {
 
       bool hasBlockCrsMatrix = ! A_bcrs.is_null ();
 
+      // This is OK here to use the graph of the A_crs matrix and a block size of 1
       const auto g = hasBlockCrsMatrix ? A_bcrs->getCrsGraph() : *(A_crs->getCrsGraph()); // tpetra crs graph object
-                                                                                          // use getBlockCrsGraph
 
       const auto blocksize = hasBlockCrsMatrix ? A_bcrs->getBlockSize() : 1;
       const auto domain_map = g.getDomainMap();
@@ -1869,10 +1869,7 @@ namespace Ifpack2 {
       auto A_bcrs = Teuchos::rcp_dynamic_cast<const block_crs_matrix_type>(A);
 
       bool hasBlockCrsMatrix = ! A_bcrs.is_null ();
-
-      //const auto& g = hasBlockCrsMatrix ? A_bcrs->getCrsGraph() : *(A_crs->getCrsGraph()); // tpetra crs graph object
-
-      const auto blocksize = A->getBlockSize();
+      const local_ordinal_type blocksize = hasBlockCrsMatrix ? A->getBlockSize() : A->getLocalNumRows()/g->getLocalNumRows();
 
       // mirroring to host
       const auto partptr = Kokkos::create_mirror_view_and_copy     (Kokkos::HostSpace(), interf.partptr);
@@ -2779,7 +2776,8 @@ namespace Ifpack2 {
       const local_ordinal_type max_partsz;
       // block crs matrix (it could be Kokkos::UVMSpace::size_type, which is int)
       using size_type_1d_view_tpetra = Kokkos::View<size_t*,typename impl_type::node_device_type>;
-      ConstUnmanaged<size_type_1d_view_tpetra> A_rowptr;
+      ConstUnmanaged<size_type_1d_view_tpetra> A_block_rowptr;
+      ConstUnmanaged<size_type_1d_view_tpetra> A_point_rowptr;
       ConstUnmanaged<impl_scalar_type_1d_view_tpetra> A_values;
       // block tridiags
       const ConstUnmanaged<size_type_2d_view> pack_td_ptr, flat_td_ptr, pack_td_ptr_schur;
@@ -2813,9 +2811,6 @@ namespace Ifpack2 {
         part2packrowidx0_sub(interf_.part2packrowidx0_sub),
         packindices_schur(interf_.packindices_schur),
         max_partsz(interf_.max_partsz),
-        // block crs matrix
-        //A_rowptr(A_->getCrsGraph().getLocalGraphDevice().row_map),
-        //A_values(const_cast<block_crs_matrix_type*>(A_.get())->getValuesDeviceNonConst()),
         // block tridiags
         pack_td_ptr(btdm_.pack_td_ptr),
         flat_td_ptr(btdm_.flat_td_ptr),
@@ -2867,11 +2862,17 @@ namespace Ifpack2 {
 
           hasBlockCrsMatrix = ! A_bcrs.is_null ();
 
-          A_rowptr = G_->getLocalGraphDevice().row_map; // not sure about that
-          if (hasBlockCrsMatrix)
+          A_block_rowptr = G_->getLocalGraphDevice().row_map; // not sure about that
+          if (hasBlockCrsMatrix) {
             A_values = const_cast<block_crs_matrix_type*>(A_bcrs.get())->getValuesDeviceNonConst();
-          else
+          }
+          else {
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+            printf("A->getLocalNumRows = %ld, G->getLocalNumRows = %ld, block size = %ld, blocksize= %ld \n",  A_->getLocalNumRows(), G_->getLocalNumRows(), A_->getLocalNumRows()/ G_->getLocalNumRows(), blocksize);
+#endif
+            A_point_rowptr = A_crs->getCrsGraph()->getLocalGraphDevice().row_map;
             A_values = A_crs->getLocalValuesDevice (Tpetra::Access::ReadOnly);
+          }
         }
 
     private:
@@ -2914,7 +2915,7 @@ namespace Ifpack2 {
             if (hasBlockCrsMatrix) {
               const impl_scalar_type* block[vector_length] = {};
               for (local_ordinal_type vi=0;vi<npacks;++vi) {
-                const size_type Aj = A_rowptr(lclrow(ri0[vi] + tr)) + A_colindsub(kfs[vi] + j);
+                const size_type Aj = A_block_rowptr(lclrow(ri0[vi] + tr)) + A_colindsub(kfs[vi] + j);
 
                 block[vi] = &A_values(Aj*blocksize_square);
               }
@@ -2934,16 +2935,30 @@ namespace Ifpack2 {
               }
             }
             else {
+              const size_type pi = kps + j;
+
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+              printf("Extract pointwise pi = %ld, ri0 + tr = %d, kfs + j = %d\n", pi, ri0[0] + tr, kfs[0] + j);
+#endif  
               for (local_ordinal_type vi=0;vi<npacks;++vi) {
-                //const size_type Aj = A_rowptr(lclrow(ri0[vi] + tr)) + A_colindsub(kfs[vi] + j);
+                const size_type Aj_r = A_block_rowptr(lclrow(ri0[vi] + tr)); // = blkBeg
+                const size_type Aj_c = A_colindsub(kfs[vi] + j);
 
                 for (local_ordinal_type ii=0;ii<blocksize;++ii) {
+                  auto point_row_offset = A_point_rowptr(lclrow(ri0[vi] + tr)*blocksize + ii);
+
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+                  printf("lclrow = %ld, Aj_r = %ld, Aj_c = %ld, point_row_offset = %ld, A_values.extent(0) = %ld, point_row_offset + Aj_c*blocksize = %ld\n", lclrow(ri0[vi] + tr), Aj_r, Aj_c, point_row_offset, A_values.extent(0), point_row_offset + Aj_c*blocksize);
+#endif  
+
                   for (local_ordinal_type jj=0;jj<blocksize;++jj) {
-                    const auto idx = tlb::getFlatIndex(ii, jj, blocksize);
-                    //scalar_values(pi, ii, jj, vi) = A_values(Aj*blocksize_square + idx);
+                    scalar_values(pi, ii, jj, vi) = A_values(point_row_offset + Aj_c*blocksize + jj);
+                    // = blockValues(Aj*blocksize_square + idx)
+                    // = pointValues[point_row_offset + Aj_c*blocksize + jj];
                   }
                 }
               }
+              ++j;
             }
             if (nrows[0] == 1) break;
             if (local_subpartidx % 2 == 0) {
@@ -3030,20 +3045,40 @@ namespace Ifpack2 {
                   lend = 1;
                 }
               }
-              for (local_ordinal_type l=lbeg;l<lend;++l,++j) {
-                const size_type Aj = A_rowptr(lclrow(ri0 + tr)) + A_colindsub(kfs + j);
-                const impl_scalar_type* block = &A_values(Aj*blocksize_square);
-                const size_type pi = kps + j;
+              if (hasBlockCrsMatrix) {
+                for (local_ordinal_type l=lbeg;l<lend;++l,++j) {
+                  const size_type Aj = A_block_rowptr(lclrow(ri0 + tr)) + A_colindsub(kfs + j);
+                  const impl_scalar_type* block = &A_values(Aj*blocksize_square);
+                  const size_type pi = kps + j;
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
-                printf("Extract pi = %ld, ri0 + tr = %d, kfs + j = %d, tr = %d, lbeg = %d, lend = %d, l = %d\n", pi, ri0 + tr, kfs + j, tr, lbeg, lend, l);
+                  printf("Extract pi = %ld, ri0 + tr = %d, kfs + j = %d, tr = %d, lbeg = %d, lend = %d, l = %d\n", pi, ri0 + tr, kfs + j, tr, lbeg, lend, l);
 #endif
-                Kokkos::parallel_for
-                  (Kokkos::TeamThreadRange(member,blocksize),
-                   [&](const local_ordinal_type &ii) {
-                    for (local_ordinal_type jj=0;jj<blocksize;++jj) {
-                      scalar_values(pi, ii, jj, v) = static_cast<btdm_scalar_type>(block[tlb::getFlatIndex(ii,jj,blocksize)]);
-                    }
-                  });
+                  Kokkos::parallel_for
+                    (Kokkos::TeamThreadRange(member,blocksize),
+                    [&](const local_ordinal_type &ii) {
+                      for (local_ordinal_type jj=0;jj<blocksize;++jj) {
+                        scalar_values(pi, ii, jj, v) = static_cast<btdm_scalar_type>(block[tlb::getFlatIndex(ii,jj,blocksize)]);
+                      }
+                    });
+                }
+              }
+              else {
+                for (local_ordinal_type l=lbeg;l<lend;++l,++j) {
+                  const size_type Aj_r = A_block_rowptr(lclrow(ri0 + tr));
+                  const size_type Aj_c = A_colindsub(kfs + j);
+                  const size_type pi = kps + j;
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+                  printf("Extract pi = %ld, ri0 + tr = %d, kfs + j = %d, tr = %d, lbeg = %d, lend = %d, l = %d\n", pi, ri0 + tr, kfs + j, tr, lbeg, lend, l);
+#endif
+                  Kokkos::parallel_for
+                    (Kokkos::TeamThreadRange(member,blocksize),
+                    [&](const local_ordinal_type &ii) {
+                      auto point_row_offset = A_point_rowptr(lclrow(ri0 + tr)*blocksize + ii);
+                      for (local_ordinal_type jj=0;jj<blocksize;++jj) {
+                        scalar_values(pi, ii, jj, v) = A_values(point_row_offset + Aj_c*blocksize + jj);
+                      }
+                    });
+                }
               }
             }
           }
