@@ -1023,6 +1023,7 @@ namespace Ifpack2 {
     template<typename MatrixType>
     BlockHelperDetails::PartInterface<MatrixType>
     createPartInterface(const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_row_matrix_type> &A,
+                        const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_crs_graph_type> &G,
                         const Teuchos::Array<Teuchos::Array<typename BlockHelperDetails::ImplType<MatrixType>::local_ordinal_type> > &partitions,
                         const typename BlockHelperDetails::ImplType<MatrixType>::local_ordinal_type n_subparts_per_part_in) {
       IFPACK2_BLOCKHELPER_TIMER("createPartInterface");
@@ -1032,7 +1033,9 @@ namespace Ifpack2 {
       using local_ordinal_type_2d_view = typename impl_type::local_ordinal_type_2d_view;
       using size_type = typename impl_type::size_type;
 
-      const auto blocksize = A->getBlockSize();
+      auto bA = Teuchos::rcp_dynamic_cast<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_block_crs_matrix_type>(A);
+
+      const local_ordinal_type blocksize = bA.is_null() ? A->getLocalNumRows() / G->getLocalNumRows() : A->getBlockSize();
       constexpr int vector_length = impl_type::vector_length;
       constexpr int internal_vector_length = impl_type::internal_vector_length;
 
@@ -1041,7 +1044,7 @@ namespace Ifpack2 {
       BlockHelperDetails::PartInterface<MatrixType> interf;
 
       const bool jacobi = partitions.size() == 0;
-      const local_ordinal_type A_n_lclrows = A->getLocalNumRows();
+      const local_ordinal_type A_n_lclrows = G->getLocalNumRows();
       const local_ordinal_type nparts = jacobi ? A_n_lclrows : partitions.size();
 
       typedef std::pair<local_ordinal_type,local_ordinal_type> size_idx_pair_type;
@@ -2144,7 +2147,7 @@ namespace Ifpack2 {
           if (hasBlockCrsMatrix)
             amd.tpetra_values = (const_cast<block_crs_matrix_type*>(A_bcrs.get())->getValuesDeviceNonConst());
           else {
-            // to be implemented
+            amd.tpetra_values = (const_cast<crs_matrix_type*>(A_crs.get()))->getLocalValuesDevice (Tpetra::Access::ReadWrite);
           }
                                
         }
@@ -2792,6 +2795,8 @@ namespace Ifpack2 {
       const local_ordinal_type vector_loop_size;
       const local_ordinal_type vector_length_value;
 
+      bool hasBlockCrsMatrix;
+
     public:
       ExtractAndFactorizeTridiags(const BlockTridiags<MatrixType> &btdm_,
                                   const BlockHelperDetails::PartInterface<MatrixType> &interf_,
@@ -2860,16 +2865,13 @@ namespace Ifpack2 {
           auto A_crs = Teuchos::rcp_dynamic_cast<const crs_matrix_type>(A_);
           auto A_bcrs = Teuchos::rcp_dynamic_cast<const block_crs_matrix_type>(A_);
 
-          bool hasBlockCrsMatrix = ! A_bcrs.is_null ();
+          hasBlockCrsMatrix = ! A_bcrs.is_null ();
 
-          A_rowptr = G_->getLocalGraphDevice().row_map;
-
-          if (!hasBlockCrsMatrix) {
-            std::string msg = "usePointMatrix with inline matrix is not yet implemented";
-            throw std::runtime_error(msg);
-          }
-
-          A_values = const_cast<block_crs_matrix_type*>(A_bcrs.get())->getValuesDeviceNonConst();
+          A_rowptr = G_->getLocalGraphDevice().row_map; // not sure about that
+          if (hasBlockCrsMatrix)
+            A_values = const_cast<block_crs_matrix_type*>(A_bcrs.get())->getValuesDeviceNonConst();
+          else
+            A_values = A_crs->getLocalValuesDevice (Tpetra::Access::ReadOnly);
         }
 
     private:
@@ -2910,9 +2912,21 @@ namespace Ifpack2 {
         for (local_ordinal_type tr=tr_min,j=0;tr<tr_max;++tr) {
           for (local_ordinal_type e=0;e<3;++e) {
             const impl_scalar_type* block[vector_length] = {};
+            impl_scalar_type block_2[vector_length][blocksize_square];
             for (local_ordinal_type vi=0;vi<npacks;++vi) {
               const size_type Aj = A_rowptr(lclrow(ri0[vi] + tr)) + A_colindsub(kfs[vi] + j);
-              block[vi] = &A_values(Aj*blocksize_square);
+              if (hasBlockCrsMatrix) {
+                block[vi] = &A_values(Aj*blocksize_square);
+              }
+              else {
+                // TO DO
+                for (local_ordinal_type ii=0;ii<blocksize;++ii) {
+                  for (local_ordinal_type jj=0;jj<blocksize;++jj) {
+                    const auto idx = tlb::getFlatIndex(ii, jj, blocksize);
+                    block_2[vi][idx] = A_values(Aj*blocksize_square + idx);
+                  }
+                }
+              }
             }
             const size_type pi = kps + j;
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
@@ -2923,8 +2937,15 @@ namespace Ifpack2 {
               for (local_ordinal_type jj=0;jj<blocksize;++jj) {
                 const auto idx = tlb::getFlatIndex(ii, jj, blocksize);
                 auto& v = internal_vector_values(pi, ii, jj, 0);
-                for (local_ordinal_type vi=0;vi<npacks;++vi)
-                  v[vi] = static_cast<btdm_scalar_type>(block[vi][idx]);
+                for (local_ordinal_type vi=0;vi<npacks;++vi) {
+                  if (hasBlockCrsMatrix) {
+                    v[vi] = static_cast<btdm_scalar_type>(block[vi][idx]);
+                  }
+                  else {
+                    // TO DO
+                    v[vi] = static_cast<btdm_scalar_type>(block_2[vi][idx]);
+                  }
+                }
               }
             }
 
@@ -4786,6 +4807,7 @@ namespace Ifpack2 {
     int
     applyInverseJacobi(// importer
                        const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_row_matrix_type> &A,
+                       const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_crs_graph_type> &G,
                        const Teuchos::RCP<const typename BlockHelperDetails::ImplType<MatrixType>::tpetra_import_type> &tpetra_importer,
                        const Teuchos::RCP<AsyncableImport<MatrixType> > &async_importer,
                        const bool overlap_communication_and_computation,
@@ -4896,13 +4918,9 @@ namespace Ifpack2 {
 
       bool hasBlockCrsMatrix = ! A_bcrs.is_null ();
 
-      if (!hasBlockCrsMatrix) {
-        std::string msg = "usePointMatrix with inline matrix is not yet implemented";
-        throw std::runtime_error(msg);
-      }
 
       BlockHelperDetails::ComputeResidualVector<MatrixType>
-        compute_residual_vector(amd, A_bcrs->getCrsGraph().getLocalGraphDevice(), blocksize, interf,
+        compute_residual_vector(amd, G->getLocalGraphDevice(), blocksize, interf,
                                 is_async_importer_active ? async_importer->dm2cm : dummy_local_ordinal_type_1d_view);
 
       // norm manager workspace resize

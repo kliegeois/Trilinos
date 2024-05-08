@@ -234,14 +234,6 @@ namespace Ifpack2 {
     IFPACK2_BLOCKHELPER_TIMER("BlockTriDiContainer::initialize");
     this->IsInitialized_ = true;
     {
-      IFPACK2_BLOCKHELPER_TIMER("BlockTriDiContainer::createPartInterfaceBlockTridiagsNormManager");
-      impl_->part_interface  = BlockTriDiContainerDetails::createPartInterface<MatrixType>(impl_->A, partitions_, n_subparts_per_part_);
-      impl_->block_tridiags  = BlockTriDiContainerDetails::createBlockTridiags<MatrixType>(impl_->part_interface);
-      impl_->norm_manager    = BlockHelperDetails::NormManager<MatrixType>(impl_->A->getComm());
-      IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
-    }
-
-    {
       auto bA = Teuchos::rcp_dynamic_cast<const block_crs_matrix_type>(impl_->A);
       if (bA.is_null()) {
         TEUCHOS_TEST_FOR_EXCEPT_MSG
@@ -256,6 +248,14 @@ namespace Ifpack2 {
       else {
         impl_->blockGraph = Teuchos::rcpFromRef(bA->getCrsGraph());
       }
+    }
+
+    {
+      IFPACK2_BLOCKHELPER_TIMER("BlockTriDiContainer::createPartInterfaceBlockTridiagsNormManager");
+      impl_->part_interface  = BlockTriDiContainerDetails::createPartInterface<MatrixType>(impl_->A, impl_->blockGraph, partitions_, n_subparts_per_part_);
+      impl_->block_tridiags  = BlockTriDiContainerDetails::createBlockTridiags<MatrixType>(impl_->part_interface);
+      impl_->norm_manager    = BlockHelperDetails::NormManager<MatrixType>(impl_->A->getComm());
+      IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
     }
 
     // We assume that if you called this method, you intend to recompute
@@ -319,6 +319,7 @@ namespace Ifpack2 {
 
     BlockTriDiContainerDetails::applyInverseJacobi<MatrixType>
       (impl_->A,
+       impl_->blockGraph,
        impl_->tpetra_importer, 
        impl_->async_importer, 
        impl_->overlap_communication_and_computation,
@@ -383,6 +384,7 @@ namespace Ifpack2 {
     {
       r_val = BlockTriDiContainerDetails::applyInverseJacobi<MatrixType>
         (impl_->A,
+         impl_->blockGraph,
          impl_->tpetra_importer, 
          impl_->async_importer,
          impl_->overlap_communication_and_computation,
