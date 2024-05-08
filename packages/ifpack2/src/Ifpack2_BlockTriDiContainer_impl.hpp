@@ -2911,44 +2911,40 @@ namespace Ifpack2 {
 #endif
         for (local_ordinal_type tr=tr_min,j=0;tr<tr_max;++tr) {
           for (local_ordinal_type e=0;e<3;++e) {
-            const impl_scalar_type* block[vector_length] = {};
-            impl_scalar_type block_2[vector_length][blocksize_square];
-            for (local_ordinal_type vi=0;vi<npacks;++vi) {
-              const size_type Aj = A_rowptr(lclrow(ri0[vi] + tr)) + A_colindsub(kfs[vi] + j);
-              if (hasBlockCrsMatrix) {
+            if (hasBlockCrsMatrix) {
+              const impl_scalar_type* block[vector_length] = {};
+              for (local_ordinal_type vi=0;vi<npacks;++vi) {
+                const size_type Aj = A_rowptr(lclrow(ri0[vi] + tr)) + A_colindsub(kfs[vi] + j);
+
                 block[vi] = &A_values(Aj*blocksize_square);
               }
-              else {
-                // TO DO
+              const size_type pi = kps + j;
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+              printf("Extract pi = %ld, ri0 + tr = %d, kfs + j = %d\n", pi, ri0[0] + tr, kfs[0] + j);
+#endif            
+              ++j;            
+              for (local_ordinal_type ii=0;ii<blocksize;++ii) {
+                for (local_ordinal_type jj=0;jj<blocksize;++jj) {
+                  const auto idx = tlb::getFlatIndex(ii, jj, blocksize);
+                  auto& v = internal_vector_values(pi, ii, jj, 0);
+                  for (local_ordinal_type vi=0;vi<npacks;++vi) {
+                    v[vi] = static_cast<btdm_scalar_type>(block[vi][idx]);
+                  }
+                }
+              }
+            }
+            else {
+              for (local_ordinal_type vi=0;vi<npacks;++vi) {
+                //const size_type Aj = A_rowptr(lclrow(ri0[vi] + tr)) + A_colindsub(kfs[vi] + j);
+
                 for (local_ordinal_type ii=0;ii<blocksize;++ii) {
                   for (local_ordinal_type jj=0;jj<blocksize;++jj) {
                     const auto idx = tlb::getFlatIndex(ii, jj, blocksize);
-                    block_2[vi][idx] = A_values(Aj*blocksize_square + idx);
+                    //scalar_values(pi, ii, jj, vi) = A_values(Aj*blocksize_square + idx);
                   }
                 }
               }
             }
-            const size_type pi = kps + j;
-#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
-            printf("Extract pi = %ld, ri0 + tr = %d, kfs + j = %d\n", pi, ri0[0] + tr, kfs[0] + j);
-#endif            
-            ++j;
-            for (local_ordinal_type ii=0;ii<blocksize;++ii) {
-              for (local_ordinal_type jj=0;jj<blocksize;++jj) {
-                const auto idx = tlb::getFlatIndex(ii, jj, blocksize);
-                auto& v = internal_vector_values(pi, ii, jj, 0);
-                for (local_ordinal_type vi=0;vi<npacks;++vi) {
-                  if (hasBlockCrsMatrix) {
-                    v[vi] = static_cast<btdm_scalar_type>(block[vi][idx]);
-                  }
-                  else {
-                    // TO DO
-                    v[vi] = static_cast<btdm_scalar_type>(block_2[vi][idx]);
-                  }
-                }
-              }
-            }
-
             if (nrows[0] == 1) break;
             if (local_subpartidx % 2 == 0) {
               if (e == 1 && (tr == 0 || tr+1 == nrows[0])) break;
@@ -4909,15 +4905,6 @@ namespace Ifpack2 {
                                                damping_factor, is_norm_manager_active);
 
       const local_ordinal_type_1d_view dummy_local_ordinal_type_1d_view;
-
-      using crs_matrix_type = typename impl_type::tpetra_crs_matrix_type;
-      using block_crs_matrix_type = typename impl_type::tpetra_block_crs_matrix_type;
-
-      auto A_crs = Teuchos::rcp_dynamic_cast<const crs_matrix_type>(A);
-      auto A_bcrs = Teuchos::rcp_dynamic_cast<const block_crs_matrix_type>(A);
-
-      bool hasBlockCrsMatrix = ! A_bcrs.is_null ();
-
 
       BlockHelperDetails::ComputeResidualVector<MatrixType>
         compute_residual_vector(amd, G->getLocalGraphDevice(), blocksize, interf,
