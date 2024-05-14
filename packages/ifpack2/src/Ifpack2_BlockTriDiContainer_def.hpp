@@ -83,7 +83,8 @@ namespace Ifpack2 {
                   const Teuchos::RCP<const import_type>& importer,
                   const bool overlapCommAndComp,
                   const bool useSeqMethod,
-                  const int block_size) 
+                  const int block_size,
+                  const bool explicitConversion) 
   {
     IFPACK2_BLOCKHELPER_TIMER("BlockTriDiContainer::initInternal");
 
@@ -99,7 +100,21 @@ namespace Ifpack2 {
 
     {
       IFPACK2_BLOCKHELPER_TIMER("BlockTriDiContainer::setA");
-      impl_->A = matrix;
+      if (explicitConversion) {
+        impl_->A = Teuchos::rcp_dynamic_cast<const block_crs_matrix_type>(matrix);
+        if (impl_->A.is_null()) {
+          TEUCHOS_TEST_FOR_EXCEPT_MSG
+            (block_size == -1, "A pointwise matrix and block_size = -1 were given as inputs.");
+          {
+            IFPACK2_BLOCKHELPER_TIMER("BlockTriDiContainer::setA::convertToBlockCrsMatrix");
+            impl_->A = Tpetra::convertToBlockCrsMatrix(*Teuchos::rcp_dynamic_cast<const crs_matrix_type>(matrix), block_size, false);
+            IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
+          }
+        }
+      }
+      else {
+        impl_->A = matrix;
+      }
       IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
     }
 
@@ -199,11 +214,12 @@ namespace Ifpack2 {
                        const int n_subparts_per_part,
                        const bool overlapCommAndComp, 
                        const bool useSeqMethod,
-                       const int block_size)
+                       const int block_size,
+                       const bool explicitConversion)
     : Container<MatrixType>(matrix, partitions, false), partitions_(partitions)
   {
     IFPACK2_BLOCKHELPER_TIMER("BlockTriDiContainer::BlockTriDiContainer");
-    initInternal(matrix, Teuchos::null, overlapCommAndComp, useSeqMethod, block_size);
+    initInternal(matrix, Teuchos::null, overlapCommAndComp, useSeqMethod, block_size, explicitConversion);
     n_subparts_per_part_ = n_subparts_per_part;
     block_size_ = block_size;
     IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)

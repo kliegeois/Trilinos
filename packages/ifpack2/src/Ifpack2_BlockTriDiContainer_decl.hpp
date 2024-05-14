@@ -235,7 +235,8 @@ namespace Ifpack2 {
                          const int n_subparts_per_part = 1,
                          bool overlapCommAndComp = false, 
                          bool useSequentialMethod = false,
-                         const int block_size = -1);
+                         const int block_size = -1,
+                         const bool explicitConversion = false);
 
     //! Destructor (declared virtual for memory safety of derived classes).
     ~BlockTriDiContainer () override;
@@ -404,7 +405,8 @@ namespace Ifpack2 {
                        const Teuchos::RCP<const import_type> &importer,
                        const bool overlapCommAndComp,
                        const bool useSeqMethod,
-                       const int block_size = -1);
+                       const int block_size = -1,
+                       const bool explicitConversion = false);
 
     void clearInternal();
   };
