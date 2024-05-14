@@ -291,29 +291,6 @@ namespace Ifpack2 {
       }
 
       KOKKOS_INLINE_FUNCTION
-      void
-      ExtractBlock(
-        const member_type &member,
-        const local_ordinal_type &blocksize,
-        const local_ordinal_type &lclRowID,
-        const local_ordinal_type &lclColID,
-        btdm_scalar_type* tmp_scalar_values
-      ) const {
-        using tlb = BlockHelperDetails::TpetraLittleBlock<Tpetra::Impl::BlockCrsMatrixLittleBlockArrayLayout>;
-        //const size_type Aj_r = A_block_rowptr(lclRowID);
-        const size_type Aj_c = colindsub(lclColID);
-        Kokkos::parallel_for
-          (Kokkos::TeamThreadRange(member, blocksize),
-          [&](const local_ordinal_type &ii) {
-            auto point_row_offset = A_point_rowptr(lclRowID*blocksize + ii);
-            for (local_ordinal_type jj=0;jj<blocksize;++jj) {
-              tmp_scalar_values[tlb::getFlatIndex(ii,jj,blocksize)] = 
-                tpetra_values(point_row_offset + Aj_c*blocksize + jj);
-            }
-          });
-      }
-
-      inline
       btdm_scalar_type*
       SerialExtractBlock(
         const local_ordinal_type &blocksize,
