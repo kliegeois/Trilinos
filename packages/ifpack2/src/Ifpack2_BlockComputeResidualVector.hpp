@@ -452,7 +452,8 @@ namespace Ifpack2 {
         auto bb = Kokkos::subview(b, block_range, 0);
         auto xx = bb;
         auto yy = Kokkos::subview(y, block_range, 0);
-        auto A_block = ConstUnmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
+        auto A_block = Unmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
+        auto A_block_cst = ConstUnmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
 
         const local_ordinal_type row = lr*blocksize;
         for (local_ordinal_type col=0;col<num_vectors;++col) {
@@ -469,12 +470,15 @@ namespace Ifpack2 {
             (Kokkos::TeamThreadRange(member, rowptr[lr], rowptr[lr+1]),
              [&](const local_ordinal_type &k) {
               const size_type j = A_k0 + colindsub[k];
-              if(hasBlockCrsMatrix)
-                A_block.assign_data( &tpetra_values(j*blocksize_square) );
-              else
-                SerialExtractBlock(blocksize, lr, k, colindsub, A_block);
               xx.assign_data( &x(A_colind[j]*blocksize, col) );
-              VectorGemv(member, blocksize, A_block, xx, yy);
+              if(hasBlockCrsMatrix) {
+                A_block_cst.assign_data( &tpetra_values(j*blocksize_square) );
+                VectorGemv(member, blocksize, A_block_cst, xx, yy);
+              }
+              else {
+                SerialExtractBlock(blocksize, lr, k, colindsub, A_block.data());
+                VectorGemv(member, blocksize, A_block, xx, yy);
+              }
             });
         }
       }
@@ -555,7 +559,8 @@ namespace Ifpack2 {
         subview_1D_right_t xx_remote(nullptr, blocksize);
         using subview_1D_stride_t = decltype(Kokkos::subview(y_packed_scalar, 0, block_range, 0, 0));
         subview_1D_stride_t yy(nullptr, Kokkos::LayoutStride(blocksize, y_packed_scalar.stride_1()));
-        auto A_block = ConstUnmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
+        auto A_block = Unmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
+        auto A_block_cst = ConstUnmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
 
         const local_ordinal_type lr = lclrow(rowidx);
         const local_ordinal_type row = lr*blocksize;
@@ -574,19 +579,25 @@ namespace Ifpack2 {
              [&](const local_ordinal_type &k) {
               const size_type j = A_k0 + colindsub[k];
               if (hasBlockCrsMatrix)
-                A_block.assign_data( &tpetra_values(j*blocksize_square) );
+                A_block_cst.assign_data( &tpetra_values(j*blocksize_square) );
               else 
-                SerialExtractBlock(blocksize, lr, k, colindsub, A_block);
+                SerialExtractBlock(blocksize, lr, k, colindsub, A_block.data());
 
               const local_ordinal_type A_colind_at_j = A_colind[j];
               if (A_colind_at_j < num_local_rows) {
                 const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
                 xx.assign_data( &x(loc*blocksize, col) );
-                VectorGemv(member, blocksize, A_block, xx, yy);
+                if (hasBlockCrsMatrix)
+                  VectorGemv(member, blocksize, A_block_cst, xx, yy);
+                else
+                  VectorGemv(member, blocksize, A_block, xx, yy);
               } else {
                 const auto loc = A_colind_at_j - num_local_rows;
                 xx_remote.assign_data( &x_remote(loc*blocksize, col) );
-                VectorGemv(member, blocksize, A_block, xx_remote, yy);
+                if (hasBlockCrsMatrix)
+                  VectorGemv(member, blocksize, A_block_cst, xx_remote, yy);
+                else
+                  VectorGemv(member, blocksize, A_block, xx_remote, yy);
               }
             });
         }
@@ -680,7 +691,8 @@ namespace Ifpack2 {
         subview_1D_right_t xx_remote(nullptr, blocksize);
         using subview_1D_stride_t = decltype(Kokkos::subview(y_packed_scalar, 0, block_range, 0, 0));
         subview_1D_stride_t yy(nullptr, Kokkos::LayoutStride(blocksize, y_packed_scalar.stride_1()));
-        auto A_block = ConstUnmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
+        auto A_block = Unmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
+        auto A_block_cst = ConstUnmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
         auto colindsub_used = (P == 0 ? colindsub : colindsub_remote);
         auto rowptr_used = (P == 0 ? rowptr : rowptr_remote);
 
@@ -703,19 +715,25 @@ namespace Ifpack2 {
              [&](const local_ordinal_type &k) {
               const size_type j = A_k0 + colindsub_used[k];
               if(hasBlockCrsMatrix)
-                A_block.assign_data( &tpetra_values(j*blocksize_square) );
+                A_block_cst.assign_data( &tpetra_values(j*blocksize_square) );
               else
-                SerialExtractBlock(blocksize, lr, k, colindsub_used, A_block);
+                SerialExtractBlock(blocksize, lr, k, colindsub_used, A_block.data());
 
               const local_ordinal_type A_colind_at_j = A_colind[j];
               if (P == 0) {
                 const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
                 xx.assign_data( &x(loc*blocksize, col) );
-                VectorGemv(member, blocksize, A_block, xx, yy);
+                if(hasBlockCrsMatrix)
+                  VectorGemv(member, blocksize, A_block_cst, xx, yy);
+                else
+                  VectorGemv(member, blocksize, A_block, xx, yy);
               } else {
                 const auto loc = A_colind_at_j - num_local_rows;
                 xx_remote.assign_data( &x_remote(loc*blocksize, col) );
-                VectorGemv(member, blocksize, A_block, xx_remote, yy);
+                if(hasBlockCrsMatrix)
+                  VectorGemv(member, blocksize, A_block_cst, xx_remote, yy);
+                else
+                  VectorGemv(member, blocksize, A_block, xx_remote, yy);
               }
             });
         }
