@@ -215,6 +215,7 @@ namespace Ifpack2 {
       using impl_scalar_type_2d_view_tpetra = typename impl_type::impl_scalar_type_2d_view_tpetra; // block multivector (layout left)
       using vector_type_3d_view = typename impl_type::vector_type_3d_view;
       using btdm_scalar_type_2d_view = typename impl_type::btdm_scalar_type_2d_view;
+      using btdm_scalar_type_3d_view = typename impl_type::btdm_scalar_type_3d_view;
       using btdm_scalar_type_4d_view = typename impl_type::btdm_scalar_type_4d_view;
       using size_type_1d_view_tpetra = Kokkos::View<size_t*,typename impl_type::node_device_type>;
       static constexpr int vector_length = impl_type::vector_length;
@@ -232,6 +233,8 @@ namespace Ifpack2 {
       Unmanaged<impl_scalar_type_2d_view_tpetra> y;
       Unmanaged<vector_type_3d_view> y_packed;
       Unmanaged<btdm_scalar_type_4d_view> y_packed_scalar;
+
+      btdm_scalar_type_3d_view AA_view;
 
       // AmD information
       const ConstUnmanaged<size_type_1d_view> rowptr, rowptr_remote;
@@ -280,7 +283,12 @@ namespace Ifpack2 {
           dm2cm(dm2cm_),
           is_dm2cm_active(dm2cm_.span() > 0),
           hasBlockCrsMatrix(A_block_rowptr.extent(0) == A_point_rowptr.extent(0))
-      { }
+      { 
+        if (!hasBlockCrsMatrix) {
+          size_t size_0 = rowptr.extent(0) - 1 > rowidx2part.extent(0) ? rowptr.extent(0) - 1 : rowidx2part.extent(0);
+          AA_view = btdm_scalar_type_3d_view("AA_view", size_0, blocksize_requested, blocksize_requested);
+        }
+      }
 
       KOKKOS_INLINE_FUNCTION
       void
@@ -451,7 +459,7 @@ namespace Ifpack2 {
             const size_type A_k0 = A_block_rowptr[i];
             for (size_type k=rowptr[i];k<rowptr[i+1];++k) {
               const size_type j = A_k0 + colindsub[k];
-              impl_scalar_type AA[25];
+              impl_scalar_type *AA = &AA_view(i,0,0);
               SerialExtractBlock(blocksize, i, k, colindsub, AA);
               const impl_scalar_type * const xx = &x(A_colind[j]*blocksize, col);
               SerialGemv(blocksize,AA,xx,yy);
@@ -563,7 +571,7 @@ namespace Ifpack2 {
             const size_type A_k0 = A_block_rowptr[lr];
             for (size_type k=rowptr[lr];k<rowptr[lr+1];++k) {
               const size_type j = A_k0 + colindsub[k];
-              impl_scalar_type AA[25];
+              impl_scalar_type *AA = &AA_view(rowidx,0,0);
               SerialExtractBlock(blocksize, lr, k, colindsub, AA);
               const local_ordinal_type A_colind_at_j = A_colind[j];
               if (A_colind_at_j < num_local_rows) {
@@ -720,7 +728,7 @@ namespace Ifpack2 {
             }  
             else {
               const size_type j = A_k0 + colindsub_used[k];
-              impl_scalar_type AA[25];
+              impl_scalar_type *AA = &AA_view(rowidx,0,0);
               SerialExtractBlock(blocksize, lr, k, colindsub_used, AA);
 
               const local_ordinal_type A_colind_at_j = A_colind[j];
