@@ -2146,7 +2146,6 @@ namespace Ifpack2 {
           else {
             amd.tpetra_values = (const_cast<crs_matrix_type*>(A_crs.get()))->getLocalValuesDevice (Tpetra::Access::ReadWrite);
           }
-                               
         }
 
         // Allocate view for E and initialize the values with B:
@@ -2941,7 +2940,6 @@ namespace Ifpack2 {
               printf("Extract pointwise pi = %ld, ri0 + tr = %d, kfs + j = %d\n", pi, ri0[0] + tr, kfs[0] + j);
 #endif  
               for (local_ordinal_type vi=0;vi<npacks;++vi) {
-                const size_type Aj_r = A_block_rowptr(lclrow(ri0[vi] + tr)); // = blkBeg
                 const size_type Aj_c = A_colindsub(kfs[vi] + j);
 
                 for (local_ordinal_type ii=0;ii<blocksize;++ii) {
@@ -2953,8 +2951,6 @@ namespace Ifpack2 {
 
                   for (local_ordinal_type jj=0;jj<blocksize;++jj) {
                     scalar_values(pi, ii, jj, vi) = A_values(point_row_offset + Aj_c*blocksize + jj);
-                    // = blockValues(Aj*blocksize_square + idx)
-                    // = pointValues[point_row_offset + Aj_c*blocksize + jj];
                   }
                 }
               }
@@ -3064,7 +3060,6 @@ namespace Ifpack2 {
               }
               else {
                 for (local_ordinal_type l=lbeg;l<lend;++l,++j) {
-                  const size_type Aj_r = A_block_rowptr(lclrow(ri0 + tr));
                   const size_type Aj_c = A_colindsub(kfs + j);
                   const size_type pi = kps + j;
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
@@ -4941,8 +4936,17 @@ namespace Ifpack2 {
 
       const local_ordinal_type_1d_view dummy_local_ordinal_type_1d_view;
 
+
+      auto A_crs = Teuchos::rcp_dynamic_cast<const typename impl_type::tpetra_crs_matrix_type>(A);
+      auto A_bcrs = Teuchos::rcp_dynamic_cast<const typename impl_type::tpetra_block_crs_matrix_type>(A);
+
+      bool hasBlockCrsMatrix = ! A_bcrs.is_null ();
+
+      // This is OK here to use the graph of the A_crs matrix and a block size of 1
+      const auto g = hasBlockCrsMatrix ? A_bcrs->getCrsGraph() : *(A_crs->getCrsGraph()); // tpetra crs graph object
+
       BlockHelperDetails::ComputeResidualVector<MatrixType>
-        compute_residual_vector(amd, G->getLocalGraphDevice(), blocksize, interf,
+        compute_residual_vector(amd, G->getLocalGraphDevice(), g.getLocalGraphDevice(), blocksize, interf,
                                 is_async_importer_active ? async_importer->dm2cm : dummy_local_ordinal_type_1d_view);
 
       // norm manager workspace resize

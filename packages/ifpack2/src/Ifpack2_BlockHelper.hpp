@@ -377,6 +377,7 @@ namespace Ifpack2 {
       typedef Kokkos::View<internal_vector_type***,Kokkos::LayoutRight,device_type> internal_vector_type_3d_view;
       typedef Kokkos::View<internal_vector_type****,Kokkos::LayoutRight,device_type> internal_vector_type_4d_view;
       typedef Kokkos::View<internal_vector_type*****,Kokkos::LayoutRight,device_type> internal_vector_type_5d_view;
+      typedef Kokkos::View<btdm_scalar_type**,Kokkos::LayoutRight,device_type> btdm_scalar_type_2d_view;
       typedef Kokkos::View<btdm_scalar_type***,Kokkos::LayoutRight,device_type> btdm_scalar_type_3d_view;
       typedef Kokkos::View<btdm_scalar_type****,Kokkos::LayoutRight,device_type> btdm_scalar_type_4d_view;
       typedef Kokkos::View<btdm_scalar_type*****,Kokkos::LayoutRight,device_type> btdm_scalar_type_5d_view;
