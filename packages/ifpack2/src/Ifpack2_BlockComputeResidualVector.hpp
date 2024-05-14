@@ -467,7 +467,7 @@ namespace Ifpack2 {
           const size_type A_k0 = A_block_rowptr[lr];
           Kokkos::parallel_for
             (Kokkos::TeamThreadRange(member, rowptr[lr], rowptr[lr+1]),
-            [&](const local_ordinal_type &k) {
+             [&](const local_ordinal_type &k) {
               const size_type j = A_k0 + colindsub[k];
               if(hasBlockCrsMatrix)
                 A_block.assign_data( &tpetra_values(j*blocksize_square) );
@@ -571,7 +571,7 @@ namespace Ifpack2 {
           const size_type A_k0 = A_block_rowptr[lr];
           Kokkos::parallel_for
             (Kokkos::TeamThreadRange(member, rowptr[lr], rowptr[lr+1]),
-            [&](const local_ordinal_type &k) {
+             [&](const local_ordinal_type &k) {
               const size_type j = A_k0 + colindsub[k];
               if (hasBlockCrsMatrix)
                 A_block.assign_data( &tpetra_values(j*blocksize_square) );
@@ -638,9 +638,7 @@ namespace Ifpack2 {
             if (P == 0) {
               const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
               const impl_scalar_type * const xx = &x(loc*blocksize, col);
-
               SerialGemv(blocksize,AA,xx,yy);
-
             } else {
               const auto loc = A_colind_at_j - num_local_rows;
               const impl_scalar_type * const xx_remote = &x_remote(loc*blocksize, col);
@@ -649,13 +647,11 @@ namespace Ifpack2 {
           }
           // move yy to y_packed
           if (P == 0) {
-            for (local_ordinal_type k=0;k<blocksize;++k) {
+            for (local_ordinal_type k=0;k<blocksize;++k)
               y_packed(pri, k, col)[v] = yy[k];
-            }
           } else {
-            for (local_ordinal_type k=0;k<blocksize;++k) {
+            for (local_ordinal_type k=0;k<blocksize;++k)
               y_packed(pri, k, col)[v] += yy[k];
-            }
           }
         }
       }
@@ -704,7 +700,7 @@ namespace Ifpack2 {
           const size_type A_k0 = A_block_rowptr[lr];
           Kokkos::parallel_for
             (Kokkos::TeamThreadRange(member, rowptr_used[lr], rowptr_used[lr+1]),
-            [&](const local_ordinal_type &k) {
+             [&](const local_ordinal_type &k) {
               const size_type j = A_k0 + colindsub_used[k];
               if(hasBlockCrsMatrix)
                 A_block.assign_data( &tpetra_values(j*blocksize_square) );
