@@ -637,7 +637,7 @@ initialize ()
     if(!hasBlockCrsMatrix_ && List_.isParameter("relaxation: container") && List_.get<std::string>("relaxation: container") == "BlockTriDi" ) {
       TEUCHOS_FUNC_TIME_MONITOR("Ifpack2::BlockRelaxation::initialize::convertToBlockCrsMatrix");
       int block_size = List_.get<int>("partitioner: block size");
-      bool use_explicit_conversion = List_.get<bool>("partitioner: explicit convert to BlockCrs");
+      bool use_explicit_conversion = List_.isParameter("partitioner: explicit convert to BlockCrs") && List_.get<bool>("partitioner: explicit convert to BlockCrs");
       TEUCHOS_TEST_FOR_EXCEPT_MSG
         (use_explicit_conversion && block_size == -1, "A pointwise matrix and block_size = -1 were given as inputs.");
       if(use_explicit_conversion) {

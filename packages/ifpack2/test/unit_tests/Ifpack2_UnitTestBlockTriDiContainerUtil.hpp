@@ -209,6 +209,7 @@ struct BlockTriDiContainerTester {
       p.set("partitioner: parts", parts);
       p.set("partitioner: subparts per part", 1);
       p.set("partitioner: block size", -1);
+      p.set("partitioner: explicit convert to BlockCrs", false);
       T->setParameters(p);
     }
     return T;
