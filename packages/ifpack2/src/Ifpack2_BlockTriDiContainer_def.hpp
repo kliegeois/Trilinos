@@ -255,7 +255,7 @@ namespace Ifpack2 {
         TEUCHOS_TEST_FOR_EXCEPT_MSG
           (block_size_ == -1, "A pointwise matrix and block_size = -1 were given as inputs.");
         {
-          IFPACK2_BLOCKHELPER_TIMER("BlockTriDiContainer::setA::convertToBlockCrsMatrix");
+          IFPACK2_BLOCKHELPER_TIMER("BlockTriDiContainer::initialize::getBlockCrsGraph");
           auto A = Teuchos::rcp_dynamic_cast<const crs_matrix_type>(impl_->A);
           impl_->blockGraph = Tpetra::getBlockCrsGraph(*A, block_size_, true);
           IFPACK2_BLOCKHELPER_TIMER_FENCE(typename BlockHelperDetails::ImplType<MatrixType>::execution_space)
