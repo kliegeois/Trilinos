@@ -313,6 +313,32 @@ namespace Ifpack2 {
         return tmp_scalar_values;
       }
 
+      KOKKOS_INLINE_FUNCTION
+      btdm_scalar_type*
+      VectorExtractBlock(
+        const member_type &member,
+        const local_ordinal_type &blocksize,
+        const local_ordinal_type &lclRowID,
+        const local_ordinal_type &lclColID,
+        const ConstUnmanaged<local_ordinal_type_1d_view>colindsub_,
+        btdm_scalar_type* tmp_scalar_values
+      ) const {
+        using tlb = BlockHelperDetails::TpetraLittleBlock<Tpetra::Impl::BlockCrsMatrixLittleBlockArrayLayout>;
+        //const size_type Aj_r = A_block_rowptr(lclRowID);
+        const size_type Aj_c = colindsub_(lclColID);
+
+        Kokkos::parallel_for
+          (Kokkos::ThreadVectorRange(member, blocksize),
+           [&](const local_ordinal_type &ii) {
+          auto point_row_offset = A_point_rowptr(lclRowID*blocksize + ii);
+          for (local_ordinal_type jj=0;jj<blocksize;++jj) {
+            tmp_scalar_values[tlb::getFlatIndex(ii,jj,blocksize)] = 
+              tpetra_values(point_row_offset + Aj_c*blocksize + jj);
+          }
+        });
+        return tmp_scalar_values;
+      }
+
       inline
       void
       SerialGemv(const local_ordinal_type &blocksize,
@@ -474,7 +500,7 @@ namespace Ifpack2 {
               if(hasBlockCrsMatrix) {
                 A_block_cst.assign_data( &tpetra_values(j*blocksize_square) );
               } else {
-                const impl_scalar_type * const AA = SerialExtractBlock(blocksize, lr, k, colindsub, &AA_view(lr,0,0));
+                const impl_scalar_type * const AA = VectorExtractBlock(member, blocksize, lr, k, colindsub, &AA_view(member.league_rank(),0,0));
                 A_block_cst.assign_data(AA);
               }
               VectorGemv(member, blocksize, A_block_cst, xx, yy);
@@ -579,7 +605,7 @@ namespace Ifpack2 {
               if (hasBlockCrsMatrix)
                 A_block_cst.assign_data( &tpetra_values(j*blocksize_square) );
               else {
-                const impl_scalar_type * const AA = SerialExtractBlock(blocksize, lr, k, colindsub, &AA_view(rowidx,0,0));
+                const impl_scalar_type * const AA = VectorExtractBlock(member, blocksize, lr, k, colindsub, &AA_view(member.league_rank(),0,0));
                 A_block_cst.assign_data(AA);
               }
 
@@ -710,7 +736,7 @@ namespace Ifpack2 {
               if(hasBlockCrsMatrix)
                 A_block_cst.assign_data( &tpetra_values(j*blocksize_square) );
               else {
-                const impl_scalar_type * const AA = SerialExtractBlock(blocksize, lr, k, colindsub_used, &AA_view(rowidx,0,0));
+                const impl_scalar_type * const AA = VectorExtractBlock(member, blocksize, lr, k, colindsub_used, &AA_view(member.league_rank(),0,0));
                 A_block_cst.assign_data(AA);
               }
 
