@@ -305,8 +305,9 @@ namespace Ifpack2 {
         for (local_ordinal_type ii=0;ii<blocksize;++ii) {
           auto point_row_offset = A_point_rowptr(lclRowID*blocksize + ii);
           for (local_ordinal_type jj=0;jj<blocksize;++jj) {
-            tmp_scalar_values[tlb::getFlatIndex(ii,jj,blocksize)] = 
-              tpetra_values(point_row_offset + Aj_c*blocksize + jj);
+            if ( point_row_offset + Aj_c*blocksize + jj < tpetra_values.extent(0))
+              tmp_scalar_values[tlb::getFlatIndex(ii,jj,blocksize)] = 
+                tpetra_values(point_row_offset + Aj_c*blocksize + jj);
           }
         }
         return tmp_scalar_values;
@@ -452,7 +453,6 @@ namespace Ifpack2 {
         auto bb = Kokkos::subview(b, block_range, 0);
         auto xx = bb;
         auto yy = Kokkos::subview(y, block_range, 0);
-        auto A_block = Unmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
         auto A_block_cst = ConstUnmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
 
         const local_ordinal_type row = lr*blocksize;
@@ -473,12 +473,11 @@ namespace Ifpack2 {
               xx.assign_data( &x(A_colind[j]*blocksize, col) );
               if(hasBlockCrsMatrix) {
                 A_block_cst.assign_data( &tpetra_values(j*blocksize_square) );
-                VectorGemv(member, blocksize, A_block_cst, xx, yy);
+              } else {
+                const impl_scalar_type * const AA = SerialExtractBlock(blocksize, lr, k, colindsub, &AA_view(lr,0,0));
+                A_block_cst.assign_data(AA);
               }
-              else {
-                SerialExtractBlock(blocksize, lr, k, colindsub, A_block.data());
-                VectorGemv(member, blocksize, A_block, xx, yy);
-              }
+              VectorGemv(member, blocksize, A_block_cst, xx, yy);
             });
         }
       }
@@ -559,7 +558,6 @@ namespace Ifpack2 {
         subview_1D_right_t xx_remote(nullptr, blocksize);
         using subview_1D_stride_t = decltype(Kokkos::subview(y_packed_scalar, 0, block_range, 0, 0));
         subview_1D_stride_t yy(nullptr, Kokkos::LayoutStride(blocksize, y_packed_scalar.stride_1()));
-        auto A_block = Unmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
         auto A_block_cst = ConstUnmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
 
         const local_ordinal_type lr = lclrow(rowidx);
@@ -580,24 +578,20 @@ namespace Ifpack2 {
               const size_type j = A_k0 + colindsub[k];
               if (hasBlockCrsMatrix)
                 A_block_cst.assign_data( &tpetra_values(j*blocksize_square) );
-              else 
-                SerialExtractBlock(blocksize, lr, k, colindsub, A_block.data());
+              else {
+                const impl_scalar_type * const AA = SerialExtractBlock(blocksize, lr, k, colindsub, &AA_view(rowidx,0,0));
+                A_block_cst.assign_data(AA);
+              }
 
               const local_ordinal_type A_colind_at_j = A_colind[j];
               if (A_colind_at_j < num_local_rows) {
                 const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
                 xx.assign_data( &x(loc*blocksize, col) );
-                if (hasBlockCrsMatrix)
-                  VectorGemv(member, blocksize, A_block_cst, xx, yy);
-                else
-                  VectorGemv(member, blocksize, A_block, xx, yy);
+                VectorGemv(member, blocksize, A_block_cst, xx, yy);
               } else {
-                const auto loc = A_colind_at_j - num_local_rows;
-                xx_remote.assign_data( &x_remote(loc*blocksize, col) );
-                if (hasBlockCrsMatrix)
-                  VectorGemv(member, blocksize, A_block_cst, xx_remote, yy);
-                else
-                  VectorGemv(member, blocksize, A_block, xx_remote, yy);
+                const auto loc = A_colind_at_j - num_local_rows; 
+                xx_remote.assign_data( &x_remote(loc*blocksize, col) );  
+                VectorGemv(member, blocksize, A_block_cst, xx_remote, yy);
               }
             });
         }
@@ -691,7 +685,6 @@ namespace Ifpack2 {
         subview_1D_right_t xx_remote(nullptr, blocksize);
         using subview_1D_stride_t = decltype(Kokkos::subview(y_packed_scalar, 0, block_range, 0, 0));
         subview_1D_stride_t yy(nullptr, Kokkos::LayoutStride(blocksize, y_packed_scalar.stride_1()));
-        auto A_block = Unmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
         auto A_block_cst = ConstUnmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
         auto colindsub_used = (P == 0 ? colindsub : colindsub_remote);
         auto rowptr_used = (P == 0 ? rowptr : rowptr_remote);
@@ -716,24 +709,20 @@ namespace Ifpack2 {
               const size_type j = A_k0 + colindsub_used[k];
               if(hasBlockCrsMatrix)
                 A_block_cst.assign_data( &tpetra_values(j*blocksize_square) );
-              else
-                SerialExtractBlock(blocksize, lr, k, colindsub_used, A_block.data());
+              else {
+                const impl_scalar_type * const AA = SerialExtractBlock(blocksize, lr, k, colindsub_used, &AA_view(rowidx,0,0));
+                A_block_cst.assign_data(AA);
+              }
 
               const local_ordinal_type A_colind_at_j = A_colind[j];
               if (P == 0) {
                 const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
                 xx.assign_data( &x(loc*blocksize, col) );
-                if(hasBlockCrsMatrix)
-                  VectorGemv(member, blocksize, A_block_cst, xx, yy);
-                else
-                  VectorGemv(member, blocksize, A_block, xx, yy);
+                VectorGemv(member, blocksize, A_block_cst, xx, yy);
               } else {
                 const auto loc = A_colind_at_j - num_local_rows;
                 xx_remote.assign_data( &x_remote(loc*blocksize, col) );
-                if(hasBlockCrsMatrix)
-                  VectorGemv(member, blocksize, A_block_cst, xx_remote, yy);
-                else
-                  VectorGemv(member, blocksize, A_block, xx_remote, yy);
+                VectorGemv(member, blocksize, A_block_cst, xx_remote, yy);
               }
             });
         }
