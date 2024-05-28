@@ -221,6 +221,28 @@ void spmv(const ExecutionSpace& space, Handle* handle, const char mode[],
       typename KokkosKernels::Impl::GetUnifiedLayout<YVector>::array_layout,
       typename YVector::device_type, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
 
+  // Special case: XVector/YVector are rank-2 but x,y both have one column and
+  // are contiguous. In this case take rank-1 subviews of x,y and call the
+  // rank-1 version.
+  if constexpr (XVector::rank() == 2) {
+    using XVector_SubInternal = Kokkos::View<
+        typename XVector::const_value_type*,
+        typename KokkosKernels::Impl::GetUnifiedLayout<XVector>::array_layout,
+        typename XVector::device_type,
+        Kokkos::MemoryTraits<Kokkos::Unmanaged | Kokkos::RandomAccess>>;
+    using YVector_SubInternal = Kokkos::View<
+        typename YVector::non_const_value_type*,
+        typename KokkosKernels::Impl::GetUnifiedLayout<YVector>::array_layout,
+        typename YVector::device_type, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+    if (x.extent(1) == size_t(1) && x.span_is_contiguous() &&
+        y.span_is_contiguous()) {
+      XVector_SubInternal xsub(x.data(), x.extent(0));
+      YVector_SubInternal ysub(y.data(), y.extent(0));
+      spmv(space, handle->get_impl(), mode, alpha, A, xsub, beta, ysub);
+      return;
+    }
+  }
+
   XVector_Internal x_i(x);
   YVector_Internal y_i(y);
 
