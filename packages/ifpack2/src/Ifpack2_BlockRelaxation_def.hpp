@@ -52,6 +52,7 @@
 #include "Ifpack2_Details_UserPartitioner_def.hpp"
 #include "Ifpack2_LocalFilter.hpp"
 #include "Ifpack2_Parameters.hpp"
+#include "Ifpack2_BlockTimers.hpp"
 #include "Teuchos_TimeMonitor.hpp"
 #include "Tpetra_BlockCrsMatrix_Helpers_decl.hpp"
 
@@ -637,7 +638,7 @@ initialize ()
     Teuchos::RCP<const row_graph_type> graph = A_->getGraph ();
 
     if(!hasBlockCrsMatrix_ && List_.isParameter("relaxation: container") && List_.get<std::string>("relaxation: container") == "BlockTriDi" ) {
-      TEUCHOS_FUNC_TIME_MONITOR("Ifpack2::BlockRelaxation::initialize::convertToBlockCrsMatrix");
+      IFPACK2_BLOCKHELPER_TIMER("Ifpack2::BlockRelaxation::initialize::convertToBlockCrsMatrix");
       int block_size = List_.get<int>("partitioner: block size");
       bool use_explicit_conversion = List_.isParameter("partitioner: explicit convert to BlockCrs") && List_.get<bool>("partitioner: explicit convert to BlockCrs");
       TEUCHOS_TEST_FOR_EXCEPT_MSG
@@ -651,7 +652,7 @@ initialize ()
       else {
         graph = Tpetra::getBlockCrsGraph(*Teuchos::rcp_dynamic_cast<const crs_matrix_type>(A_), block_size, true);
       }
-      Kokkos::DefaultExecutionSpace().fence();
+      IFPACK2_BLOCKHELPER_TIMER_FENCE(Kokkos::DefaultExecutionSpace);
     }
 
     NumLocalRows_      = A_->getLocalNumRows ();
