@@ -475,6 +475,40 @@ namespace Tpetra {
         }
    }
 
+  /**
+   * \brief Sort the first array using insertion sort, and apply the resulting
+   * permutation to the second array.
+   *
+   * All of the input argument iterators are random access iterators.
+   */
+  template<class IT1, class IT2>
+  void in_sort2(const IT1& first1,
+    const IT1& last1,
+    const IT2& first2,
+    const IT2& last2)
+   {
+        typedef typename std::iterator_traits<IT1>::difference_type DT;
+        DT n = last1 - first1;
+        DT i = 0;
+        
+        while (i < n)
+        {
+            auto x1 = first1[i];
+            auto x2 = first2[i];
+            DT j = i;
+            while (j >= 0 && first1[j-1] > x1)
+            {
+                first1[j] = first1[j-1];
+                first2[j] = first2[j-1];
+                --j;
+            }
+            first1[j] = x1;
+            first2[j] = x2;
+            ++i;
+        }
+  }
+
+
   } //end namespace SortDetails
 
 
@@ -505,7 +539,7 @@ namespace Tpetra {
     if(SortDetails::isAlreadySorted(first1, last1)){
       return;
     }
-    SortDetails::sh_sort2(first1, last1, first2, first2+(last1-first1));
+    SortDetails::in_sort2(first1, last1, first2, first2+(last1-first1));
 #ifdef HAVE_TPETRA_DEBUG
     if(!SortDetails::isAlreadySorted(first1, last1)){
       std::cout << "Trouble: sort() did not sort !!" << std::endl;
