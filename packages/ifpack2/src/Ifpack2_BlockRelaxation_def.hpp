@@ -700,7 +700,11 @@ initialize ()
 
     // need to partition the graph of A
     Partitioner_->setParameters (List_);
-    Partitioner_->compute ();
+    {
+      IFPACK2_BLOCKHELPER_TIMER("Ifpack2::BlockRelaxation::initialize::computePartitioner");
+      Partitioner_->compute ();
+      IFPACK2_BLOCKHELPER_TIMER_FENCE(Kokkos::DefaultExecutionSpace);
+    }
 
     // get actual number of partitions
     NumLocalBlocks_ = Partitioner_->numLocalParts ();
@@ -721,11 +725,16 @@ initialize ()
       "NumSweeps_ = " << NumSweeps_ << " < 0.");
 
     // Extract the submatrices
-    ExtractSubmatricesStructure ();
+    {
+      IFPACK2_BLOCKHELPER_TIMER("Ifpack2::BlockRelaxation::initialize::extractSubmatricesStructure");
+      ExtractSubmatricesStructure ();
+      IFPACK2_BLOCKHELPER_TIMER_FENCE(Kokkos::DefaultExecutionSpace);
+    }
 
     // Compute the weight vector if we're doing overlapped Jacobi (and
     // only if we're doing overlapped Jacobi).
     if (PrecType_ == Ifpack2::Details::JACOBI && OverlapLevel_ > 0) {
+      IFPACK2_BLOCKHELPER_TIMER("Ifpack2::BlockRelaxation::initialize::overlapJacobi");
       TEUCHOS_TEST_FOR_EXCEPTION
         (hasBlockCrsMatrix_, std::runtime_error,
         "Ifpack2::BlockRelaxation::initialize: "
@@ -765,6 +774,7 @@ initialize ()
 
       }
       W_->reciprocal (*W_);
+      IFPACK2_BLOCKHELPER_TIMER_FENCE(Kokkos::DefaultExecutionSpace);
     }
   } // timing of initialize stops here
 
