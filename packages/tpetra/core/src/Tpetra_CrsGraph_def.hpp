@@ -4389,7 +4389,7 @@ namespace Tpetra {
     using Details::ProfilingRegion;
     using std::endl;
     const char tfecfFuncName[] = "makeColMap";
-    
+
     ProfilingRegion regionSortAndMerge ("Tpetra::CrsGraph::makeColMap");
     std::unique_ptr<std::string> prefix;
     if (verbose_) {
