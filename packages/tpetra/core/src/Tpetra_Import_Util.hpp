@@ -229,7 +229,7 @@ getRemotePIDs (const Tpetra::Import<LocalOrdinal,GlobalOrdinal,Node>& Importer,
   }
 }
 
-
+ 
 /* Check some of the validity of an Import object
    WARNING: This is a debugging routine only. */
 template <typename LocalOrdinal, typename GlobalOrdinal, typename Node>
