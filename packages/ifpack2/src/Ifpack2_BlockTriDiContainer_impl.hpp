@@ -2879,7 +2879,7 @@ namespace Ifpack2 {
 
       KOKKOS_INLINE_FUNCTION
       void
-      extract(local_ordinal_type partidx,
+      extractBlock(local_ordinal_type partidx,
               local_ordinal_type local_subpartidx,
               local_ordinal_type npacks) const {
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
@@ -2912,43 +2912,25 @@ namespace Ifpack2 {
 #endif
         for (local_ordinal_type tr=tr_min,j=0;tr<tr_max;++tr) {
           for (local_ordinal_type e=0;e<3;++e) {
-            if (hasBlockCrsMatrix) {
-              const impl_scalar_type* block[vector_length] = {};
-              for (local_ordinal_type vi=0;vi<npacks;++vi) {
-                const size_type Aj = A_block_rowptr(lclrow(ri0[vi] + tr)) + A_colindsub(kfs[vi] + j);
+            const impl_scalar_type* block[vector_length] = {};
+            for (local_ordinal_type vi=0;vi<npacks;++vi) {
+              const size_type Aj = A_block_rowptr(lclrow(ri0[vi] + tr)) + A_colindsub(kfs[vi] + j);
 
-                block[vi] = &A_values(Aj*blocksize_square);
-              }
-              const size_type pi = kps + j;
-#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
-              printf("Extract pi = %ld, ri0 + tr = %d, kfs + j = %d\n", pi, ri0[0] + tr, kfs[0] + j);
-#endif            
-              ++j;            
-              for (local_ordinal_type ii=0;ii<blocksize;++ii) {
-                for (local_ordinal_type jj=0;jj<blocksize;++jj) {
-                  const auto idx = tlb::getFlatIndex(ii, jj, blocksize);
-                  auto& v = internal_vector_values(pi, ii, jj, 0);
-                  for (local_ordinal_type vi=0;vi<npacks;++vi) {
-                    v[vi] = static_cast<btdm_scalar_type>(block[vi][idx]);
-                  }
-                }
-              }
+              block[vi] = &A_values(Aj*blocksize_square);
             }
-            else {
-              const size_type pi = kps + j;
-
-              for (local_ordinal_type vi=0;vi<npacks;++vi) {
-                const size_type Aj_c = A_colindsub(kfs[vi] + j);
-
-                for (local_ordinal_type ii=0;ii<blocksize;++ii) {
-                  auto point_row_offset = A_point_rowptr(lclrow(ri0[vi] + tr)*blocksize + ii);
-
-                  for (local_ordinal_type jj=0;jj<blocksize;++jj) {
-                    scalar_values(pi, ii, jj, vi) = A_values(point_row_offset + Aj_c*blocksize + jj);
-                  }
+            const size_type pi = kps + j;
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+            printf("Extract pi = %ld, ri0 + tr = %d, kfs + j = %d\n", pi, ri0[0] + tr, kfs[0] + j);
+#endif            
+            ++j;            
+            for (local_ordinal_type ii=0;ii<blocksize;++ii) {
+              for (local_ordinal_type jj=0;jj<blocksize;++jj) {
+                const auto idx = tlb::getFlatIndex(ii, jj, blocksize);
+                auto& v = internal_vector_values(pi, ii, jj, 0);
+                for (local_ordinal_type vi=0;vi<npacks;++vi) {
+                  v[vi] = static_cast<btdm_scalar_type>(block[vi][idx]);
                 }
               }
-              ++j;
             }
             if (nrows[0] == 1) break;
             if (local_subpartidx % 2 == 0) {
@@ -2975,7 +2957,78 @@ namespace Ifpack2 {
 
       KOKKOS_INLINE_FUNCTION
       void
-      extract(const member_type &member,
+      extract(local_ordinal_type partidx,
+              local_ordinal_type local_subpartidx,
+              local_ordinal_type npacks) const {
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+        printf("extract partidx = %d, local_subpartidx = %d, npacks = %d;\n", partidx, local_subpartidx, npacks);
+#endif
+        const size_type kps = pack_td_ptr(partidx, local_subpartidx);
+        local_ordinal_type kfs[vector_length] = {};
+        local_ordinal_type ri0[vector_length] = {};
+        local_ordinal_type nrows[vector_length] = {};
+
+        for (local_ordinal_type vi=0;vi<npacks;++vi,++partidx) {
+          kfs[vi] = flat_td_ptr(partidx,local_subpartidx);
+          ri0[vi] = partptr_sub(pack_td_ptr.extent(0)*local_subpartidx + partidx,0);
+          nrows[vi] = partptr_sub(pack_td_ptr.extent(0)*local_subpartidx + partidx,1) - ri0[vi];
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+          printf("kfs[%d] = %d;\n", vi, kfs[vi]);
+          printf("ri0[%d] = %d;\n", vi, ri0[vi]);
+          printf("nrows[%d] = %d;\n", vi, nrows[vi]);
+#endif
+        }
+        local_ordinal_type tr_min = 0;
+        local_ordinal_type tr_max = nrows[0];
+        if (local_subpartidx % 2 == 1) {
+          tr_min -= 1;
+          tr_max += 1;
+        }
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+        printf("tr_min = %d and tr_max = %d;\n", tr_min, tr_max);
+#endif
+        for (local_ordinal_type tr=tr_min,j=0;tr<tr_max;++tr) {
+          for (local_ordinal_type e=0;e<3;++e) {
+            const size_type pi = kps + j;
+
+            for (local_ordinal_type vi=0;vi<npacks;++vi) {
+              const size_type Aj_c = A_colindsub(kfs[vi] + j);
+
+              for (local_ordinal_type ii=0;ii<blocksize;++ii) {
+                auto point_row_offset = A_point_rowptr(lclrow(ri0[vi] + tr)*blocksize + ii);
+
+                for (local_ordinal_type jj=0;jj<blocksize;++jj) {
+                  scalar_values(pi, ii, jj, vi) = A_values(point_row_offset + Aj_c*blocksize + jj);
+                }
+              }
+            }
+            ++j;
+            if (nrows[0] == 1) break;
+            if (local_subpartidx % 2 == 0) {
+              if (e == 1 && (tr == 0 || tr+1 == nrows[0])) break;
+              for (local_ordinal_type vi=1;vi<npacks;++vi) {
+                if ((e == 0 && nrows[vi] == 1) || (e == 1 && tr+1 == nrows[vi])) {
+                  npacks = vi;
+                  break;
+                }
+              }
+            }
+            else {
+              if (e == 0 && (tr == -1 || tr == nrows[0])) break;
+              for (local_ordinal_type vi=1;vi<npacks;++vi) {
+                if ((e == 0 && nrows[vi] == 1) || (e == 0 && tr == nrows[vi])) {
+                  npacks = vi;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      KOKKOS_INLINE_FUNCTION
+      void
+      extractBlock(const member_type &member,
               const local_ordinal_type &partidxbeg,
               local_ordinal_type local_subpartidx,
               const local_ordinal_type &npacks,
@@ -3035,36 +3088,98 @@ namespace Ifpack2 {
                   lend = 1;
                 }
               }
-              if (hasBlockCrsMatrix) {
-                for (local_ordinal_type l=lbeg;l<lend;++l,++j) {
-                  const size_type Aj = A_block_rowptr(lclrow(ri0 + tr)) + A_colindsub(kfs + j);
-                  const impl_scalar_type* block = &A_values(Aj*blocksize_square);
-                  const size_type pi = kps + j;
+              for (local_ordinal_type l=lbeg;l<lend;++l,++j) {
+                const size_type Aj = A_block_rowptr(lclrow(ri0 + tr)) + A_colindsub(kfs + j);
+                const impl_scalar_type* block = &A_values(Aj*blocksize_square);
+                const size_type pi = kps + j;
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
-                  printf("Extract pi = %ld, ri0 + tr = %d, kfs + j = %d, tr = %d, lbeg = %d, lend = %d, l = %d\n", pi, ri0 + tr, kfs + j, tr, lbeg, lend, l);
+                printf("Extract pi = %ld, ri0 + tr = %d, kfs + j = %d, tr = %d, lbeg = %d, lend = %d, l = %d\n", pi, ri0 + tr, kfs + j, tr, lbeg, lend, l);
 #endif
-                  Kokkos::parallel_for
-                    (Kokkos::TeamThreadRange(member,blocksize),
-                    [&](const local_ordinal_type &ii) {
-                      for (local_ordinal_type jj=0;jj<blocksize;++jj) {
-                        scalar_values(pi, ii, jj, v) = static_cast<btdm_scalar_type>(block[tlb::getFlatIndex(ii,jj,blocksize)]);
-                      }
-                    });
-                }
+                Kokkos::parallel_for
+                  (Kokkos::TeamThreadRange(member,blocksize),
+                  [&](const local_ordinal_type &ii) {
+                    for (local_ordinal_type jj=0;jj<blocksize;++jj) {
+                      scalar_values(pi, ii, jj, v) = static_cast<btdm_scalar_type>(block[tlb::getFlatIndex(ii,jj,blocksize)]);
+                    }
+                  });
+              }
+            }
+          }
+        }
+      }
+
+      KOKKOS_INLINE_FUNCTION
+      void
+      extract(const member_type &member,
+              const local_ordinal_type &partidxbeg,
+              local_ordinal_type local_subpartidx,
+              const local_ordinal_type &npacks,
+              const local_ordinal_type &vbeg) const {
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+        printf("extract partidxbeg = %d, local_subpartidx = %d, npacks = %d, vbeg = %d;\n", partidxbeg, local_subpartidx, npacks, vbeg);                
+#endif
+        local_ordinal_type kfs_vals[internal_vector_length] = {};
+        local_ordinal_type ri0_vals[internal_vector_length] = {};
+        local_ordinal_type nrows_vals[internal_vector_length] = {};
+
+        const size_type kps = pack_td_ptr(partidxbeg,local_subpartidx);
+        for (local_ordinal_type v=vbeg,vi=0;v<npacks && vi<internal_vector_length;++v,++vi) {
+          kfs_vals[vi] = flat_td_ptr(partidxbeg+vi,local_subpartidx);
+          ri0_vals[vi] = partptr_sub(pack_td_ptr.extent(0)*local_subpartidx + partidxbeg+vi,0);
+          nrows_vals[vi] = partptr_sub(pack_td_ptr.extent(0)*local_subpartidx + partidxbeg+vi,1) - ri0_vals[vi];
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+          printf("kfs_vals[%d] = %d;\n", vi, kfs_vals[vi]);
+          printf("ri0_vals[%d] = %d;\n", vi, ri0_vals[vi]);
+          printf("nrows_vals[%d] = %d;\n", vi, nrows_vals[vi]);
+#endif
+        }
+
+        local_ordinal_type j_vals[internal_vector_length] = {};
+
+        local_ordinal_type tr_min = 0;
+        local_ordinal_type tr_max = nrows_vals[0];
+        if (local_subpartidx % 2 == 1) {
+          tr_min -= 1;
+          tr_max += 1;
+        }
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+        printf("tr_min = %d and tr_max = %d;\n", tr_min, tr_max);
+#endif
+        for (local_ordinal_type tr=tr_min;tr<tr_max;++tr) {
+          for (local_ordinal_type v=vbeg,vi=0;v<npacks && vi<internal_vector_length;++v,++vi) {
+            const local_ordinal_type nrows = (local_subpartidx % 2 == 0 ? nrows_vals[vi] : nrows_vals[vi]);
+            if ((local_subpartidx % 2 == 0 && tr < nrows) || (local_subpartidx % 2 == 1 && tr < nrows+1)) {
+              auto &j = j_vals[vi];
+              const local_ordinal_type kfs = kfs_vals[vi];
+              const local_ordinal_type ri0 = ri0_vals[vi];
+              local_ordinal_type lbeg, lend;
+              if (local_subpartidx % 2 == 0) {
+                lbeg = (tr == tr_min    ? 1 : 0);
+                lend = (tr == nrows - 1 ? 2 : 3);
               }
               else {
-                for (local_ordinal_type l=lbeg;l<lend;++l,++j) {
-                  const size_type Aj_c = A_colindsub(kfs + j);
-                  const size_type pi = kps + j;
-                  Kokkos::parallel_for
-                    (Kokkos::TeamThreadRange(member,blocksize),
-                    [&](const local_ordinal_type &ii) {
-                      auto point_row_offset = A_point_rowptr(lclrow(ri0 + tr)*blocksize + ii);
-                      for (local_ordinal_type jj=0;jj<blocksize;++jj) {
-                        scalar_values(pi, ii, jj, v) = A_values(point_row_offset + Aj_c*blocksize + jj);
-                      }
-                    });
+                lbeg = 0;
+                lend = 3;
+                if (tr == tr_min) {
+                  lbeg = 1;
+                  lend = 2;
                 }
+                else if (tr == nrows) {
+                  lbeg = 0;
+                  lend = 1;
+                }
+              }
+              for (local_ordinal_type l=lbeg;l<lend;++l,++j) {
+                const size_type Aj_c = A_colindsub(kfs + j);
+                const size_type pi = kps + j;
+                Kokkos::parallel_for
+                  (Kokkos::TeamThreadRange(member,blocksize),
+                  [&](const local_ordinal_type &ii) {
+                    auto point_row_offset = A_point_rowptr(lclrow(ri0 + tr)*blocksize + ii);
+                    for (local_ordinal_type jj=0;jj<blocksize;++jj) {
+                      scalar_values(pi, ii, jj, v) = A_values(point_row_offset + Aj_c*blocksize + jj);
+                    }
+                  });
               }
             }
           }
@@ -3152,10 +3267,56 @@ namespace Ifpack2 {
     public:
 
       struct ExtractAndFactorizeSubLineTag {};
+      struct ExtractAndFactorizeSubLineTagBlock {};
       struct ExtractBCDTag {};
+      struct ExtractBCDTagBlock {};
       struct ComputeETag {};
       struct ComputeSchurTag {};
       struct FactorizeSchurTag {};
+
+      KOKKOS_INLINE_FUNCTION
+      void
+      operator() (const ExtractAndFactorizeSubLineTagBlock &, const member_type &member) const {
+        // btdm is packed and sorted from largest one
+        const local_ordinal_type packidx = packindices_sub(member.league_rank());
+
+        const local_ordinal_type subpartidx = packptr_sub(packidx);
+        const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0);
+        const local_ordinal_type local_subpartidx = subpartidx/n_parts;
+        const local_ordinal_type partidx = subpartidx%n_parts;
+
+        const local_ordinal_type npacks = packptr_sub(packidx+1) - subpartidx;
+        const local_ordinal_type i0 = pack_td_ptr(partidx,local_subpartidx);
+        const local_ordinal_type nrows = partptr_sub(subpartidx,1) - partptr_sub(subpartidx,0);
+
+        internal_vector_scratch_type_3d_view
+          WW(member.team_scratch(0), blocksize, blocksize, vector_loop_size);
+
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+        printf("rank = %d, i0 = %d, npacks = %d, nrows = %d, packidx = %d, subpartidx = %d, partidx = %d, local_subpartidx = %d;\n", member.league_rank(), i0, npacks, nrows, packidx, subpartidx, partidx, local_subpartidx);
+        printf("vector_loop_size = %d\n", vector_loop_size);
+#endif
+
+        if (vector_loop_size == 1) {
+          extractBlock(partidx, local_subpartidx, npacks);
+          factorize_subline(member, i0, nrows, 0, internal_vector_values, WW);
+        } else {
+          Kokkos::parallel_for
+            (Kokkos::ThreadVectorRange(member, vector_loop_size),
+	     [&](const local_ordinal_type &v) {
+              const local_ordinal_type vbeg = v*internal_vector_length;
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+              printf("i0 = %d, npacks = %d, vbeg = %d;\n", i0, npacks, vbeg);
+#endif
+              if (vbeg < npacks)
+                extractBlock(member, partidx+vbeg, local_subpartidx, npacks, vbeg);
+              // this is not safe if vector loop size is different from vector size of 
+              // the team policy. we always make sure this when constructing the team policy
+              member.team_barrier();
+              factorize_subline(member, i0, nrows, v, internal_vector_values, WW);
+            });
+        }
+      }
 
       KOKKOS_INLINE_FUNCTION
       void
@@ -3199,6 +3360,61 @@ namespace Ifpack2 {
               factorize_subline(member, i0, nrows, v, internal_vector_values, WW);
             });
         }
+      }
+
+      KOKKOS_INLINE_FUNCTION
+      void
+      operator() (const ExtractBCDTagBlock &, const member_type &member) const {
+        // btdm is packed and sorted from largest one
+        const local_ordinal_type packindices_schur_i = member.league_rank() % packindices_schur.extent(0);
+        const local_ordinal_type packindices_schur_j = member.league_rank() / packindices_schur.extent(0);
+        const local_ordinal_type packidx = packindices_schur(packindices_schur_i, packindices_schur_j);
+
+        const local_ordinal_type subpartidx = packptr_sub(packidx);
+        const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0);
+        const local_ordinal_type local_subpartidx = subpartidx/n_parts;
+        const local_ordinal_type partidx = subpartidx%n_parts;
+
+        const local_ordinal_type npacks = packptr_sub(packidx+1) - subpartidx;
+        //const local_ordinal_type i0 = pack_td_ptr(partidx,local_subpartidx);
+        //const local_ordinal_type nrows = partptr_sub(subpartidx,1) - partptr_sub(subpartidx,0);
+
+        if (vector_loop_size == 1) {
+          extractBlock(partidx, local_subpartidx, npacks);
+        }
+        else {
+          Kokkos::parallel_for
+            (Kokkos::ThreadVectorRange(member, vector_loop_size),
+	     [&](const local_ordinal_type &v) {
+              const local_ordinal_type vbeg = v*internal_vector_length;
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+              const local_ordinal_type i0 = pack_td_ptr(partidx,local_subpartidx);
+              printf("i0 = %d, npacks = %d, vbeg = %d;\n", i0, npacks, vbeg);
+#endif
+              if (vbeg < npacks)
+                extractBlock(member, partidx+vbeg, local_subpartidx, npacks, vbeg);
+            });
+        }
+
+        member.team_barrier();
+
+        const size_type kps1 = pack_td_ptr(partidx, local_subpartidx);
+        const size_type kps2 = pack_td_ptr(partidx, local_subpartidx+1)-1;
+
+        const local_ordinal_type r1 = part2packrowidx0_sub(partidx,local_subpartidx)-1;
+        const local_ordinal_type r2 = part2packrowidx0_sub(partidx,local_subpartidx)+2;
+
+#ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
+        printf("Copy for Schur complement part id = %d from kps1 = %ld to r1 = %d and from kps2 = %ld to r2 = %d partidx = %d local_subpartidx = %d;\n", packidx, kps1, r1, kps2, r2, partidx, local_subpartidx);
+#endif
+
+        // Need to copy D to e_internal_vector_values.
+        copy3DView<local_ordinal_type>(member, Kokkos::subview(e_internal_vector_values, 0, r1, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), 
+                          Kokkos::subview(internal_vector_values, kps1, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()));
+
+        copy3DView<local_ordinal_type>(member, Kokkos::subview(e_internal_vector_values, 1, r2, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), 
+                          Kokkos::subview(internal_vector_values, kps2, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()));
+
       }
 
       KOKKOS_INLINE_FUNCTION
@@ -3451,17 +3667,29 @@ namespace Ifpack2 {
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF
         printf("Start ExtractAndFactorizeSubLineTag\n");
 #endif
-          IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::NumericPhase::ExtractAndFactorizeSubLineTag");
-          Kokkos::TeamPolicy<execution_space,ExtractAndFactorizeSubLineTag>
-            policy(packindices_sub.extent(0), team_size, vector_loop_size);
-
 
           const local_ordinal_type n_parts = part2packrowidx0_sub.extent(0);
-          writeBTDValuesToFile(n_parts, scalar_values, "before.mm");
+          if (hasBlockCrsMatrix) {
+            IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::NumericPhase::ExtractAndFactorizeSubLineTag");
+            Kokkos::TeamPolicy<execution_space,ExtractAndFactorizeSubLineTagBlock>
+              policy(packindices_sub.extent(0), team_size, vector_loop_size);
 
-          policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
-          Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<ExtractAndFactorizeSubLineTag>",
-                              policy, *this);
+            writeBTDValuesToFile(n_parts, scalar_values, "before.mm");
+
+            policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
+            Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<ExtractAndFactorizeSubLineTagBlock>",
+                                policy, *this);
+          } else {
+            IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::NumericPhase::ExtractAndFactorizeSubLineTag");
+            Kokkos::TeamPolicy<execution_space,ExtractAndFactorizeSubLineTag>
+              policy(packindices_sub.extent(0), team_size, vector_loop_size);
+
+            writeBTDValuesToFile(n_parts, scalar_values, "before.mm");
+
+            policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
+            Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<ExtractAndFactorizeSubLineTag>",
+                                policy, *this);
+          }
           execution_space().fence();
 
           writeBTDValuesToFile(n_parts, scalar_values, "after.mm");
@@ -3481,7 +3709,16 @@ namespace Ifpack2 {
 
             write5DMultiVectorValuesToFile(part2packrowidx0_sub.extent(0), e_scalar_values, "e_scalar_values_before_extract.mm");
 
-            {
+            if (hasBlockCrsMatrix) {
+              IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::NumericPhase::ExtractBCDTag");
+              Kokkos::TeamPolicy<execution_space,ExtractBCDTagBlock>
+                policy(packindices_schur.extent(0)*packindices_schur.extent(1), team_size, vector_loop_size);
+
+              policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
+              Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<ExtractBCDTagBlock>",
+                                  policy, *this);
+              execution_space().fence();
+            } else {
               IFPACK2_BLOCKHELPER_TIMER("BlockTriDi::NumericPhase::ExtractBCDTag");
               Kokkos::TeamPolicy<execution_space,ExtractBCDTag>
                 policy(packindices_schur.extent(0)*packindices_schur.extent(1), team_size, vector_loop_size);
@@ -3489,7 +3726,7 @@ namespace Ifpack2 {
               policy.set_scratch_size(0,Kokkos::PerTeam(per_team_scratch));
               Kokkos::parallel_for("ExtractAndFactorize::TeamPolicy::run<ExtractBCDTag>",
                                   policy, *this);
-              execution_space().fence();
+              execution_space().fence();  
             }
 
 #ifdef IFPACK2_BLOCKTRIDICONTAINER_USE_PRINTF

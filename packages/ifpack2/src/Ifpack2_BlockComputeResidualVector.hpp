@@ -418,6 +418,35 @@ namespace Ifpack2 {
       // }
 
       struct SeqTag {};
+      struct SeqTagBlock {};
+
+      // inline  ---> FIXME HIP: should not need KOKKOS_INLINE_FUNCTION
+      KOKKOS_INLINE_FUNCTION
+      void
+      operator() (const SeqTagBlock &, const local_ordinal_type& i) const {
+        const local_ordinal_type blocksize = blocksize_requested;
+        const local_ordinal_type blocksize_square = blocksize*blocksize;
+
+        // constants
+        const Kokkos::pair<local_ordinal_type,local_ordinal_type> block_range(0, blocksize);
+        const local_ordinal_type num_vectors = y.extent(1);
+        const local_ordinal_type row = i*blocksize;
+        for (local_ordinal_type col=0;col<num_vectors;++col) {
+          // y := b
+          impl_scalar_type *yy = &y(row, col);
+          const impl_scalar_type * const bb = &b(row, col);
+          memcpy(yy, bb, sizeof(impl_scalar_type)*blocksize);
+
+          // y -= Rx
+          const size_type A_k0 = A_block_rowptr[i];
+          for (size_type k=rowptr[i];k<rowptr[i+1];++k) {
+            const size_type j = A_k0 + colindsub[k];
+            const impl_scalar_type * const xx = &x(A_colind[j]*blocksize, col);
+            const impl_scalar_type * const AA = &tpetra_values(j*blocksize_square);
+            SerialGemv(blocksize,AA,xx,yy);
+          }
+        }
+      }
 
       // inline  ---> FIXME HIP: should not need KOKKOS_INLINE_FUNCTION
       KOKKOS_INLINE_FUNCTION
@@ -441,15 +470,50 @@ namespace Ifpack2 {
           for (size_type k=rowptr[i];k<rowptr[i+1];++k) {
             const size_type j = A_k0 + colindsub[k];
             const impl_scalar_type * const xx = &x(A_colind[j]*blocksize, col);
-            if (hasBlockCrsMatrix) {
-              const impl_scalar_type * const AA = &tpetra_values(j*blocksize_square);
-              SerialGemv(blocksize,AA,xx,yy);
-            }
-            else {
-              for (local_ordinal_type k0=0;k0<blocksize;++k0)
-                SerialDot(blocksize, i, k, k0, colindsub, xx, yy);
-            }
+            for (local_ordinal_type k0=0;k0<blocksize;++k0)
+              SerialDot(blocksize, i, k, k0, colindsub, xx, yy);
           }
+        }
+      }
+
+      KOKKOS_INLINE_FUNCTION
+      void
+      operator() (const SeqTagBlock &, const member_type &member) const {
+
+        // constants
+        const local_ordinal_type blocksize = blocksize_requested;
+        const local_ordinal_type blocksize_square = blocksize*blocksize;
+
+        const local_ordinal_type lr = member.league_rank();
+        const Kokkos::pair<local_ordinal_type,local_ordinal_type> block_range(0, blocksize);
+        const local_ordinal_type num_vectors = y.extent(1);
+
+        // subview pattern
+        auto bb = Kokkos::subview(b, block_range, 0);
+        auto xx = bb;
+        auto yy = Kokkos::subview(y, block_range, 0);
+        auto A_block_cst = ConstUnmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
+
+        const local_ordinal_type row = lr*blocksize;
+        for (local_ordinal_type col=0;col<num_vectors;++col) {
+          // y := b
+          yy.assign_data(&y(row, col));
+          bb.assign_data(&b(row, col));
+          if (member.team_rank() == 0)
+            VectorCopy(member, blocksize, bb, yy);
+          member.team_barrier();
+
+          // y -= Rx
+          const size_type A_k0 = A_block_rowptr[lr];
+
+          Kokkos::parallel_for
+            (Kokkos::TeamThreadRange(member, rowptr[lr], rowptr[lr+1]),
+            [&](const local_ordinal_type &k) {
+              const size_type j = A_k0 + colindsub[k];
+              xx.assign_data( &x(A_colind[j]*blocksize, col) );
+              A_block_cst.assign_data( &tpetra_values(j*blocksize_square) );
+              VectorGemv(member, blocksize, A_block_cst, xx, yy);
+            });
         }
       }
 
@@ -483,33 +547,71 @@ namespace Ifpack2 {
           // y -= Rx
           const size_type A_k0 = A_block_rowptr[lr];
 
-          if(hasBlockCrsMatrix) {
-            Kokkos::parallel_for
-              (Kokkos::TeamThreadRange(member, rowptr[lr], rowptr[lr+1]),
-              [&](const local_ordinal_type &k) {
-                const size_type j = A_k0 + colindsub[k];
-                xx.assign_data( &x(A_colind[j]*blocksize, col) );
-                A_block_cst.assign_data( &tpetra_values(j*blocksize_square) );
-                VectorGemv(member, blocksize, A_block_cst, xx, yy);
-              });
-          }
-          else {
-            Kokkos::parallel_for
-              (Kokkos::TeamThreadRange(member, rowptr[lr], rowptr[lr+1]),
-              [&](const local_ordinal_type &k) {
+          Kokkos::parallel_for
+            (Kokkos::TeamThreadRange(member, rowptr[lr], rowptr[lr+1]),
+            [&](const local_ordinal_type &k) {
 
-                const size_type j = A_k0 + colindsub[k];
-                xx.assign_data( &x(A_colind[j]*blocksize, col) );
+              const size_type j = A_k0 + colindsub[k];
+              xx.assign_data( &x(A_colind[j]*blocksize, col) );
 
-                for (local_ordinal_type k0=0;k0<blocksize;++k0)
-                  VectorDot(member, blocksize, lr, k, k0, colindsub, xx, yy);
-              });
-          }
+              for (local_ordinal_type k0=0;k0<blocksize;++k0)
+                VectorDot(member, blocksize, lr, k, k0, colindsub, xx, yy);
+            });
         }
       }
 
       template<int B>
       struct AsyncTag {};
+      template<int B>
+      struct AsyncTagBlock {};
+
+      template<int B>
+      // inline  ---> FIXME HIP: should not need KOKKOS_INLINE_FUNCTION
+      KOKKOS_INLINE_FUNCTION
+      void
+      operator() (const AsyncTagBlock<B> &, const local_ordinal_type &rowidx) const {
+        const local_ordinal_type blocksize = (B == 0 ? blocksize_requested : B);
+        const local_ordinal_type blocksize_square = blocksize*blocksize;
+
+        // constants
+        const local_ordinal_type partidx = rowidx2part(rowidx);
+        const local_ordinal_type pri = part2packrowidx0(partidx) + (rowidx - partptr(partidx));
+        const local_ordinal_type v = partidx % vector_length;
+
+        const local_ordinal_type num_vectors = y_packed.extent(2);
+        const local_ordinal_type num_local_rows = lclrow.extent(0);
+
+        // temporary buffer for y flat
+        impl_scalar_type yy[B == 0 ? max_blocksize : B] = {};
+
+        const local_ordinal_type lr = lclrow(rowidx);
+        const local_ordinal_type row = lr*blocksize;
+        for (local_ordinal_type col=0;col<num_vectors;++col) {
+          // y := b
+          memcpy(yy, &b(row, col), sizeof(impl_scalar_type)*blocksize);
+
+          // y -= Rx
+          const size_type A_k0 = A_block_rowptr[lr];
+          for (size_type k=rowptr[lr];k<rowptr[lr+1];++k) {
+            const size_type j = A_k0 + colindsub[k];
+            const local_ordinal_type A_colind_at_j = A_colind[j];
+            const impl_scalar_type * const AA = &tpetra_values(j*blocksize_square);
+            
+            if (A_colind_at_j < num_local_rows) {
+              const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
+              const impl_scalar_type * const xx = &x(loc*blocksize, col);
+              SerialGemv(blocksize, AA,xx,yy);
+            } else {
+              const auto loc = A_colind_at_j - num_local_rows;
+              const impl_scalar_type * const xx_remote = &x_remote(loc*blocksize, col);
+              SerialGemv(blocksize, AA,xx_remote,yy);
+            }
+          }
+          // move yy to y_packed
+          for (local_ordinal_type k=0;k<blocksize;++k)
+            y_packed(pri, k, col)[v] = yy[k];
+        }
+      }
 
       template<int B>
       // inline  ---> FIXME HIP: should not need KOKKOS_INLINE_FUNCTION
@@ -541,36 +643,79 @@ namespace Ifpack2 {
           for (size_type k=rowptr[lr];k<rowptr[lr+1];++k) {
             const size_type j = A_k0 + colindsub[k];
             const local_ordinal_type A_colind_at_j = A_colind[j];
-            if (hasBlockCrsMatrix) {
-              const impl_scalar_type * const AA = &tpetra_values(j*blocksize_square);
-              
-              if (A_colind_at_j < num_local_rows) {
-                const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
-                const impl_scalar_type * const xx = &x(loc*blocksize, col);
-                SerialGemv(blocksize, AA,xx,yy);
-              } else {
-                const auto loc = A_colind_at_j - num_local_rows;
-                const impl_scalar_type * const xx_remote = &x_remote(loc*blocksize, col);
-                SerialGemv(blocksize, AA,xx_remote,yy);
-              }
-            }
-            else {
-              if (A_colind_at_j < num_local_rows) {
-                const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
-                const impl_scalar_type * const xx = &x(loc*blocksize, col);
-                for (local_ordinal_type k0=0;k0<blocksize;++k0)
-                  SerialDot(blocksize, lr, k, k0, colindsub, xx, yy);
-              } else {
-                const auto loc = A_colind_at_j - num_local_rows;
-                const impl_scalar_type * const xx_remote = &x_remote(loc*blocksize, col);
-                for (local_ordinal_type k0=0;k0<blocksize;++k0)
-                  SerialDot(blocksize, lr, k, k0, colindsub, xx_remote, yy);
-              }
+            if (A_colind_at_j < num_local_rows) {
+              const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
+              const impl_scalar_type * const xx = &x(loc*blocksize, col);
+              for (local_ordinal_type k0=0;k0<blocksize;++k0)
+                SerialDot(blocksize, lr, k, k0, colindsub, xx, yy);
+            } else {
+              const auto loc = A_colind_at_j - num_local_rows;
+              const impl_scalar_type * const xx_remote = &x_remote(loc*blocksize, col);
+              for (local_ordinal_type k0=0;k0<blocksize;++k0)
+                SerialDot(blocksize, lr, k, k0, colindsub, xx_remote, yy);
             }
           }
           // move yy to y_packed
           for (local_ordinal_type k=0;k<blocksize;++k)
             y_packed(pri, k, col)[v] = yy[k];
+        }
+      }
+
+      template<int B>
+      KOKKOS_INLINE_FUNCTION
+      void
+      operator() (const AsyncTagBlock<B> &, const member_type &member) const {
+        const local_ordinal_type blocksize = (B == 0 ? blocksize_requested : B);
+        const local_ordinal_type blocksize_square = blocksize*blocksize;
+
+        // constants
+        const local_ordinal_type rowidx = member.league_rank();
+        const local_ordinal_type partidx = rowidx2part(rowidx);
+        const local_ordinal_type pri = part2packrowidx0(partidx) + (rowidx - partptr(partidx));
+        const local_ordinal_type v = partidx % vector_length;
+
+        const Kokkos::pair<local_ordinal_type,local_ordinal_type> block_range(0, blocksize);
+        const local_ordinal_type num_vectors = y_packed_scalar.extent(2);
+        const local_ordinal_type num_local_rows = lclrow.extent(0);
+
+        // subview pattern
+        using subview_1D_right_t = decltype(Kokkos::subview(b, block_range, 0));
+        subview_1D_right_t bb(nullptr, blocksize);
+        subview_1D_right_t xx(nullptr, blocksize);
+        subview_1D_right_t xx_remote(nullptr, blocksize);
+        using subview_1D_stride_t = decltype(Kokkos::subview(y_packed_scalar, 0, block_range, 0, 0));
+        subview_1D_stride_t yy(nullptr, Kokkos::LayoutStride(blocksize, y_packed_scalar.stride_1()));
+        auto A_block_cst = ConstUnmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
+
+        const local_ordinal_type lr = lclrow(rowidx);
+        const local_ordinal_type row = lr*blocksize;
+        for (local_ordinal_type col=0;col<num_vectors;++col) {
+          // y := b
+          bb.assign_data(&b(row, col));
+          yy.assign_data(&y_packed_scalar(pri, 0, col, v));
+          if (member.team_rank() == 0)
+            VectorCopy(member, blocksize, bb, yy);
+          member.team_barrier();
+
+          // y -= Rx
+          const size_type A_k0 = A_block_rowptr[lr];
+          Kokkos::parallel_for
+            (Kokkos::TeamThreadRange(member, rowptr[lr], rowptr[lr+1]),
+            [&](const local_ordinal_type &k) {
+              const size_type j = A_k0 + colindsub[k];
+              A_block_cst.assign_data( &tpetra_values(j*blocksize_square) );
+
+              const local_ordinal_type A_colind_at_j = A_colind[j];
+              if (A_colind_at_j < num_local_rows) {
+                const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
+                xx.assign_data( &x(loc*blocksize, col) );
+                VectorGemv(member, blocksize, A_block_cst, xx, yy);
+              } else {
+                const auto loc = A_colind_at_j - num_local_rows; 
+                xx_remote.assign_data( &x_remote(loc*blocksize, col) );
+                VectorGemv(member, blocksize, A_block_cst, xx_remote, yy);
+              }
+            });
         }
       }
 
@@ -612,49 +757,90 @@ namespace Ifpack2 {
 
           // y -= Rx
           const size_type A_k0 = A_block_rowptr[lr];
-          if(hasBlockCrsMatrix) {
-            Kokkos::parallel_for
-              (Kokkos::TeamThreadRange(member, rowptr[lr], rowptr[lr+1]),
-              [&](const local_ordinal_type &k) {
-                const size_type j = A_k0 + colindsub[k];
-                A_block_cst.assign_data( &tpetra_values(j*blocksize_square) );
+          Kokkos::parallel_for
+            (Kokkos::TeamThreadRange(member, rowptr[lr], rowptr[lr+1]),
+            [&](const local_ordinal_type &k) {
+              const size_type j = A_k0 + colindsub[k];
 
-                const local_ordinal_type A_colind_at_j = A_colind[j];
-                if (A_colind_at_j < num_local_rows) {
-                  const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
-                  xx.assign_data( &x(loc*blocksize, col) );
-                  VectorGemv(member, blocksize, A_block_cst, xx, yy);
-                } else {
-                  const auto loc = A_colind_at_j - num_local_rows; 
-                  xx_remote.assign_data( &x_remote(loc*blocksize, col) );
-                  VectorGemv(member, blocksize, A_block_cst, xx_remote, yy);
-                }
-              });
-          }
-          else {
-            Kokkos::parallel_for
-              (Kokkos::TeamThreadRange(member, rowptr[lr], rowptr[lr+1]),
-              [&](const local_ordinal_type &k) {
-                const size_type j = A_k0 + colindsub[k];
-
-                const local_ordinal_type A_colind_at_j = A_colind[j];
-                if (A_colind_at_j < num_local_rows) {
-                  const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
-                  xx.assign_data( &x(loc*blocksize, col) );
-                  for (local_ordinal_type k0=0;k0<blocksize;++k0)
-                    VectorDot(member, blocksize, lr, k, k0, colindsub, xx, yy);
-                } else {
-                  const auto loc = A_colind_at_j - num_local_rows; 
-                  xx_remote.assign_data( &x_remote(loc*blocksize, col) );
-                  for (local_ordinal_type k0=0;k0<blocksize;++k0)
-                    VectorDot(member, blocksize, lr, k, k0, colindsub, xx_remote, yy);
-                }
-              });
-          }
+              const local_ordinal_type A_colind_at_j = A_colind[j];
+              if (A_colind_at_j < num_local_rows) {
+                const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
+                xx.assign_data( &x(loc*blocksize, col) );
+                for (local_ordinal_type k0=0;k0<blocksize;++k0)
+                  VectorDot(member, blocksize, lr, k, k0, colindsub, xx, yy);
+              } else {
+                const auto loc = A_colind_at_j - num_local_rows; 
+                xx_remote.assign_data( &x_remote(loc*blocksize, col) );
+                for (local_ordinal_type k0=0;k0<blocksize;++k0)
+                  VectorDot(member, blocksize, lr, k, k0, colindsub, xx_remote, yy);
+              }
+            });
         }
       }
 
       template <int P, int B> struct OverlapTag {};
+      template <int P, int B> struct OverlapTagBlock {};
+
+      template<int P, int B>
+      // inline  ---> FIXME HIP: should not need KOKKOS_INLINE_FUNCTION
+      KOKKOS_INLINE_FUNCTION
+      void
+      operator() (const OverlapTagBlock<P,B> &, const local_ordinal_type& rowidx) const {
+        const local_ordinal_type blocksize = (B == 0 ? blocksize_requested : B);
+        const local_ordinal_type blocksize_square = blocksize*blocksize;
+
+        // constants
+        const local_ordinal_type partidx = rowidx2part(rowidx);
+        const local_ordinal_type pri = part2packrowidx0(partidx) + (rowidx - partptr(partidx));
+        const local_ordinal_type v = partidx % vector_length;
+
+        const local_ordinal_type num_vectors = y_packed.extent(2);
+        const local_ordinal_type num_local_rows = lclrow.extent(0);
+
+        // temporary buffer for y flat
+        impl_scalar_type yy[max_blocksize] = {};
+
+        auto colindsub_used = (P == 0 ? colindsub : colindsub_remote);
+        auto rowptr_used = (P == 0 ? rowptr : rowptr_remote);
+
+        const local_ordinal_type lr = lclrow(rowidx);
+        const local_ordinal_type row = lr*blocksize;
+        for (local_ordinal_type col=0;col<num_vectors;++col) {
+          if (P == 0) {
+            // y := b
+            memcpy(yy, &b(row, col), sizeof(impl_scalar_type)*blocksize);
+          } else {
+            // y (temporary) := 0
+            memset(yy, 0, sizeof(impl_scalar_type)*blocksize);
+          }
+
+          // y -= Rx
+          const size_type A_k0 = A_block_rowptr[lr];
+          for (size_type k=rowptr_used[lr];k<rowptr_used[lr+1];++k) {
+            const size_type j = A_k0 + colindsub_used[k];
+            const local_ordinal_type A_colind_at_j = A_colind[j];
+            
+            const impl_scalar_type * const AA = &tpetra_values(j*blocksize_square);
+            if (P == 0) {
+              const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
+              const impl_scalar_type * const xx = &x(loc*blocksize, col);
+              SerialGemv(blocksize,AA,xx,yy);
+            } else {
+              const auto loc = A_colind_at_j - num_local_rows;
+              const impl_scalar_type * const xx_remote = &x_remote(loc*blocksize, col);
+              SerialGemv(blocksize,AA,xx_remote,yy);
+            }
+          }
+          // move yy to y_packed
+          if (P == 0) {
+            for (local_ordinal_type k=0;k<blocksize;++k)
+              y_packed(pri, k, col)[v] = yy[k];
+          } else {
+            for (local_ordinal_type k=0;k<blocksize;++k)
+              y_packed(pri, k, col)[v] += yy[k];
+          }
+        }
+      }
 
       template<int P, int B>
       // inline  ---> FIXME HIP: should not need KOKKOS_INLINE_FUNCTION
@@ -694,30 +880,16 @@ namespace Ifpack2 {
           for (size_type k=rowptr_used[lr];k<rowptr_used[lr+1];++k) {
             const size_type j = A_k0 + colindsub_used[k];
             const local_ordinal_type A_colind_at_j = A_colind[j];
-            if (hasBlockCrsMatrix) {
-              const impl_scalar_type * const AA = &tpetra_values(j*blocksize_square);
-              if (P == 0) {
-                const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
-                const impl_scalar_type * const xx = &x(loc*blocksize, col);
-                SerialGemv(blocksize,AA,xx,yy);
-              } else {
-                const auto loc = A_colind_at_j - num_local_rows;
-                const impl_scalar_type * const xx_remote = &x_remote(loc*blocksize, col);
-                SerialGemv(blocksize,AA,xx_remote,yy);
-              }
-            }
-            else {
-              if (P == 0) {
-                const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
-                const impl_scalar_type * const xx = &x(loc*blocksize, col);
-                for (local_ordinal_type k0=0;k0<blocksize;++k0)
-                  SerialDot(blocksize, lr, k, k0, colindsub_used, xx, yy);
-              } else {
-                const auto loc = A_colind_at_j - num_local_rows;
-                const impl_scalar_type * const xx_remote = &x_remote(loc*blocksize, col);
-                for (local_ordinal_type k0=0;k0<blocksize;++k0)
-                  SerialDot(blocksize, lr, k, k0, colindsub_used, xx_remote, yy);
-              }
+            if (P == 0) {
+              const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
+              const impl_scalar_type * const xx = &x(loc*blocksize, col);
+              for (local_ordinal_type k0=0;k0<blocksize;++k0)
+                SerialDot(blocksize, lr, k, k0, colindsub_used, xx, yy);
+            } else {
+              const auto loc = A_colind_at_j - num_local_rows;
+              const impl_scalar_type * const xx_remote = &x_remote(loc*blocksize, col);
+              for (local_ordinal_type k0=0;k0<blocksize;++k0)
+                SerialDot(blocksize, lr, k, k0, colindsub_used, xx_remote, yy);
             }
           }
           // move yy to y_packed
@@ -728,6 +900,68 @@ namespace Ifpack2 {
             for (local_ordinal_type k=0;k<blocksize;++k)
               y_packed(pri, k, col)[v] += yy[k];
           }
+        }
+      }
+
+      template<int P, int B>
+      KOKKOS_INLINE_FUNCTION
+      void
+      operator() (const OverlapTagBlock<P,B> &, const member_type &member) const {
+        const local_ordinal_type blocksize = (B == 0 ? blocksize_requested : B);
+        const local_ordinal_type blocksize_square = blocksize*blocksize;
+
+        // constants
+        const local_ordinal_type rowidx = member.league_rank();
+        const local_ordinal_type partidx = rowidx2part(rowidx);
+        const local_ordinal_type pri = part2packrowidx0(partidx) + (rowidx - partptr(partidx));
+        const local_ordinal_type v = partidx % vector_length;
+
+        const Kokkos::pair<local_ordinal_type,local_ordinal_type> block_range(0, blocksize);
+        const local_ordinal_type num_vectors = y_packed_scalar.extent(2);
+        const local_ordinal_type num_local_rows = lclrow.extent(0);
+
+        // subview pattern
+        using subview_1D_right_t = decltype(Kokkos::subview(b, block_range, 0));
+        subview_1D_right_t bb(nullptr, blocksize);
+        subview_1D_right_t xx(nullptr, blocksize);
+        subview_1D_right_t xx_remote(nullptr, blocksize);
+        using subview_1D_stride_t = decltype(Kokkos::subview(y_packed_scalar, 0, block_range, 0, 0));
+        subview_1D_stride_t yy(nullptr, Kokkos::LayoutStride(blocksize, y_packed_scalar.stride_1()));
+        auto A_block_cst = ConstUnmanaged<tpetra_block_access_view_type>(NULL, blocksize, blocksize);
+        auto colindsub_used = (P == 0 ? colindsub : colindsub_remote);
+        auto rowptr_used = (P == 0 ? rowptr : rowptr_remote);
+
+        const local_ordinal_type lr = lclrow(rowidx);
+        const local_ordinal_type row = lr*blocksize;
+        for (local_ordinal_type col=0;col<num_vectors;++col) {
+          yy.assign_data(&y_packed_scalar(pri, 0, col, v));
+          if (P == 0) {
+            // y := b
+            bb.assign_data(&b(row, col));
+            if (member.team_rank() == 0)
+              VectorCopy(member, blocksize, bb, yy);
+            member.team_barrier();
+          }
+
+          // y -= Rx
+          const size_type A_k0 = A_block_rowptr[lr];
+          Kokkos::parallel_for
+            (Kokkos::TeamThreadRange(member, rowptr_used[lr], rowptr_used[lr+1]),
+            [&](const local_ordinal_type &k) {
+              const size_type j = A_k0 + colindsub_used[k];
+              A_block_cst.assign_data( &tpetra_values(j*blocksize_square) );
+
+              const local_ordinal_type A_colind_at_j = A_colind[j];
+              if (P == 0) {
+                const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
+                xx.assign_data( &x(loc*blocksize, col) );
+                VectorGemv(member, blocksize, A_block_cst, xx, yy);
+              } else {
+                const auto loc = A_colind_at_j - num_local_rows;
+                xx_remote.assign_data( &x_remote(loc*blocksize, col) );
+                VectorGemv(member, blocksize, A_block_cst, xx_remote, yy);
+              }
+            });
         }
       }
 
@@ -773,45 +1007,24 @@ namespace Ifpack2 {
 
           // y -= Rx
           const size_type A_k0 = A_block_rowptr[lr];
-          if(hasBlockCrsMatrix) {
-            Kokkos::parallel_for
-              (Kokkos::TeamThreadRange(member, rowptr_used[lr], rowptr_used[lr+1]),
-              [&](const local_ordinal_type &k) {
-                const size_type j = A_k0 + colindsub_used[k];
-                A_block_cst.assign_data( &tpetra_values(j*blocksize_square) );
+          Kokkos::parallel_for
+            (Kokkos::TeamThreadRange(member, rowptr_used[lr], rowptr_used[lr+1]),
+            [&](const local_ordinal_type &k) {
+              const size_type j = A_k0 + colindsub_used[k];
 
-                const local_ordinal_type A_colind_at_j = A_colind[j];
-                if (P == 0) {
-                  const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
-                  xx.assign_data( &x(loc*blocksize, col) );
-                  VectorGemv(member, blocksize, A_block_cst, xx, yy);
-                } else {
-                  const auto loc = A_colind_at_j - num_local_rows;
-                  xx_remote.assign_data( &x_remote(loc*blocksize, col) );
-                  VectorGemv(member, blocksize, A_block_cst, xx_remote, yy);
-                }
-              });
-          }
-          else {
-            Kokkos::parallel_for
-              (Kokkos::TeamThreadRange(member, rowptr_used[lr], rowptr_used[lr+1]),
-              [&](const local_ordinal_type &k) {
-                const size_type j = A_k0 + colindsub_used[k];
-
-                const local_ordinal_type A_colind_at_j = A_colind[j];
-                if (P == 0) {
-                  const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
-                  xx.assign_data( &x(loc*blocksize, col) );
-                  for (local_ordinal_type k0=0;k0<blocksize;++k0)
-                    VectorDot(member, blocksize, lr, k, k0, colindsub_used, xx, yy);
-                } else {
-                  const auto loc = A_colind_at_j - num_local_rows;
-                  xx_remote.assign_data( &x_remote(loc*blocksize, col) );
-                  for (local_ordinal_type k0=0;k0<blocksize;++k0)
-                    VectorDot(member, blocksize, lr, k, k0, colindsub_used, xx_remote, yy);
-                }
-              });
-          }
+              const local_ordinal_type A_colind_at_j = A_colind[j];
+              if (P == 0) {
+                const auto loc = is_dm2cm_active ? dm2cm[A_colind_at_j] : A_colind_at_j;
+                xx.assign_data( &x(loc*blocksize, col) );
+                for (local_ordinal_type k0=0;k0<blocksize;++k0)
+                  VectorDot(member, blocksize, lr, k, k0, colindsub_used, xx, yy);
+              } else {
+                const auto loc = A_colind_at_j - num_local_rows;
+                xx_remote.assign_data( &x_remote(loc*blocksize, col) );
+                for (local_ordinal_type k0=0;k0<blocksize;++k0)
+                  VectorDot(member, blocksize, lr, k, k0, colindsub_used, xx_remote, yy);
+              }
+            });
         }
       }
 
@@ -830,13 +1043,25 @@ namespace Ifpack2 {
           const local_ordinal_type blocksize = blocksize_requested;
           const local_ordinal_type team_size = 8;
           const local_ordinal_type vector_size = ComputeResidualVectorRecommendedVectorSize<execution_space>(blocksize, team_size);
-          const Kokkos::TeamPolicy<execution_space,SeqTag> policy(rowptr.extent(0) - 1, team_size, vector_size);
-          Kokkos::parallel_for
-            ("ComputeResidual::TeamPolicy::run<SeqTag>", policy, *this);
+          if (hasBlockCrsMatrix) {
+            const Kokkos::TeamPolicy<execution_space,SeqTagBlock> policy(rowptr.extent(0) - 1, team_size, vector_size);
+            Kokkos::parallel_for
+              ("ComputeResidual::TeamPolicy::run<SeqTagBlock>", policy, *this);
+          } else {
+            const Kokkos::TeamPolicy<execution_space,SeqTag> policy(rowptr.extent(0) - 1, team_size, vector_size);
+            Kokkos::parallel_for
+              ("ComputeResidual::TeamPolicy::run<SeqTag>", policy, *this);
+          }
         } else {
-          const Kokkos::RangePolicy<execution_space,SeqTag> policy(0, rowptr.extent(0) - 1);
-          Kokkos::parallel_for
-            ("ComputeResidual::RangePolicy::run<SeqTag>", policy, *this);
+          if (hasBlockCrsMatrix) {
+            const Kokkos::RangePolicy<execution_space,SeqTagBlock> policy(0, rowptr.extent(0) - 1);
+            Kokkos::parallel_for
+              ("ComputeResidual::RangePolicy::run<SeqTagBlock>", policy, *this);
+          } else {
+            const Kokkos::RangePolicy<execution_space,SeqTag> policy(0, rowptr.extent(0) - 1);
+            Kokkos::parallel_for
+              ("ComputeResidual::RangePolicy::run<SeqTag>", policy, *this);
+          }
         }
         IFPACK2_BLOCKHELPER_PROFILER_REGION_END;
         IFPACK2_BLOCKHELPER_TIMER_FENCE(execution_space)
@@ -872,12 +1097,20 @@ namespace Ifpack2 {
           // for (;vl_power_of_two<=blocksize_requested;vl_power_of_two*=2);
           // vl_power_of_two *= (vl_power_of_two < blocksize_requested ? 2 : 1);
           // const local_ordinal_type vl = vl_power_of_two > vector_length ? vector_length : vl_power_of_two;
-#define BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(B) {                \
-            const Kokkos::TeamPolicy<execution_space,AsyncTag<B> >      \
-              policy(rowidx2part.extent(0), team_size, vector_size);    \
-            Kokkos::parallel_for                                        \
-              ("ComputeResidual::TeamPolicy::run<AsyncTag>",            \
-               policy, *this); } break
+#define BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(B) {                  \
+            if (hasBlockCrsMatrix) {                                      \
+              const Kokkos::TeamPolicy<execution_space,AsyncTagBlock<B> > \
+                policy(rowidx2part.extent(0), team_size, vector_size);    \
+              Kokkos::parallel_for                                        \
+                ("ComputeResidual::TeamPolicy::run<AsyncTagBlock>",       \
+                policy, *this);                                           \
+            } else {                                                      \
+              const Kokkos::TeamPolicy<execution_space,AsyncTag<B> >      \
+                policy(rowidx2part.extent(0), team_size, vector_size);    \
+              Kokkos::parallel_for                                        \
+                ("ComputeResidual::TeamPolicy::run<AsyncTag>",            \
+                policy, *this);                                           \
+            } } break
           switch (blocksize_requested) {
           case   3: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 3);
           case   5: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 5);
@@ -893,10 +1126,17 @@ namespace Ifpack2 {
 #undef BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL
 	} else {
 #define BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(B) {                \
-            const Kokkos::RangePolicy<execution_space,AsyncTag<B> > policy(0, rowidx2part.extent(0)); \
-            Kokkos::parallel_for                                        \
-              ("ComputeResidual::RangePolicy::run<AsyncTag>",           \
-               policy, *this); } break
+            if (hasBlockCrsMatrix) {                                      \
+              const Kokkos::RangePolicy<execution_space,AsyncTagBlock<B> > policy(0, rowidx2part.extent(0)); \
+              Kokkos::parallel_for                                        \
+                ("ComputeResidual::RangePolicy::run<AsyncTagBlock>",           \
+                policy, *this);                                           \
+            } else {                                                      \
+              const Kokkos::RangePolicy<execution_space,AsyncTag<B> > policy(0, rowidx2part.extent(0)); \
+              Kokkos::parallel_for                                        \
+                ("ComputeResidual::RangePolicy::run<AsyncTag>",           \
+                policy, *this);                                           \
+            } } break
           switch (blocksize_requested) {
           case   3: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 3);
           case   5: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 5);
@@ -948,15 +1188,29 @@ namespace Ifpack2 {
           // const local_ordinal_type vl = vl_power_of_two > vector_length ? vector_length : vl_power_of_two;
 #define BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(B)  \
           if (compute_owned) {                                          \
-            const Kokkos::TeamPolicy<execution_space,OverlapTag<0,B> > \
-              policy(rowidx2part.extent(0), team_size, vector_size);    \
-            Kokkos::parallel_for                                        \
-              ("ComputeResidual::TeamPolicy::run<OverlapTag<0> >", policy, *this); \
+            if (hasBlockCrsMatrix) {                                    \
+              const Kokkos::TeamPolicy<execution_space,OverlapTagBlock<0,B> > \
+                policy(rowidx2part.extent(0), team_size, vector_size);    \
+              Kokkos::parallel_for                                        \
+                ("ComputeResidual::TeamPolicy::run<OverlapTagBlock<0> >", policy, *this); \
+            } else {                                                    \
+              const Kokkos::TeamPolicy<execution_space,OverlapTag<0,B> > \
+                policy(rowidx2part.extent(0), team_size, vector_size);    \
+              Kokkos::parallel_for                                        \
+                ("ComputeResidual::TeamPolicy::run<OverlapTag<0> >", policy, *this); \
+            }                                                           \
           } else {                                                      \
-            const Kokkos::TeamPolicy<execution_space,OverlapTag<1,B> > \
-              policy(rowidx2part.extent(0), team_size, vector_size);    \
-            Kokkos::parallel_for                                        \
-              ("ComputeResidual::TeamPolicy::run<OverlapTag<1> >", policy, *this); \
+            if (hasBlockCrsMatrix) {                                    \
+              const Kokkos::TeamPolicy<execution_space,OverlapTagBlock<1,B> > \
+                policy(rowidx2part.extent(0), team_size, vector_size);    \
+              Kokkos::parallel_for                                        \
+                ("ComputeResidual::TeamPolicy::run<OverlapTagBlock<1> >", policy, *this); \
+            } else {                                                    \
+              const Kokkos::TeamPolicy<execution_space,OverlapTag<1,B> > \
+                policy(rowidx2part.extent(0), team_size, vector_size);    \
+              Kokkos::parallel_for                                        \
+                ("ComputeResidual::TeamPolicy::run<OverlapTag<1> >", policy, *this); \
+            }                                                           \
           } break
           switch (blocksize_requested) {
           case   3: BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL( 3);
@@ -974,15 +1228,29 @@ namespace Ifpack2 {
         } else {
 #define BLOCKTRIDICONTAINER_DETAILS_COMPUTERESIDUAL(B)  \
           if (compute_owned) {                                          \
-            const Kokkos::RangePolicy<execution_space,OverlapTag<0,B> > \
-              policy(0, rowidx2part.extent(0));                         \
-            Kokkos::parallel_for                                        \
-              ("ComputeResidual::RangePolicy::run<OverlapTag<0> >", policy, *this); \
+            if (hasBlockCrsMatrix) {                                    \
+              const Kokkos::RangePolicy<execution_space,OverlapTagBlock<0,B> > \
+                policy(0, rowidx2part.extent(0));                         \
+              Kokkos::parallel_for                                        \
+                ("ComputeResidual::RangePolicy::run<OverlapTagBlock<0> >", policy, *this); \
+            } else {                                                    \
+              const Kokkos::RangePolicy<execution_space,OverlapTag<0,B> > \
+                policy(0, rowidx2part.extent(0));                         \
+              Kokkos::parallel_for                                        \
+                ("ComputeResidual::RangePolicy::run<OverlapTagk<0> >", policy, *this); \
+            }                                                           \
           } else {                                                      \
-            const Kokkos::RangePolicy<execution_space,OverlapTag<1,B> > \
-              policy(0, rowidx2part.extent(0));                         \
-            Kokkos::parallel_for                                        \
-              ("ComputeResidual::RangePolicy::run<OverlapTag<1> >", policy, *this); \
+            if (hasBlockCrsMatrix) {                                    \
+              const Kokkos::RangePolicy<execution_space,OverlapTagBlock<1,B> > \
+                policy(0, rowidx2part.extent(0));                         \
+              Kokkos::parallel_for                                        \
+                ("ComputeResidual::RangePolicy::run<OverlapTagBlock<1> >", policy, *this); \
+            } else {                                                    \
+              const Kokkos::RangePolicy<execution_space,OverlapTag<1,B> > \
+                policy(0, rowidx2part.extent(0));                         \
+              Kokkos::parallel_for                                        \
+                ("ComputeResidual::RangePolicy::run<OverlapTag<1> >", policy, *this); \
+            }                                                           \
           } break
 
           switch (blocksize_requested) {
