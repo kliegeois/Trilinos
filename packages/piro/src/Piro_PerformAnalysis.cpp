@@ -1087,7 +1087,8 @@ Piro::PerformROLTransientAnalysis(
           std::cout.rdbuf(coutbuf);
         }
 
-        *out << rolOutputBuffer.getStringStream().str();
+        if(analysisVerbosity > 1)  //write recap of optimization convergence
+          *out << rolOutputBuffer.getStringStream().str();
       }
     }
 
@@ -1203,7 +1204,8 @@ Piro::PerformROLTransientAnalysis(
           }
           reduced_stationarycontrols_obj.checkGradient(rol_p_primal, rol_p_primal.dual(), rol_p_direction1, steps, true, *rolOutput, 1);
 
-          *out << rolOutputBuffer.getStringStream().str();
+          if(analysisVerbosity > 1)  //write recap of optimization convergence
+            *out << rolOutputBuffer.getStringStream().str();
         }
       }
     }
