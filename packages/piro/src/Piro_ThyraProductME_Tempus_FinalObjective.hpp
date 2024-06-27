@@ -83,9 +83,9 @@ public:
   virtual ~ThyraProductME_TempusFinalObjective() {}
 
   //! Compute value of objective
-  Real value( const ROL::Vector<Real> &p, Real &tol );
+  Real value( const ROL::Vector<Real> &p, Real &tol ) override;
 
-  void gradient( ROL::Vector<Real> &grad, const ROL::Vector<Real> &p, Real &tol );
+  void gradient( ROL::Vector<Real> &grad, const ROL::Vector<Real> &p, Real &tol ) override;
 
   //! Helper function to run tempus, computing responses and derivatives
   void run_tempus(ROL::Vector<Real>& r, const ROL::Vector<Real>& p) const;
