@@ -85,7 +85,7 @@ public:
   //! Compute value of objective
   Real value( const ROL::Vector<Real> &p, Real &tol );
 
-  void gradient( ROL::Vector<Real> &grad, const ROL::Vector<Real> &p, Real &tol ) const;
+  void gradient( ROL::Vector<Real> &grad, const ROL::Vector<Real> &p, Real &tol );
 
   //! Helper function to run tempus, computing responses and derivatives
   void run_tempus(ROL::Vector<Real>& r, const ROL::Vector<Real>& p) const;
@@ -193,7 +193,7 @@ value( const ROL::Vector<Real> &p, Real &tol )
 template <typename Real>
 void
 ThyraProductME_TempusFinalObjective<Real>::
-gradient( ROL::Vector<Real> &grad, const ROL::Vector<Real> &p, Real &tol ) const
+gradient( ROL::Vector<Real> &grad, const ROL::Vector<Real> &p, Real &tol )
 {
   *out_ << "Piro::ThyraProductME_TempusFinalObjective::gradient" << std::endl;
 
