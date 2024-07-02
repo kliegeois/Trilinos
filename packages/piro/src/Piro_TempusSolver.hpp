@@ -165,6 +165,9 @@ public:
   Teuchos::RCP<const Piro::TempusIntegrator<Scalar>> 
   getPiroTempusIntegrator() const {return piroTempusIntegrator_;} 
 
+  Teuchos::RCP<Piro::TempusIntegrator<Scalar>> 
+  getNonconstPiroTempusIntegrator() const {return piroTempusIntegrator_;} 
+
   Teuchos::RCP<Thyra::ModelEvaluator<Scalar> >
   getSubModel() {return model_;}
   Teuchos::RCP<Thyra::ModelEvaluator<Scalar> >
@@ -181,7 +184,9 @@ private:
   //@}
 
   /** \brief . */
-  Teuchos::RCP<const Teuchos::ParameterList> getValidTempusParameters() const;
+  Teuchos::RCP<const Teuchos::ParameterList> getValidTempusParameters(
+    const std::string integratorName = "Tempus Integrator", 
+    const std::string stepperName = "Tempus Stepper") const;
 
   Teuchos::RCP<Piro::TempusIntegrator<Scalar>> piroTempusIntegrator_; 
   Teuchos::RCP<Tempus::Stepper<Scalar> > fwdStateStepper_;

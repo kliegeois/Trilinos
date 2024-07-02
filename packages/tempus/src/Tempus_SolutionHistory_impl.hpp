@@ -111,7 +111,7 @@ void SolutionHistory<Scalar>::addState(
           *out << "===============" << std::endl;
           this->describe(*out, Teuchos::VERB_MEDIUM);
 
-          std::exit(-1);
+          
           break;
         }
       }
