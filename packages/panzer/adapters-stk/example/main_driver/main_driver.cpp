@@ -1,43 +1,11 @@
 // @HEADER
-// ***********************************************************************
-//
+// *****************************************************************************
 //           Panzer: A partial differential equation assembly
 //       engine for strongly coupled complex multiphysics systems
-//                 Copyright (2011) Sandia Corporation
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Roger P. Pawlowski (rppawlo@sandia.gov) and
-// Eric C. Cyr (eccyr@sandia.gov)
-// ***********************************************************************
+// Copyright 2011 NTESS and the Panzer contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #include "Teuchos_ConfigDefs.hpp"
@@ -112,6 +80,8 @@ int main(int argc, char *argv[])
     int exodus_io_num_procs = 0;
     bool pauseToAttachOn = false;
     bool fluxCalculation = false;
+    bool printTimers = false;
+    bool printInputPL = false;
     {
       Teuchos::CommandLineProcessor clp;
       
@@ -119,6 +89,8 @@ int main(int argc, char *argv[])
       clp.setOption("exodus-io-num-procs", &exodus_io_num_procs, "Number of processes that can access the file system at the same time to read their portion of a sliced exodus file in parallel.  Defaults to 0 - implies all processes for the run can access the file system at the same time.");
       clp.setOption("pause-to-attach","disable-pause-to-attach", &pauseToAttachOn, "Call pause to attach, default is off.");
       clp.setOption("flux-calc","disable-flux-calc", &fluxCalculation, "Enable the flux calculation.");
+      clp.setOption("time","no-time", &printTimers, "Print the timing information.");
+      clp.setOption("pl","no-pl", &printTimers, "Print the input ParameterList at the start of the run.");
       
       Teuchos::CommandLineProcessor::EParseCommandLineReturn parse_return = 
 	clp.parse(argc,argv,&std::cerr);
@@ -138,7 +110,8 @@ int main(int argc, char *argv[])
     Teuchos::RCP<Teuchos::ParameterList> input_params = Teuchos::rcp(new Teuchos::ParameterList("User_App Parameters"));
     Teuchos::updateParametersFromXmlFileAndBroadcast(input_file_name, input_params.ptr(), *comm);
     
-    *out << *input_params << std::endl;
+    if (printInputPL)
+      *out << *input_params << std::endl;
 
     Teuchos::ParameterList solver_factories = input_params->sublist("Solver Factories");
     input_params->remove("Solver Factories");
@@ -345,7 +318,7 @@ int main(int argc, char *argv[])
 
             TEUCHOS_ASSERT(response!=Teuchos::null); // should not be null!
 
-            *out << "Response Value \"" << responseIndexToName[i] << "\": " << *response << std::endl;
+            *out << "Response Value \"" << responseIndexToName[i] << "\": " << Thyra::get_ele(*response,0) << std::endl;
          }
       }
 
@@ -383,7 +356,7 @@ int main(int argc, char *argv[])
     }
 
     stackedTimer->stopBaseTimer();
-    {
+    if (printTimers) {
       Teuchos::StackedTimer::OutputOptions options;
       options.output_fraction = true;
       options.output_minmax = true;
@@ -412,7 +385,7 @@ int main(int argc, char *argv[])
     status = -1;
   }
   
-  Teuchos::TimeMonitor::summarize(*out,false,true,false);
+  // Teuchos::TimeMonitor::summarize(*out,false,true,false);
 
 #ifdef Panzer_BUILD_PAPI_SUPPORT
     papi_counter.stop();

@@ -1,44 +1,10 @@
 // @HEADER
-// ************************************************************************
-//
+// *****************************************************************************
 //                           Intrepid2 Package
-//                 Copyright (2007) Sandia Corporation
 //
-// Under terms of Contract DE-AC04-94AL85000, there is a non-exclusive
-// license for use of this work by or on behalf of the U.S. Government.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Kyungjoo Kim  (kyukim@sandia.gov),
-//                    Mauro Perego  (mperego@sandia.gov), or
-//                    Nate Roberts  (nvrober@sandia.gov)
-//
-// ************************************************************************
+// Copyright 2007 NTESS and the Intrepid2 contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 /** \file   DataTests.cpp
@@ -481,6 +447,69 @@ namespace
     actualResultData.storeMatVec(matData, vecData);
     
     testFloatingEquality1(expectedResultView, actualResultData.getUnderlyingView1(), relTol, absTol, out, success);
+  }
+
+// #pragma mark Data: MatVec_CPDD_transpose
+/** \brief Data provides matrix-vector multiplication support.  This method checks correctness of the computed mat-vec for a particular case involving a 2x2 matrix stored in a rank 4 container such as will arise for Jacobians; here, the matrix is stored in a rank-4 View, and the Data object is a thin wrapper around it (i.e., the DataVariationType for each of the dimensions in data is GENERAL).
+*/
+  TEUCHOS_UNIT_TEST( Data, MatVec_CPDD_transpose )
+  {
+    double relTol = 1e-13;
+    double absTol = 1e-13;
+    
+    using DeviceType = DefaultTestDeviceType;
+    using Scalar = double;
+    const int spaceDim = 2;
+    const int cellCount = 1;
+    const int pointCount = 1;
+    auto matrixView = getView<Scalar,DeviceType>("matrix", cellCount, pointCount, spaceDim, spaceDim);
+    auto matrixViewHost = Kokkos::create_mirror(matrixView);
+    matrixViewHost(0,0,0,0) =  1.0;  matrixViewHost(0,0,0,1) =  2.0;
+    matrixViewHost(0,0,1,0) = -1.0;  matrixViewHost(0,0,1,1) =  3.0;
+    Kokkos::deep_copy(matrixView, matrixViewHost);
+    
+    auto vectorView = getView<Scalar,DeviceType>("vector", cellCount, pointCount, spaceDim);
+    auto vectorViewHost = Kokkos::create_mirror(vectorView);
+    vectorViewHost(0,0,0) =  1.0;
+    vectorViewHost(0,0,1) = -1.0;
+    Kokkos::deep_copy(vectorView, vectorViewHost);
+    
+    auto expectedResultView = getView<Scalar,DeviceType>("result vector", cellCount, pointCount, spaceDim);
+    auto expectedResultViewHost = Kokkos::create_mirror(expectedResultView);
+    
+    std::vector<bool> transposeChoices {false, true};
+    
+    for (auto transpose : transposeChoices)
+    {
+      const int cellOrdinal  = 0;
+      const int pointOrdinal = 0;
+      for (int i=0; i<spaceDim; i++)
+      {
+        Scalar result_i =  0;
+        for (int j=0; j<spaceDim; j++)
+        {
+          const auto & mat_ij = transpose ? matrixViewHost(cellOrdinal,pointOrdinal,j,i) : matrixViewHost(cellOrdinal,pointOrdinal,i,j);
+          result_i += mat_ij * vectorViewHost(cellOrdinal,pointOrdinal,j);
+        }
+        expectedResultViewHost(cellOrdinal,pointOrdinal,i) = result_i;
+      }
+      Kokkos::deep_copy(expectedResultView, expectedResultViewHost);
+      
+      Data<Scalar,DeviceType> A_data(matrixView);
+      Data<Scalar,DeviceType> x_data(vectorView);
+      auto actualResultData = Data<Scalar,DeviceType>::allocateMatVecResult(A_data, x_data, transpose);
+      
+      TEST_EQUALITY(         3, actualResultData.rank());
+      TEST_EQUALITY( cellCount, actualResultData.extent_int(0));
+      TEST_EQUALITY(pointCount, actualResultData.extent_int(1));
+      TEST_EQUALITY(  spaceDim, actualResultData.extent_int(2));
+      
+      actualResultData.storeMatVec(A_data, x_data, transpose);
+      
+      testFloatingEquality3(expectedResultView, actualResultData, relTol, absTol, out, success);
+      
+      printView(actualResultData.getUnderlyingView3(), out);
+    }
   }
 
 // #pragma mark Data: MatMat

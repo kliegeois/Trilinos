@@ -24,7 +24,7 @@ TRIBITS_ADD_OPTION_AND_DEFINE(
 # Supported Kokkos version in Trilinos
 # NOTE: When we snapshot Kokkos into Trilinos, we have to update these numbers to maintain
 # compatibility with external Kokkos
-SET(Tpetra_SUPPORTED_KOKKOS_VERSION "4.2.1")
+SET(Tpetra_SUPPORTED_KOKKOS_VERSION "4.3.1")
 
 
 # Option to allow developers to ignore incompatible Kokkos versions
@@ -111,7 +111,6 @@ INCLUDE(CMakeCuda.txt)
 # Note on (2) above: some of the types can only be enabled if certain
 # requirements are fulfilled.
 #
-
 
 SET(${PACKAGE_NAME}_ETI_SCALARS "")
 # Exclude all ordinal types (GlobalOrdinal and int)

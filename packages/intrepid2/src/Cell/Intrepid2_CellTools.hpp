@@ -1,43 +1,10 @@
 // @HEADER
-// ************************************************************************
-//
+// *****************************************************************************
 //                           Intrepid2 Package
-//                 Copyright (2007) Sandia Corporation
 //
-// Under terms of Contract DE-AC04-94AL85000, there is a non-exclusive
-// license for use of this work by or on behalf of the U.S. Government.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Kyungjoo Kim  (kyukim@sandia.gov), or
-//                    Mauro Perego  (mperego@sandia.gov)
-//
-// ************************************************************************
+// Copyright 2007 NTESS and the Intrepid2 contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 /** \file   Intrepid2_CellTools.hpp
@@ -222,14 +189,14 @@ public:
         \param  startCell        [in] - first cell index in cellWorkset for which we should compute the Jacobian; corresponds to the 0 index in Jacobian and/or points container.  Default: 0.
         \param  endCell            [in] - first cell index in cellWorkset that we do not process; endCell - startCell must equal the extent of the Jacobian container in dimension 0.  Default: -1, a special value that indicates the extent of the cellWorkset should be used.
      */
-    template<typename jacobianValueType,    class ...jacobianProperties,
-             typename pointValueType,       class ...pointProperties,
+    template<typename JacobianViewType,
+             typename PointViewType,
              typename WorksetType,
              typename HGradBasisType>
     static void
-    setJacobian(       Kokkos::DynRankView<jacobianValueType,jacobianProperties...>       jacobian,
-                 const Kokkos::DynRankView<pointValueType,pointProperties...>             points,
-                 const WorksetType worksetCell,
+    setJacobian(       JacobianViewType             jacobian,
+                 const PointViewType                points,
+                 const WorksetType                  worksetCell,
                  const Teuchos::RCP<HGradBasisType> basis,
                  const int startCell=0, const int endCell=-1);
     
@@ -267,12 +234,12 @@ public:
         \param  startCell        [in] - first cell index in cellWorkset for which we should compute the Jacobian; corresponds to the 0 index in Jacobian and/or points container.  Default: 0.
         \param  endCell            [in] - first cell index in cellWorkset that we do not process; endCell - startCell must equal the extent of the Jacobian container in dimension 0.  Default: -1, a special value that indicates the extent of the cellWorkset should be used.
      */
-    template<typename jacobianValueType,    class ...jacobianProperties,
+    template<typename JacobianViewType,
              typename BasisGradientsType,
              typename WorksetType>
     static void
-    setJacobian(       Kokkos::DynRankView<jacobianValueType,jacobianProperties...> jacobian,
-                 const WorksetType worksetCell,
+    setJacobian(       JacobianViewType   jacobian,
+                 const WorksetType        worksetCell,
                  const BasisGradientsType gradients,
                  const int startCell=0, const int endCell=-1);
     
@@ -310,15 +277,15 @@ public:
         \param  cellTopo          [in]  - cell topology of the cells stored in \c cellWorkset
      */
 
-    template<typename jacobianValueType,    class ...jacobianProperties,
-             typename pointValueType,       class ...pointProperties,
-             typename worksetCellValueType, class ...worksetCellProperties>
+    template<typename JacobianViewType,
+             typename PointViewType,
+             typename WorksetCellViewType>
     static void
-    setJacobian(      Kokkos::DynRankView<jacobianValueType,jacobianProperties...> jacobian,
-                 const Kokkos::DynRankView<pointValueType,pointProperties...>       points,
-                 const Kokkos::DynRankView<worksetCellValueType,worksetCellProperties...> worksetCell,
+    setJacobian(       JacobianViewType    jacobian,
+                 const PointViewType       points,
+                 const WorksetCellViewType worksetCell,
                  const shards::CellTopology cellTopo ) {
-    using nonConstPointValueType = std::remove_const_t<pointValueType>;
+    using nonConstPointValueType = typename PointViewType::non_const_value_type;
     auto basis = createHGradBasis<nonConstPointValueType,nonConstPointValueType>(cellTopo);
     setJacobian(jacobian, 
                 points, 
@@ -336,11 +303,11 @@ public:
         \param  jacobianInv       [out] - rank-4 array with dimensions (C,P,D,D) with the inverse Jacobians
         \param  jacobian          [in]  - rank-4 array with dimensions (C,P,D,D) with the Jacobians
     */
-    template<typename jacobianInvValueType, class ...jacobianInvProperties,
-             typename jacobianValueType,    class ...jacobianProperties>
+    template<typename JacobianInvViewType,
+             typename JacobianViewType>
     static void
-    setJacobianInv(       Kokkos::DynRankView<jacobianInvValueType,jacobianInvProperties...> jacobianInv,
-                    const Kokkos::DynRankView<jacobianValueType,jacobianProperties...>       jacobian );
+    setJacobianInv(       JacobianInvViewType jacobianInv,
+                    const JacobianViewType    jacobian );
 
     /** \brief  Computes the determinant of the Jacobian matrix \e DF of the reference-to-physical frame map \e F.
 
@@ -352,11 +319,11 @@ public:
         \param  jacobianDet       [out] - rank-2 array with dimensions (C,P) with Jacobian determinants
         \param  jacobian          [in]  - rank-4 array with dimensions (C,P,D,D) with the Jacobians
     */
-    template<typename jacobianDetValueType, class ...jacobianDetProperties,
-             typename jacobianValueType,    class ...jacobianProperties>
+    template<typename JacobianDetViewType,
+             typename JacobianViewType>
     static void
-    setJacobianDet(       Kokkos::DynRankView<jacobianDetValueType,jacobianDetProperties...>  jacobianDet,
-                    const Kokkos::DynRankView<jacobianValueType,jacobianProperties...>        jacobian );
+    setJacobianDet(       JacobianDetViewType jacobianDet,
+                    const JacobianViewType    jacobian );
 
     /** \brief  Allocates and returns a Data container suitable for storing determinants corresponding to the Jacobians in the Data container provided
 
@@ -507,9 +474,9 @@ public:
         \remark When \c subcellDim = dimension of the \c parentCell this method returns the Cartesian
         coordinates of the nodes of the reference cell itself. Note that this requires \c subcellOrd=0.
     */
-    template<typename subcellNodeValueType, class ...subcellNodeProperties>
+    template<typename SubcellNodeViewType>
     static void
-    getReferenceSubcellNodes(       Kokkos::DynRankView<subcellNodeValueType,subcellNodeProperties...> subcellNodes,
+    getReferenceSubcellNodes(       SubcellNodeViewType  subcellNodes,
                               const ordinal_type         subcellDim,
                               const ordinal_type         subcellOrd,
                               const shards::CellTopology parentCell );
@@ -539,11 +506,11 @@ public:
         \param  edgeOrd           [in]  - ordinal of the edge whose tangent is computed
         \param  parentCell        [in]  - cell topology of the parent reference cell
     */
-    template<typename refEdgeTangentValueType, class ...refEdgeTangentProperties>
+    template<typename RefEdgeTangentViewType>
     static void
-    getReferenceEdgeTangent(       Kokkos::DynRankView<refEdgeTangentValueType,refEdgeTangentProperties...> refEdgeTangent,
-                             const ordinal_type         edgeOrd,
-                             const shards::CellTopology parentCell );
+    getReferenceEdgeTangent(       RefEdgeTangentViewType refEdgeTangent,
+                             const ordinal_type           edgeOrd,
+                             const shards::CellTopology   parentCell );
 
     /** \brief  Computes pairs of constant tangent vectors to faces of a 3D reference cells.
 
@@ -581,10 +548,10 @@ public:
         \param  faceOrd           [in]  - ordinal of the face whose tangents are computed
         \param  parentCell        [in]  - cell topology of the parent 3D reference cell
     */
-    template<typename refFaceTanValueType, class ...refFaceTanProperties>
+    template<typename RefFaceTanViewType>
     static void
-    getReferenceFaceTangents(       Kokkos::DynRankView<refFaceTanValueType,refFaceTanProperties...> refFaceTanU,
-                                    Kokkos::DynRankView<refFaceTanValueType,refFaceTanProperties...> refFaceTanV,
+    getReferenceFaceTangents(       RefFaceTanViewType   refFaceTanU,
+                                    RefFaceTanViewType   refFaceTanV,
                               const ordinal_type         faceOrd,
                               const shards::CellTopology parentCell );
 
@@ -650,11 +617,11 @@ public:
         \param  sideOrd           [in]  - ordinal of the side whose normal is computed
         \param  parentCell        [in]  - cell topology of the parent reference cell
     */
-    template<typename refSideNormalValueType, class ...refSideNormalProperties>
+    template<typename RefSideNormalViewType>
     static void
-    getReferenceSideNormal(       Kokkos::DynRankView<refSideNormalValueType,refSideNormalProperties...> refSideNormal,
-                            const ordinal_type         sideOrd,
-                            const shards::CellTopology parentCell );
+    getReferenceSideNormal(       RefSideNormalViewType refSideNormal,
+                            const ordinal_type          sideOrd,
+                            const shards::CellTopology  parentCell );
 
     /** \brief  Computes constant normal vectors to faces of 3D reference cell.
 
@@ -694,11 +661,11 @@ public:
         \param  faceOrd           [in]  - ordinal of the face whose normal is computed
         \param  parentCell        [in]  - cell topology of the parent reference cell
     */
-    template<typename refFaceNormalValueType, class ...refFaceNormalProperties>
+    template<typename RefFaceNormalViewType>
     static void
-    getReferenceFaceNormal(       Kokkos::DynRankView<refFaceNormalValueType,refFaceNormalProperties...> refFaceNormal,
-                            const ordinal_type         faceOrd,
-                            const shards::CellTopology parentCell );
+    getReferenceFaceNormal(       RefFaceNormalViewType refFaceNormal,
+                            const ordinal_type          faceOrd,
+                            const shards::CellTopology  parentCell );
 
     /** \brief  Computes non-normalized tangent vectors to physical edges in an edge workset
         \f$\{\mathcal{E}_{c,i}\}_{c=0}^{N}\f$; (see \ref sec_cell_topology_subcell_wset for definition of edge worksets).
@@ -1028,15 +995,15 @@ public:
         \param  basis                   [in]  - pointer to HGrad basis used in reference-to-physical cell mapping
 
     */
-    template<typename physPointValueType,   class ...physPointProperties,
-             typename refPointValueType,    class ...refPointProperties,
+    template<typename PhysPointValueType,
+             typename RefPointValueType,
              typename WorksetType,
              typename HGradBasisPtrType>
     static void
-    mapToPhysicalFrame(       Kokkos::DynRankView<physPointValueType,physPointProperties...>     physPoints,
-                        const Kokkos::DynRankView<refPointValueType,refPointProperties...>       refPoints,
-                        const WorksetType worksetCell,
-                        const HGradBasisPtrType basis );
+    mapToPhysicalFrame(       PhysPointValueType physPoints,
+                        const RefPointValueType  refPoints,
+                        const WorksetType        worksetCell,
+                        const HGradBasisPtrType  basis );
 
     /** \brief  Computes \e F, the reference-to-physical frame map.
 
@@ -1078,15 +1045,15 @@ public:
         \param  cellTopo          [in]  - cell topology of the cells stored in \c cellWorkset
 
     */
-    template<typename physPointValueType,   class ...physPointProperties,
-             typename refPointValueType,    class ...refPointProperties,
-             typename worksetCellValueType, class ...worksetCellProperties>
+    template<typename PhysPointViewType,
+             typename RefPointViewType,
+             typename WorksetCellViewType>
     static void
-    mapToPhysicalFrame(       Kokkos::DynRankView<physPointValueType,physPointProperties...>     physPoints,
-                        const Kokkos::DynRankView<refPointValueType,refPointProperties...>       refPoints,
-                        const Kokkos::DynRankView<worksetCellValueType,worksetCellProperties...> worksetCell,
+    mapToPhysicalFrame(       PhysPointViewType    physPoints,
+                        const RefPointViewType     refPoints,
+                        const WorksetCellViewType  worksetCell,
                         const shards::CellTopology cellTopo ) {
-      using nonConstRefPointValueType = std::remove_const_t<refPointValueType>;
+      using nonConstRefPointValueType = typename RefPointViewType::non_const_value_type;
       auto basis = createHGradBasis<nonConstRefPointValueType,nonConstRefPointValueType>(cellTopo);
       mapToPhysicalFrame(physPoints, 
                          refPoints, 

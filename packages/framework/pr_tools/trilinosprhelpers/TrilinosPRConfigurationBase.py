@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- mode: python; py-indent-offset: 4; py-continuation-offset: 4 -*-
 """
 This file contains the base class for the Pull Request test driver.
@@ -46,6 +46,8 @@ class TrilinosPRConfigurationBase(object):
         arg_pr_config_file: The config.ini file that specifies the configuration to load.
         arg_pr_jenkins_job_name: The Jenkins Job Name.
         arg_ccache_enable: Enable ccache.
+        arg_dashboard_build_name: A shortened genconfig build name
+                                  for posting to a testing dashboard.
         filename_subprojects: The subprojects file.
         working_directory_ctest: Gen. working dir where TFW_testing_single_configure_prototype
             is executed from.
@@ -299,6 +301,14 @@ class TrilinosPRConfigurationBase(object):
         """
         return self.args.genconfig_build_name
 
+    @property
+    def arg_dashboard_build_name(self):
+        """
+        The simplified genconfig build name containing only the
+        special attributes of the full build name.
+        Default is to use the value in args.dashboard_build_name.
+        """
+        return self.args.dashboard_build_name
 
     @property
     def arg_filename_subprojects(self):
@@ -472,8 +482,10 @@ class TrilinosPRConfigurationBase(object):
 
         PR-<PR Number>-test-<Jenkins Job Name>-<Job Number">
         """
-        if self.arg_pullrequest_cdash_track == "Pull Request":
+        if "Pull Request" in self.arg_pullrequest_cdash_track:
             output = "PR-{}-test-{}-{}".format(self.arg_pullrequest_number, self.arg_pr_genconfig_job_name, self.arg_jenkins_job_number)
+        elif self.arg_dashboard_build_name != "__UNKNOWN__":
+            output = self.arg_dashboard_build_name
         else:
             output = self.arg_pr_genconfig_job_name            
         return output
@@ -698,6 +710,7 @@ class TrilinosPRConfigurationBase(object):
         self.message("--- arg_pr_gen_config_file      = {}".format(self.arg_pr_gen_config_file))
         self.message("--- arg_pr_jenkins_job_name     = {}".format(self.arg_pr_jenkins_job_name))
         self.message("--- arg_pr_genconfig_job_name   = {}".format(self.arg_pr_genconfig_job_name))
+        self.message("--- arg_dashboard_build_name    = {}".format(self.arg_dashboard_build_name))
         self.message("--- arg_pullrequest_number      = {}".format(self.arg_pullrequest_number))
         self.message("--- arg_pullrequest_cdash_track = {}".format(self.arg_pullrequest_cdash_track))
         self.message("--- arg_req_mem_per_core        = {}".format(self.arg_req_mem_per_core))
@@ -722,7 +735,7 @@ class TrilinosPRConfigurationBase(object):
         self.message("+" + "-"*68 + "+")
         self.message("|   E N V I R O N M E N T   S E T   U P   S T A R T")
         self.message("+" + "-"*68 + "+")
-        tr_env = LoadEnv([self.arg_pr_genconfig_job_name],
+        tr_env = LoadEnv([self.arg_pr_genconfig_job_name, "--force"],
                          load_env_ini_file=Path(self.arg_pr_env_config_file))
         tr_env.load_set_environment()
 

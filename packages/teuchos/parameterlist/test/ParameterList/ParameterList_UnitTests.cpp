@@ -866,14 +866,39 @@ TEUCHOS_UNIT_TEST( ParameterList, validateAgainstSelf )
 }
 
 
-TEUCHOS_UNIT_TEST( ParameterList, validateParametersAndSetDefaults )
+TEUCHOS_UNIT_TEST( ParameterList, validateParametersAndSetDefaults_default )
 {
+  // Test for proper behavior when the user doesn't set `Nonlinear Solver`
   ParameterList PL_Main = createMainPL();
   ParameterList PL_Main_valid = createValidMainPL();
   ECHO(PL_Main.validateParametersAndSetDefaults(PL_Main_valid));
   TEST_NOTHROW(
     rcp_dynamic_cast<const StringToIntegralParameterEntryValidator<int> >(
       PL_Main.getEntry("Nonlinear Solver").validator(), true ) );
+  // Make sure the parameter entry is set to default and unused after validation
+  const ParameterEntry &default_entry = PL_Main.getEntry("Nonlinear Solver");
+  TEST_EQUALITY(default_entry.isDefault(), true);
+  TEST_EQUALITY(default_entry.isUsed(), false);
+  // Make sure the value is stored as an integer after validation
+#if defined(HAVE_TEUCHOS_MODIFY_DEFAULTS_DURING_VALIDATION)
+  TEST_NOTHROW(Teuchos::any_cast<int>(default_entry.getAny()));
+#endif
+}
+
+
+TEUCHOS_UNIT_TEST( ParameterList, validateParametersAndSetDefaults_noDefault )
+{
+  // Now make sure we have the correct behavior when not using a default value
+  ParameterList PL_Main = createMainPL();
+  PL_Main.set("Nonlinear Solver", "Trust Region Based");
+  ParameterList PL_Main_valid = createValidMainPL();
+  PL_Main.validateParametersAndSetDefaults(PL_Main_valid);
+  const ParameterEntry &entry = PL_Main.getEntry("Nonlinear Solver");
+  TEST_EQUALITY(entry.isDefault(), false);
+  TEST_EQUALITY(entry.isUsed(), false);
+#if defined(HAVE_TEUCHOS_MODIFY_DEFAULTS_DURING_VALIDATION)
+  TEST_NOTHROW(Teuchos::any_cast<int>(entry.getAny()));
+#endif
 }
 
 
@@ -949,6 +974,20 @@ TEUCHOS_UNIT_TEST( ParameterList, simpleModifierModifyReconcile )
   // Test the copy constructor
   ParameterList copy_valid_pl(valid_pl);
   TEST_EQUALITY(valid_pl, copy_valid_pl);
+}
+
+
+TEUCHOS_UNIT_TEST( ParameterList, modify_CopiesModifiers ) {
+  RCP<ParameterListModifier> mod_top = rcp<ParameterListModifier>(new ParameterListModifier("Modifier Top"));
+  RCP<ParameterListModifier> mod_A = rcp<ParameterListModifier>(new ParameterListModifier("Modifier A"));
+  RCP<ParameterListModifier> mod_B = rcp<ParameterListModifier>(new ParameterListModifier("Modifier B"));
+  ParameterList input{"Plist"}, valid{"Plist", mod_top};
+  input.sublist("A").sublist("B");
+  valid.sublist("A", mod_A);
+  valid.sublist("A").sublist("B", mod_B);
+  input.modifyParameterList(valid);
+  // This calls `haveSameModifiers` to make sure they are all copied to `input`
+  TEST_EQUALITY(input, valid);
 }
 
 
@@ -1168,6 +1207,53 @@ TEUCHOS_UNIT_TEST( ParameterList, print ) {
     TEST_ASSERT(ss.str().size() == 0);
   }
 }
+
+// define enum class Shape in anonymous namespace outside of unittest
+// "NonPrintableParameterEntries" to avoid polution of class type in string comparison
+namespace {
+    enum class Shape : int { CIRCLE, SQUARE, TRIANGLE };
+}
+
+TEUCHOS_UNIT_TEST( ParameterList, NonPrintableParameterEntries){
+  // test printing std::vector<int> from a parameter list
+  {
+    std::vector<int> testVec = {1};
+    ParameterList paramList = ParameterList("std::vector test");
+    paramList.set("My std::vector<int>", testVec);
+
+    try {
+      paramList.print();  // Should throw!
+      TEUCHOS_TEST_FOR_EXCEPTION(true, std::logic_error, "If you get here then the test failed!");
+    }
+    catch (const NonprintableTypeException &except) {
+      std::string actualMessage = except.what();
+      std::string expectedMessage = "Trying to print type std::vector<int, std::allocator<int> > "
+                                    "which is not printable (i.e. does not have operator<<() defined)!";
+      TEST_ASSERT(actualMessage.find(expectedMessage) != std::string::npos);
+    }
+  }
+
+  // test printing enum class from a parameter list
+  {
+    ParameterList paramList = ParameterList("enum class test");
+    paramList.set("My enum class", Shape::SQUARE);
+
+    try {
+      paramList.print();  // Should throw!
+      TEUCHOS_TEST_FOR_EXCEPTION( true, std::logic_error, "If you get here then the test failed!" );
+    }
+    catch (const NonprintableTypeException &except) {
+      std::string actualMessage = except.what();
+      std::string expectedMessage =
+              "Trying to print type Teuchos::(anonymous namespace)::Shape which is not printable "
+              "(i.e. does not have operator<<() defined)!";
+      TEST_ASSERT(actualMessage.find(expectedMessage) != std::string::npos);
+    }
+  }
+}
+
+
+
 
 } // namespace Teuchos
 

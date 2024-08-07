@@ -7,6 +7,10 @@
 [Packages](http://trilinos.github.io/packages.html)
 
 
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/trilinos/Trilinos/badge)](https://securityscorecards.dev/viewer/?uri=github.com/trilinos/Trilinos)
+
+
+
 The Trilinos Project is an effort to develop algorithms and enabling
 technologies within an object-oriented software framework for the solution of
 large-scale, complex multi-physics engineering and scientific problems. A
@@ -33,9 +37,11 @@ unique design feature of Trilinos is its focus on packages.
 
 ### License
 
-Trilinos is licensed on a per-package basis. Most packages are now under a BSD
-license, some are published under the (L)GPL. Details can be taken from the
-documentation of each package.
+Trilinos is licensed on a per-package basis. Most packages are now
+under a BSD license, some are published under the (L)GPL. Details
+can be taken from the documentation of each package.  See COPYRIGHT,
+LICENSE, https://trilinos.github.io/license.html and individual package,
+directory and/or file headers for additional information.
 
 ### Contributing
 

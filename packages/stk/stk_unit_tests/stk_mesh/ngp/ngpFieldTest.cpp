@@ -33,6 +33,7 @@
 // 
 
 #include <gtest/gtest.h>
+#include <stk_util/stk_config.h>
 #include <stk_mesh/base/Ngp.hpp>
 #include <stk_unit_test_utils/getOption.h>
 #include <stk_unit_test_utils/MeshFixture.hpp>
@@ -52,22 +53,14 @@
 #include <stk_mesh/base/NgpForEachEntity.hpp>
 #include <stk_mesh/base/FieldBLAS.hpp>
 #include <stk_mesh/base/NgpFieldBLAS.hpp>
-#include <stk_util/stk_config.h>
 #include <stk_util/util/StkNgpVector.hpp>
 #include "NgpUnitTestUtils.hpp"
+#include "NgpFieldTestUtils.hpp"
 #include <Kokkos_Core.hpp>
 #include <string>
 #include <cstdlib>
 
 namespace ngp_field_test {
-
-template<typename T>
-class NgpFieldTester : public stk::mesh::NgpField<T>
-{
-public:
-  bool test_need_sync_to_host() const { return this->need_sync_to_host(); }
-  bool test_need_sync_to_device() const { return this->need_sync_to_device(); }
-};
 
 class NgpFieldFixture : public stk::unit_test_util::simple_fields::MeshFixture
 {
@@ -344,57 +337,6 @@ public:
       EXPECT_EQ(hostData, stkData);
     };
     check_field_data_equality_on_device<T>(elements, ngpField, stkField, checkFunc);
-  }
-
-  template<typename T>
-  void check_field_data_on_device(stk::mesh::NgpMesh& ngpMesh,
-                                  stk::mesh::NgpField<T>& ngpField,
-                                  const stk::mesh::Selector& selector,
-                                  T expectedValue)
-  {
-    stk::mesh::for_each_entity_run(ngpMesh, ngpField.get_rank(), selector,
-      KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex& entity) {
-        const int numComponents = ngpField.get_num_components_per_entity(entity);
-        for(int i=0; i<numComponents; ++i) {
-          STK_NGP_ThrowRequire(ngpField(entity, i) == expectedValue);
-        }
-      }
-    );
-  }
-
-  template<typename T>
-  void check_field_data_on_host(const stk::mesh::HostMesh& stkMesh,
-                                const stk::mesh::FieldBase& stkField,
-                                const stk::mesh::Selector& selector,
-                                T expectedValue)
-  {
-    stk::mesh::for_each_entity_run(stkMesh, stkField.entity_rank(), selector,
-      [&](const stk::mesh::FastMeshIndex& fastMeshIndex) {
-        stk::mesh::Entity entity = stkMesh.get_entity(stkField.entity_rank(), fastMeshIndex);
-        const int numComponents = stk::mesh::field_scalars_per_entity(stkField, entity);
-        const T* fieldData = reinterpret_cast<const T*>(stk::mesh::field_data(stkField, entity));
-        for(int i=0; i<numComponents; ++i) {
-          STK_ThrowRequire(fieldData[i] == expectedValue);
-        }
-      }
-    );
-  }
-
-  template<typename T>
-  void check_field_data_on_host(const stk::mesh::BulkData& stkMesh,
-                                const stk::mesh::FieldBase& stkField,
-                                const stk::mesh::Selector& selector,
-                                T expectedValue)
-  {
-    stk::mesh::for_each_entity_run(stkMesh, stkField.entity_rank(), selector,
-      [&](const stk::mesh::BulkData& bulk, const stk::mesh::Entity entity) {
-        const int numComponents = stk::mesh::field_scalars_per_entity(stkField, entity);
-        const T* fieldData = reinterpret_cast<const T*>(stk::mesh::field_data(stkField, entity));
-        for(int i=0; i<numComponents; ++i) {
-          STK_ThrowRequire(fieldData[i] == expectedValue);
-        }
-      }
-    );
   }
 
   void set_element_field_data(stk::mesh::FieldBase* field)
@@ -1090,7 +1032,6 @@ TEST_F(NgpFieldFixture, ModifyOnHostFlagClearedOnInitialNgpFieldConstruction)
   setup_one_field_one_element_mesh();
 
   stk::mesh::Field<int>& field1 = *get_meta().get_field<int>(stk::topology::ELEM_RANK, "field1");
-  EXPECT_FALSE(field1.need_sync_to_device());
   field1.modify_on_host();
 
   auto ngpfield = stk::mesh::get_updated_ngp_field<int>(field1);
@@ -1104,7 +1045,6 @@ TEST_F(NgpFieldFixture, InvalidModifyFlagCondition)
   setup_one_field_one_element_mesh();
 
   stk::mesh::Field<int>& field1 = *get_meta().get_field<int>(stk::topology::ELEM_RANK, "field1");
-  EXPECT_FALSE(field1.need_sync_to_device());
 
   auto ngpfield = stk::mesh::get_updated_ngp_field<int>(field1);
   EXPECT_FALSE(field1.need_sync_to_device());
@@ -1121,6 +1061,7 @@ TEST_F(NgpFieldFixture, PersistentModifyOnDeviceFlag)
 
   stk::mesh::Field<int>& field1 = *get_meta().get_field<int>(stk::topology::ELEM_RANK, "field1");
   EXPECT_FALSE(field1.need_sync_to_host());
+  field1.sync_to_device();
   field1.modify_on_device();
 
   auto ngpfield = stk::mesh::get_updated_ngp_field<int>(field1);
@@ -1199,7 +1140,7 @@ TEST_F(NgpFieldFixture, DeviceField_set_all_after_modified_on_host)
   auto stkField1 = get_meta().get_field<double>(stk::topology::ELEM_RANK, "variableLengthField1");
 
   EXPECT_FALSE(stkField1->need_sync_to_host());
-  EXPECT_FALSE(stkField1->need_sync_to_device());
+  EXPECT_TRUE(stkField1->need_sync_to_device());
 
   stk::mesh::NgpField<double> ngpField1 = stk::mesh::get_updated_ngp_field<double>(*stkField1);
  
@@ -1225,133 +1166,28 @@ TEST_F(NgpFieldFixture, blas_field_copy_device_to_device)
 
   EXPECT_FALSE(stkField1->need_sync_to_host());
   EXPECT_FALSE(stkField2->need_sync_to_host());
-  EXPECT_FALSE(stkField1->need_sync_to_device());
-  EXPECT_FALSE(stkField2->need_sync_to_device());
+  EXPECT_TRUE(stkField1->need_sync_to_device());
+  EXPECT_TRUE(stkField2->need_sync_to_device());
 
-  stk::mesh::NgpField<double> ngpField1 = stk::mesh::get_updated_ngp_field<double>(*stkField1);
-  stk::mesh::NgpField<double> ngpField2 = stk::mesh::get_updated_ngp_field<double>(*stkField2);
  
   const double myConstantValue = 97.9;
   stk::mesh::field_fill(myConstantValue, *stkField1, stk::ngp::ExecSpace());
 
+#ifdef STK_ENABLE_GPU
+  stk::mesh::NgpField<double>& ngpField1 = stk::mesh::get_updated_ngp_field<double>(*stkField1);
   EXPECT_TRUE(ngpField1.need_sync_to_host());
+#endif
 
   stk::mesh::field_copy(*stkField1, *stkField2);
 
+#ifdef STK_ENABLE_GPU
   EXPECT_TRUE(stkField1->need_sync_to_host());
   EXPECT_TRUE(stkField2->need_sync_to_host());
+#endif
 
   stk::mesh::Selector selector(*stkField2);
-  check_field_data_on_device(ngpMesh, ngpField2, selector, myConstantValue);
-}
-
-TEST_F(NgpFieldFixture, blas_field_fill_device)
-{
-  if (get_parallel_size() != 1) GTEST_SKIP();
-
-  const int numComponent1 = 8;
-  const int numComponent2 = 3;
-  setup_two_fields_five_hex_three_block_mesh<double>(numComponent1, numComponent2);
-
-  auto ngpMesh = stk::mesh::get_updated_ngp_mesh(get_bulk());
-  auto stkField1 = get_meta().get_field<double>(stk::topology::ELEM_RANK, "variableLengthField1");
-
-  EXPECT_FALSE(stkField1->need_sync_to_host());
-  EXPECT_FALSE(stkField1->need_sync_to_device());
-
-  stk::mesh::NgpField<double> ngpField1 = stk::mesh::get_updated_ngp_field<double>(*stkField1);
- 
-  ngpField1.set_all(ngpMesh, 97.9);
-
-  EXPECT_TRUE(ngpField1.need_sync_to_host());
-
-  const double myConstantValue = 55.5;
-  stk::mesh::field_fill(myConstantValue, *stkField1, stk::ngp::ExecSpace());
-
-  EXPECT_TRUE(stkField1->need_sync_to_host());
-
-  stk::mesh::Selector selector(*stkField1);
-  check_field_data_on_device(ngpMesh, ngpField1, selector, myConstantValue);
-}
-
-TEST_F(NgpFieldFixture, blas_field_fill_host_ngp)
-{
-  if (get_parallel_size() != 1) GTEST_SKIP();
-
-  const int numComponent1 = 8;
-  const int numComponent2 = 3;
-  setup_two_fields_five_hex_three_block_mesh<double>(numComponent1, numComponent2);
-
-  auto ngpMesh = stk::mesh::get_updated_ngp_mesh(get_bulk());
-  auto stkField1 = get_meta().get_field<double>(stk::topology::ELEM_RANK, "variableLengthField1");
-
-  EXPECT_FALSE(stkField1->need_sync_to_host());
-  EXPECT_FALSE(stkField1->need_sync_to_device());
-
-  stk::mesh::NgpField<double> ngpField1 = stk::mesh::get_updated_ngp_field<double>(*stkField1);
- 
-  ngpField1.set_all(ngpMesh, 97.9);
-
-  EXPECT_TRUE(ngpField1.need_sync_to_host());
-
-  const double myConstantValue = 55.5;
-  stk::mesh::field_fill(myConstantValue, *stkField1, stk::ngp::HostExecSpace());
-
-  EXPECT_TRUE(stkField1->need_sync_to_device());
-
-  stk::mesh::Selector selector(*stkField1);
-  check_field_data_on_host(get_bulk(), *stkField1, selector, myConstantValue);
-}
-
-#else
-
-TEST_F(NgpFieldFixture, blas_field_fill_host)
-{
-  if (get_parallel_size() != 1) GTEST_SKIP();
-
-  const int numComponent1 = 8;
-  const int numComponent2 = 3;
-  setup_two_fields_five_hex_three_block_mesh<double>(numComponent1, numComponent2);
-
-  auto ngpMesh = stk::mesh::get_updated_ngp_mesh(get_bulk());
-  auto stkField1 = get_meta().get_field<double>(stk::topology::ELEM_RANK, "variableLengthField1");
-
-  EXPECT_FALSE(stkField1->need_sync_to_host());
-  EXPECT_FALSE(stkField1->need_sync_to_device());
-
-  stk::mesh::NgpField<double> ngpField1 = stk::mesh::get_updated_ngp_field<double>(*stkField1);
- 
-  const double myConstantValue = 55.5;
-  stk::mesh::field_fill(myConstantValue, *stkField1, stk::ngp::HostExecSpace());
-
-  EXPECT_FALSE(stkField1->need_sync_to_host());
-
-  stk::mesh::Selector selector(*stkField1);
-  check_field_data_on_host(ngpMesh, *stkField1, selector, myConstantValue);
-}
-
-TEST_F(NgpFieldFixture, blas_field_fill_device_with_host_build)
-{
-  if (get_parallel_size() != 1) GTEST_SKIP();
-
-  const int numComponent1 = 8;
-  const int numComponent2 = 3;
-  setup_two_fields_five_hex_three_block_mesh<double>(numComponent1, numComponent2);
-
-  auto ngpMesh = stk::mesh::get_updated_ngp_mesh(get_bulk());
-  auto stkField1 = get_meta().get_field<double>(stk::topology::ELEM_RANK, "variableLengthField1");
-
-  EXPECT_FALSE(stkField1->need_sync_to_host());
-  EXPECT_FALSE(stkField1->need_sync_to_device());
-
-  const double myConstantValue = 55.5;
-  constexpr bool MarkModOnDevice = true;
-  stk::mesh::field_fill(myConstantValue, *stkField1, stk::ngp::HostExecSpace(), MarkModOnDevice);
-
-  EXPECT_TRUE(stkField1->need_sync_to_host());
-
-  stk::mesh::Selector selector(*stkField1);
-  check_field_data_on_host(ngpMesh, *stkField1, selector, myConstantValue);
+  stk::mesh::NgpField<double>& ngpField2 = stk::mesh::get_updated_ngp_field<double>(*stkField2);
+  ngp_field_test_utils::check_field_data_on_device(ngpMesh, ngpField2, selector, myConstantValue);
 }
 
 #endif
@@ -1784,14 +1620,13 @@ TEST_F(NgpFieldFixture, ClearSyncStateAfterModifyOnDevice)
   stk::io::fill_mesh("generated:1x1x1", get_bulk());
 
   stk::mesh::NgpField<int>& ngpField = stk::mesh::get_updated_ngp_field<int>(stkIntField);
-  NgpFieldTester<int>& testNgpField = static_cast<NgpFieldTester<int>&>(ngpField);
 
-  testNgpField.modify_on_device();
+  ngpField.modify_on_device();
 
-  EXPECT_TRUE(testNgpField.test_need_sync_to_host());
+  EXPECT_TRUE(ngpField.need_sync_to_host());
 
   stkIntField.clear_sync_state();
-  EXPECT_FALSE(testNgpField.test_need_sync_to_host());
+  EXPECT_FALSE(ngpField.need_sync_to_host());
 }
 
 TEST_F(NgpFieldFixture, ClearHostSyncState)
@@ -1803,15 +1638,14 @@ TEST_F(NgpFieldFixture, ClearHostSyncState)
   stk::io::fill_mesh("generated:1x1x1", get_bulk());
 
   stk::mesh::NgpField<int>& ngpField = stk::mesh::get_updated_ngp_field<int>(stkIntField);
-  NgpFieldTester<int>& testNgpField = static_cast<NgpFieldTester<int>&>(ngpField);
 
-  testNgpField.modify_on_host();
+  ngpField.modify_on_host();
 
-  EXPECT_TRUE(testNgpField.test_need_sync_to_device());
+  EXPECT_TRUE(ngpField.need_sync_to_device());
 
-  testNgpField.clear_host_sync_state();
+  ngpField.clear_host_sync_state();
 
-  EXPECT_FALSE(testNgpField.test_need_sync_to_device());
+  EXPECT_FALSE(ngpField.need_sync_to_device());
 }
 
 TEST_F(NgpFieldFixture, ClearDeviceSyncState)
@@ -1823,15 +1657,14 @@ TEST_F(NgpFieldFixture, ClearDeviceSyncState)
   stk::io::fill_mesh("generated:1x1x1", get_bulk());
 
   stk::mesh::NgpField<int>& ngpField = stk::mesh::get_updated_ngp_field<int>(stkIntField);
-  NgpFieldTester<int>& testNgpField = static_cast<NgpFieldTester<int>&>(ngpField);
 
-  testNgpField.modify_on_device();
+  ngpField.modify_on_device();
 
-  EXPECT_TRUE(testNgpField.test_need_sync_to_host());
+  EXPECT_TRUE(ngpField.need_sync_to_host());
 
-  testNgpField.clear_device_sync_state();
+  ngpField.clear_device_sync_state();
 
-  EXPECT_FALSE(testNgpField.test_need_sync_to_host());
+  EXPECT_FALSE(ngpField.need_sync_to_host());
 }
 
 TEST_F(NgpFieldFixture, ClearHostSyncState_doesntClearDeviceMod)
@@ -1843,15 +1676,14 @@ TEST_F(NgpFieldFixture, ClearHostSyncState_doesntClearDeviceMod)
   stk::io::fill_mesh("generated:1x1x1", get_bulk());
 
   stk::mesh::NgpField<int>& ngpField = stk::mesh::get_updated_ngp_field<int>(stkIntField);
-  NgpFieldTester<int>& testNgpField = static_cast<NgpFieldTester<int>&>(ngpField);
 
-  testNgpField.modify_on_device();
+  ngpField.modify_on_device();
 
-  EXPECT_TRUE(testNgpField.test_need_sync_to_host());
+  EXPECT_TRUE(ngpField.need_sync_to_host());
 
-  testNgpField.clear_host_sync_state();
+  ngpField.clear_host_sync_state();
 
-  EXPECT_TRUE(testNgpField.test_need_sync_to_host());
+  EXPECT_TRUE(ngpField.need_sync_to_host());
 }
 
 TEST_F(NgpFieldFixture, ClearDeviceSyncState_doesntClearHostMod)
@@ -1863,15 +1695,14 @@ TEST_F(NgpFieldFixture, ClearDeviceSyncState_doesntClearHostMod)
   stk::io::fill_mesh("generated:1x1x1", get_bulk());
 
   stk::mesh::NgpField<int>& ngpField = stk::mesh::get_updated_ngp_field<int>(stkIntField);
-  NgpFieldTester<int>& testNgpField = static_cast<NgpFieldTester<int>&>(ngpField);
 
-  testNgpField.modify_on_host();
+  ngpField.modify_on_host();
 
-  EXPECT_TRUE(testNgpField.test_need_sync_to_device());
+  EXPECT_TRUE(ngpField.need_sync_to_device());
 
-  testNgpField.clear_device_sync_state();
+  ngpField.clear_device_sync_state();
 
-  EXPECT_TRUE(testNgpField.test_need_sync_to_device());
+  EXPECT_TRUE(ngpField.need_sync_to_device());
 }
 
 TEST_F(NgpFieldFixture, updateBucketPtrView)
@@ -2165,11 +1996,22 @@ TEST_F(ModifyBySelectorFixture, hostToDevice_partialField_byReference)
   check_field_data_on_device<int>(ngpFieldByRef, stkField);
 }
 
-TEST(NgpField, checkSizeof)
+TEST(DeviceField, checkSizeof)
 {
   size_t expectedNumBytes = 384;
-  std::cout << "sizeof(stk::mesh::NgpField<double>): " << sizeof(stk::mesh::NgpField<double>) << std::endl;
-  EXPECT_TRUE(expectedNumBytes >= sizeof(stk::mesh::NgpField<double>));
+  std::cout << "sizeof(stk::mesh::DeviceField<double>): " << sizeof(stk::mesh::DeviceField<double>) << std::endl;
+  EXPECT_TRUE(sizeof(stk::mesh::DeviceField<double>) <= expectedNumBytes);
+}
+
+TEST(DeviceBucket, checkSizeof)
+{
+#ifndef STK_HIDE_DEPRECATED_CODE  // Delete after 2024/06/26
+  size_t expectedNumBytes = 176;
+#else
+  size_t expectedNumBytes = 152;  // Value after removing DeviceBucket::m_hostEntities
+#endif
+  std::cout << "sizeof(stk::mesh::DeviceBucket): " << sizeof(stk::mesh::DeviceBucket) << std::endl;
+  EXPECT_TRUE(sizeof(stk::mesh::DeviceBucket) <= expectedNumBytes);
 }
 
 }

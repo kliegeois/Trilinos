@@ -51,6 +51,13 @@ else()
   target_link_libraries(stk_transfer_util PUBLIC stk_search_util)
   target_link_libraries(stk_transfer_util PUBLIC stk_util_env)
 
+  if(USE_SIERRA_BLAS_LAPACK)
+    target_link_libraries(stk_transfer_util PUBLIC sierra_blas_lapack)
+  else()
+    find_package(LAPACK REQUIRED)
+    target_link_libraries(stk_transfer_util PUBLIC LAPACK::LAPACK)
+  endif()
+
   target_include_directories(stk_transfer_util PUBLIC
    $<BUILD_INTERFACE:${STK_TOPLEVEL_SOURCE_DIR}/stk_transfer_util>
    $<INSTALL_INTERFACE:include>
