@@ -17,22 +17,21 @@
 #include <Xpetra_MatrixMatrix.hpp>
 #include <Xpetra_MatrixUtils.hpp>
 #include <Xpetra_TripleMatrixMultiply.hpp>
-#include <Xpetra_Vector.hpp>
-#include <Xpetra_VectorFactory.hpp>
-#include <Xpetra_IO.hpp>
 
 #include "MueLu_RAPFactory_decl.hpp"
 
 #include "MueLu_MasterList.hpp"
 #include "MueLu_Monitor.hpp"
 #include "MueLu_PerfUtils.hpp"
-//#include "MueLu_Utilities.hpp"
 
 namespace MueLu {
 
 template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
 RAPFactory<Scalar, LocalOrdinal, GlobalOrdinal, Node>::RAPFactory()
   : hasDeclaredInput_(false) {}
+
+template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
+RAPFactory<Scalar, LocalOrdinal, GlobalOrdinal, Node>::~RAPFactory() = default;
 
 template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
 RCP<const ParameterList> RAPFactory<Scalar, LocalOrdinal, GlobalOrdinal, Node>::GetValidParameterList() const {
